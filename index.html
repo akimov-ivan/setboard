@@ -536,6 +536,8 @@ function projWrite(id, p) {
   const a = projIndex().filter(x => x.id !== id); a.unshift({ id, name: p.name || 'Без названия', updated: Date.now(), count: (p.objects || []).length }); projSaveIndex(a);
 }
 function projRead(id) { try { const p = JSON.parse(store.get('setboard-proj-' + id) || 'null'); return p && Array.isArray(p.objects) ? p : null; } catch (e) { return null; } }
+// при первом заходе: true — открыть пример «Тёплый вечер», false — пустой «Новый проект» (версия для сайта)
+const FIRST_RUN_SAMPLE = false;
 function load() {
   let cur = store.get('setboard-current'), p = cur && projRead(cur);
   if (p) { S.pid = cur; return p; }
@@ -543,7 +545,7 @@ function load() {
   // первый запуск или перенос старого единственного проекта
   const raw = store.get('setboard-project-v1'); p = null;
   if (raw) { try { const q = JSON.parse(raw); if (q && Array.isArray(q.objects)) p = q; } catch (e) { } }
-  p = p || sampleProject(); S.pid = newPid(); store.set('setboard-current', S.pid); projWrite(S.pid, p); return p;
+  p = p || (FIRST_RUN_SAMPLE ? sampleProject() : { v: 1, name: 'Новый проект', objects: [] }); S.pid = newPid(); store.set('setboard-current', S.pid); projWrite(S.pid, p); return p;
 }
 function switchProject(id, p) {   // p — новый проект (создать) или null — открыть сохранённый
   if (S.pid) projWrite(S.pid, S.project);
