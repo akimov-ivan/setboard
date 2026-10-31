@@ -526,9 +526,9 @@ function sampleProject() {
       { id: uid(), type: 'prop', kind: 'plant', name: 'Цветок', x: 0.4, y: 0.4, rot: 0, w: 0.45, d: 0.45, h: 1.1 },
       { id: uid(), type: 'hero', name: 'Анна', sex: 'f', x: 2.75, y: 2.4, rot: 90, color: 0, pose: 'sit' },
       { id: uid(), type: 'hero', name: 'Михаил', sex: 'm', x: 4.65, y: 2.4, rot: 270, color: 1, pose: 'sit' },
-      { id: uid(), type: 'camera', letter: 'A', name: 'Камера A', desc: 'Общий, два героя', x: 3.7, y: 4.25, rot: 0, sensor: 'S35', lens: 28, h: 1.4, tilt: -6, aspect: '2.39' },
-      { id: uid(), type: 'camera', letter: 'B', name: 'Камера B', desc: 'Крупный Анна через плечо', x: 6.3, y: 2.75, rot: 276, sensor: 'S35', lens: 85, h: 1.3, tilt: -3, aspect: '2.39' },
-      { id: uid(), type: 'camera', letter: 'C', name: 'Камера C', desc: 'Средний Михаил', x: 1.3, y: 3.95, rot: 62, sensor: 'S35', lens: 50, h: 1.2, tilt: 0, aspect: '2.39' },
+      { id: uid(), type: 'camera', letter: 'A', name: 'Камера A', x: 3.7, y: 4.25, rot: 0, sensor: 'S35', lens: 28, h: 1.4, tilt: -6, aspect: '2.39' },
+      { id: uid(), type: 'camera', letter: 'B', name: 'Камера B', x: 6.3, y: 2.75, rot: 276, sensor: 'S35', lens: 85, h: 1.3, tilt: -3, aspect: '2.39' },
+      { id: uid(), type: 'camera', letter: 'C', name: 'Камера C', x: 1.3, y: 3.95, rot: 62, sensor: 'S35', lens: 50, h: 1.2, tilt: 0, aspect: '2.39' },
       L('softbox', 'Key', 6.1, 0.95, 245, 2.2, 4300, 70),
       L('mat', 'Fill', 2.6, 4.3, 355, 1.6, 3200, 30),
       L('panel', 'Контровой', 6.6, 2.3, 264, 2.4, 4300, 45),
@@ -2537,6 +2537,7 @@ function drawPreview() {
   let h = Math.round(w / ar); let ww = w; if (h > 320) { h = 320; ww = Math.round(h * ar); }
   if (cv._w !== ww || cv._h !== h) { sizeCanvas(cv, ww, h); cv.style.width = ww + 'px'; cv.style.margin = '0 auto'; cv._w = ww; cv._h = h; }
   renderFrame(cv, o, { lit: true });
+  if (!cv._rev) { cv._rev = 1; setTimeout(() => revealSel(), 30); }   // панель снизу выросла на высоту превью — объект не должен оказаться под ней
 }
 // подписи объектов: текст (можно в несколько строк) и флажок «показывать»
 const LBL_DEF = { camera: true, light: true, hero: true };
@@ -2818,8 +2819,9 @@ function placeAt(o, w) {
   } else { o.x = snap(w[0]); o.y = snap(w[1]); }
 }
 // если выбранный объект оказался под панелью свойств — плавно сдвигаем схему влево
-function revealSel() {
-  const o = S.sel && byId(S.sel); const ins = $('inspector'); if (!o || S.view !== 'plan' || ins.hidden) return;
+function revealSel(n) {
+  const o = S.sel && byId(S.sel); const ins = $('inspector'); if (!o || S.view !== 'plan') return;
+  if (ins.hidden || ins.getBoundingClientRect().height < 40) { if ((n | 0) < 12) setTimeout(() => revealSel((n | 0) + 1), 50); return; }   // панель ещё раскладывается — подождём
   const [ax, ay] = anchorOf(o), [x, y] = W2S(ax, ay); const pr = plan.getBoundingClientRect(), ir = ins.getBoundingClientRect();
   const L = ir.left - pr.left - 36, T = ir.top - pr.top - 24, B = ir.bottom - pr.top + 24;
   if (x < L || y < T || y > B) return;
@@ -2961,6 +2963,13 @@ plan.addEventListener('pointermove', (e) => {
 }, true);
 const touchEnd = (e) => { if (e.pointerType !== 'touch') return; TOUCH.delete(e.pointerId); if (!TOUCH.size) document.body.classList.remove('ptouch'); if (GEST) { e.stopImmediatePropagation(); if (TOUCH.size < 2) GEST = TOUCH.size ? GEST : null; } };
 plan.addEventListener('pointerup', touchEnd, true); plan.addEventListener('pointercancel', touchEnd, true);
+// касание схемы не порождает «призрачный» клик: иначе после выбора объекта клик попадал в открывшуюся под пальцем панель свойств (например, в «Закрепить»)
+let planTouchUp = 0;   // время, когда отпустили палец, коснувшийся схемы
+plan.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch') planTouchUp = performance.now(); }, true);
+// «призрачный» клик после касания схемы (браузер шлёт его в ту же точку ~через 0–300 мс) не должен попасть в открывшуюся под пальцем панель свойств
+['click', 'mousedown', 'mouseup'].forEach(ev => window.addEventListener(ev, (e) => {
+  if (performance.now() - planTouchUp < 450 && !plan.contains(e.target)) { e.preventDefault(); e.stopPropagation(); }
+}, true));
 // страховка: палец отпущен вне схемы (над панелью свойств, меню) — всё равно забываем его
 window.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch' && TOUCH.has(e.pointerId)) { TOUCH.delete(e.pointerId); if (!TOUCH.size) { GEST = null; document.body.classList.remove('ptouch'); } } }, true);
 window.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch' && TOUCH.has(e.pointerId)) { TOUCH.delete(e.pointerId); if (!TOUCH.size) { GEST = null; document.body.classList.remove('ptouch'); } } }, true);
@@ -3007,7 +3016,8 @@ plan.addEventListener('pointerdown', (e) => {
   const pt = ptr(e); const w = S2W(pt[0], pt[1]);
   plan.setPointerCapture(e.pointerId);
   const lb = e.target.closest('[data-lbl]');
-  if (lb && !S.draw) { const o = byId(lb.dataset.lbl); if (o) { if (S.sel !== o.id) setSel([o.id]); drag = { mode: 'lbl', id: o.id, start: w, orig: Object.assign({ dx: 0, dy: 0 }, o.lbl || LBLPOS[o.id]), ck: JSON.stringify(S.project), moved: false }; return; } }
+  if (lb && !S.draw) { const o = byId(lb.dataset.lbl); if (o && e.pointerType === 'touch' && S.sel !== o.id) { drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, ox: S.vp.ox, oy: S.vp.oy, moved: false, pick: o.id }; return; }   /* палец: подпись невыбранного объекта не тащим — двигаем схему */
+    if (o) { if (S.sel !== o.id) setSel([o.id]); drag = { mode: 'lbl', id: o.id, start: w, orig: Object.assign({ dx: 0, dy: 0 }, o.lbl || LBLPOS[o.id]), ck: JSON.stringify(S.project), moved: false }; return; } }
   const hd = e.target.closest('[data-handle]');
   if (hd) { const o = byId(S.sel); const md = hd.dataset.handle; drag = { mode: md, id: o.id, ck: JSON.stringify(S.project), moved: false, sx: +(hd.dataset.sx || 0), sy: +(hd.dataset.sy || 0), orig: JSON.parse(JSON.stringify(o)), links: md === 'p1' || md === 'p2' ? wallLinks(o, md.slice(1)) : [] }; if (o.type === 'wall') drag.ops = attachedOpenings([o.id, ...drag.links.map(l => l.id)]); if ((o.type === 'window' || o.type === 'door') && md !== 'rot') drag.host = hostWall(o); return; }
   if (S.draw) { const st = { id: uid(), type: 'stroke', pts: [[w[0], w[1]]] }; drag = { mode: 'draw', ck: JSON.stringify(S.project), st, moved: false }; objs().push(st); return; }
@@ -3018,7 +3028,10 @@ plan.addEventListener('pointerdown', (e) => {
     if (add) {   // Shift/Ctrl+клик — добавить/убрать объект из выделения
       const cur = new Set(selIds()); cur.has(o.id) ? cur.delete(o.id) : cur.add(o.id); setSel([...cur]); renderAll(true); return;
     }
-    if (o.locked) {   // закреплённый: только выбрать, протяжка двигает схему
+    // палец: невыбранный объект не двигаем — протяжка двигает всю схему, касание без движения выбирает объект;
+    // перетаскивать можно только уже выбранный объект
+    const touchPan = e.pointerType === 'touch' && S.sel !== o.id && !S.multi.has(o.id);
+    if (o.locked || touchPan) {   // закреплённый: только выбрать, протяжка двигает схему
       drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, ox: S.vp.ox, oy: S.vp.oy, moved: false, pick: o.id }; return;
     }
     if (S.multi.has(o.id)) {   // тянем группу (закреплённые остаются на месте)
@@ -3094,13 +3107,13 @@ plan.addEventListener('pointermove', (e) => {
 });
 function endDrag() {
   if (!drag) return; plan.classList.remove('panning');
-  if (drag.mode === 'pan') { if (!drag.moved) { setSel(drag.pick ? [drag.pick] : []); renderAll(true); if (drag.pick) revealSel(); } drag = null; return; }
+  if (drag.mode === 'pan') { if (!drag.moved) { setSel(drag.pick ? [drag.pick] : []); renderAll(true); if (drag.pick) setTimeout(() => revealSel(), 60); }   /* после раскладки панели свойств */ drag = null; return; }
   if (drag.mode === 'box') { S.box = null; drag = null; renderAll(true); return; }
   if (drag.mode === 'draw') { if (drag.st.pts.length < 2) S.project.objects = objs().filter(o => o !== drag.st); else { S.history.push(drag.ck); S.future = []; save(); } drag = null; renderAll(true); return; }
   if (drag.mode === 'lbl' && !drag.moved) S.sel = drag.id;
   const wasPick = drag.mode === 'move' || drag.mode === 'lbl';
   if (drag.moved) { S.history.push(drag.ck); S.future = []; save(); }
-  drag = null; renderAll(true); if (wasPick) revealSel();
+  drag = null; renderAll(true); if (wasPick) setTimeout(() => revealSel(), 60);
 }
 plan.addEventListener('dblclick', (e) => { const lb = e.target.closest('[data-lbl]'); if (!lb) return; const o = byId(lb.dataset.lbl); if (o && o.lbl) { checkpoint(); delete o.lbl; renderPlan(); save(); } });
 plan.addEventListener('pointerup', endDrag); plan.addEventListener('pointercancel', endDrag);
@@ -3215,7 +3228,7 @@ async function exportCams() {
     for (let i = 0; i < cols; i++) {
       const s = shots[r * cols + i]; if (!s) continue; const x = pad + i * (CW + pad);
       g.drawImage(s.cv, x, y); g.fillStyle = '#F2F2F2'; g.font = '600 26px system-ui, sans-serif'; g.textBaseline = 'middle';
-      const t = camName(s.c), info = `${s.c.lens} мм · ${s.c.sensor === 'FF' ? 'Full Frame' : 'S35'}${s.c.desc ? ' · ' + s.c.desc : ''}`;
+      const t = camName(s.c), info = `${s.c.lens} мм · ${s.c.sensor === 'FF' ? 'Full Frame' : 'S35'}`;
       g.fillText(t, x, y + s.cv.height + cap / 2); const tw = g.measureText(t).width; g.fillStyle = '#9A9DA6'; g.font = '22px system-ui, sans-serif'; g.fillText(info, x + tw + 16, y + s.cv.height + cap / 2);
     }
     y += rh[r] + pad;
