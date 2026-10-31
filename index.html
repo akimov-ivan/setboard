@@ -78,7 +78,7 @@ button { cursor: pointer; }
 .tool { width: 56px; height: 50px; border-radius: 8px; border: none; background: transparent; color: var(--fg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 0; }
 .tool .tl { font-size: 10px; line-height: 1; color: var(--muted); letter-spacing: .2px; }
 .tool[aria-pressed="true"] .tl, .tool[aria-expanded="true"] .tl { color: var(--fg); }
-#plan.placing { cursor: crosshair; }
+#plan.placing { cursor: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='24'%20height='24'%3E%3Cpath%20d='M12%202v20M2%2012h20'%20stroke='white'%20stroke-width='4'%20stroke-linecap='round'/%3E%3Cpath%20d='M12%202v20M2%2012h20'%20stroke='%23111'%20stroke-width='1.6'%20stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair; }   /* тёмный крестик с белой обводкой — виден на любом фоне */
 .loadbadge { position: absolute; z-index: 6; left: 12px; top: 12px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 16px; background: var(--panel); color: var(--fg); font-size: 12px; box-shadow: 0 4px 14px var(--shadow); pointer-events: none; }
 .loadbadge .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line3); border-top-color: var(--fg); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -342,6 +342,32 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 
   .grid6 { grid-template-columns: repeat(3, 82px); }
   .sub { left: 8px; top: auto !important; }
+}
+/* сенсорные устройства (планшеты): подсказки по мыши и клавишам не нужны */
+@media (pointer: coarse) and (min-width: 701px) and (min-height: 521px) {
+  #helpBtn { display: none; }
+  .h-desk { display: none; } .h-touch { display: inline; }
+}
+/* телефон горизонтально (низкий экран): шапка в одну строку, компактные инструменты, меню не вылезают за экран */
+@media (max-height: 520px) and (min-width: 701px) {
+  .top { flex-wrap: nowrap; gap: 8px 12px; padding-block: 4px; }
+  .brand span, .plab, .psep { display: none; }
+  .pfield svg { display: none; }
+  .pwrap { min-width: 0; flex: 1 1 auto; } .pfield { min-width: 0; } .pname { max-width: 100%; }
+  .tab { padding: 6px 10px; }
+  .top .btn { height: 32px; }
+  #exportBtn { padding: 0 12px; font-size: 0; } #exportBtn::after { content: 'PNG'; font-size: 13px; }
+  .tools { gap: 2px; padding: 6px; padding-left: max(6px, env(safe-area-inset-left, 0px)); overflow-y: auto; }
+  .tool { width: 50px; height: 40px; gap: 2px; } .tool .tl { font-size: 9px; }
+  #helpBtn { display: none; }
+  .h-desk, .h-touch { display: none; }
+  #menus .menu { position: fixed; top: 8px !important; left: calc(max(6px, env(safe-area-inset-left, 0px)) + 60px) !important; max-height: calc(100dvh - 16px); max-width: calc(100vw - 76px); overflow-y: auto; box-sizing: border-box; }
+  #menus .menu .sub { position: fixed; }
+  /* подменю открывается вместо главного, а не рядом с ним */
+  #menus .menu:has(> .menu.sub) { background: transparent; border-color: transparent; box-shadow: none; pointer-events: none; overflow: visible; }
+  #menus .menu:has(> .menu.sub) > :not(.menu) { visibility: hidden; }
+  #menus .menu > .menu.sub { pointer-events: auto; }
+  .inspector { top: 56px; max-height: calc(100% - 64px); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -929,6 +955,7 @@ function renderPlan() {
       scr += `<g data-id="${o.id}" class="${sel ? 'sel-glow-s' : ''}" style="color:var(--accent)" transform="translate(${x} ${y}) scale(${k})"><rect x="0" y="-14" width="${w}" height="${hh}" rx="6" fill="var(--raised)" stroke="${sel ? 'var(--accent)' : 'var(--line3)'}" vector-effect="non-scaling-stroke"/><text x="8" y="3" style="font:12px var(--font-ui);fill:var(--fg)">${lines.map((l, i) => `<tspan x="8" ${i ? 'dy="16"' : ''}>${esc(l) || ' '}</tspan>`).join('')}</text></g>`;
     }
   });
+  if (S.ruler && S.ruler.a && !S.ruler.done) { const [ax, ay] = W2S(...S.ruler.a); scr += `<circle cx="${ax}" cy="${ay}" r="5" fill="var(--fg)" stroke="var(--canvas)" stroke-width="2" pointer-events="none"/>`; }   // поставлена только первая точка
   if (S.ruler && S.ruler.a && S.ruler.b) {   // линейка: отрезок с засечками и длиной в метрах
     const [a, b] = [W2S(...S.ruler.a), W2S(...S.ruler.b)], d = Math.hypot(S.ruler.b[0] - S.ruler.a[0], S.ruler.b[1] - S.ruler.a[1]);
     const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), nx = -Math.sin(ang) * 7, ny = Math.cos(ang) * 7, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
@@ -3103,9 +3130,21 @@ function rulerSnap(w, free) {
 }
 function setRuler(on) { S.ruler = on ? { a: null, b: null } : null; $('rulerBtn').setAttribute('aria-pressed', !!on); plan.classList.toggle('placing', !!on); if (on && S.draw) $('drawBtn').click(); renderPlan(); }
 $('rulerBtn').onclick = () => { setRuler(!S.ruler); if (S.ruler && S.view !== 'plan') setView('plan'); };
-plan.addEventListener('pointerdown', (e) => { if (!S.ruler || e.button) return; e.stopImmediatePropagation(); const pp = ptr(e); const w = rulerSnap(S2W(pp[0], pp[1]), e.shiftKey); S.ruler = { a: w, b: w, down: true }; plan.setPointerCapture(e.pointerId); renderPlan(); }, true);
-plan.addEventListener('pointermove', (e) => { if (!S.ruler || !S.ruler.down) return; e.stopImmediatePropagation(); const pp = ptr(e); S.ruler.b = rulerSnap(S2W(pp[0], pp[1]), e.shiftKey); renderPlanSoon(); }, true);
-plan.addEventListener('pointerup', (e) => { if (S.ruler && S.ruler.down) { S.ruler.down = false; e.stopImmediatePropagation(); } }, true);
+// линейка: касание/клик — точка начала, следующее — точка конца, третье — новый замер; протяжка двигает схему (и пальцем, и мышью)
+let RP = null;
+plan.addEventListener('pointerdown', (e) => { if (!S.ruler || e.button) return; e.stopImmediatePropagation(); if (!e.isPrimary) { RP = null; return; }
+  RP = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: S.vp.ox, oy: S.vp.oy, moved: false }; plan.setPointerCapture(e.pointerId); }, true);
+plan.addEventListener('pointermove', (e) => { if (!S.ruler) return; e.stopImmediatePropagation();
+  if (RP && RP.id === e.pointerId) { if (TOUCH.size > 1) { RP = null; return; } const dx = e.clientX - RP.sx, dy = e.clientY - RP.sy;
+    if (!RP.moved && Math.abs(dx) + Math.abs(dy) > 6) RP.moved = true;
+    if (RP.moved) { S.vp.ox = RP.ox + dx; S.vp.oy = RP.oy + dy; plan.classList.add('panning'); renderPlanSoon(); } return; }
+  if (!RP && e.pointerType === 'mouse' && S.ruler.a && !S.ruler.done) { const pp = ptr(e); S.ruler.b = rulerSnap(S2W(pp[0], pp[1]), e.shiftKey); renderPlanSoon(); }   // мышь: конец тянется за курсором до второго клика
+}, true);
+plan.addEventListener('pointerup', (e) => { if (!S.ruler) return; const r = RP; RP = null; plan.classList.remove('panning'); if (!r || r.id !== e.pointerId) return; e.stopImmediatePropagation(); if (r.moved) return;
+  const pp = ptr(e), w = rulerSnap(S2W(pp[0], pp[1]), e.shiftKey);
+  if (!S.ruler.a || S.ruler.done) S.ruler = { a: w, b: w, done: false }; else { S.ruler.b = w; S.ruler.done = true; }
+  renderPlan(); }, true);
+plan.addEventListener('pointercancel', () => { RP = null; }, true);
 function wallSnap(w) {
   // сначала притягиваемся к концам существующих стен/проёмов и точкам цепочки, иначе — к шагу 0,5 м
   let best = null, bd = 0.25;
