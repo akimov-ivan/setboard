@@ -127,6 +127,11 @@ button { cursor: pointer; }
 .ovl > * , .ovl .pills > * { pointer-events: auto; }
 .ovl-tr { top: 12px; right: 12px; }
 .ovl-bl { bottom: 8px; left: 8px; pointer-events: none; }
+/* пока палец на схеме, панель свойств и меню не перехватывают второй палец (щипок), даже если открылись под ним */
+body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
+/* «Исходный вид» в 3D: полупрозрачная иконка в правом нижнем углу */
+.v3home { position: absolute; z-index: 6; right: 10px; bottom: 10px; width: 40px; height: 40px; display: grid; place-items: center; border: none; border-radius: 8px; background: transparent; color: #fff; opacity: .55; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); transition: opacity .15s, background .15s; }
+.v3home:hover, .v3home:focus-visible { opacity: 1; background: rgba(255,255,255,.12); }
 #v3wrap .ovl-tr .pill, #frame .ovl-tr .pill { background: var(--panel); color: var(--muted); box-shadow: 0 4px 14px var(--shadow); }
 #v3wrap .ovl-tr .pill[aria-pressed="true"], #frame .ovl-tr .pill[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }   /* включённое — заметно светлее/темнее */
 #frame .ovl-tr { top: 10px; right: 10px; }
@@ -377,6 +382,7 @@ button { cursor: pointer; }
         <div class="planempty" id="v3Empty" hidden><p class="t">Сцена пуста</p><p>Расставьте стены, героев, свет и камеры на «Схеме» — здесь они появятся в 3D.</p><button class="btn primary" id="v3ToPlan">Перейти к схеме</button></div>
         <div class="ovl ovl-tr"><div class="pills" role="group" aria-label="Слои 3D"><button class="pill" id="v3Lit" aria-pressed="true">Освещение</button></div></div>
         <div class="ovl ovl-bl"><span class="hint h-desk">Вращение — перетаскивание · Сдвиг — правая кнопка или Shift · Масштаб — колесо</span><span class="hint h-touch">Вращение — один палец · Масштаб и сдвиг — два пальца</span></div>
+        <button class="v3home" id="v3Home" title="Вернуть исходный вид" aria-label="Вернуть исходный вид"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
       </div>
     </section>
 
@@ -758,6 +764,7 @@ const LBLPOS = {};   // фактический сдвиг подписи, выб
 // перерисовка схемы не чаще раза за кадр экрана — для частых событий (движение мыши, перетаскивание, жесты)
 let planRAF = 0;
 function renderPlanSoon() { if (planRAF) return; planRAF = requestAnimationFrame(() => { planRAF = 0; renderPlan(); }); }
+const COARSE = matchMedia('(pointer: coarse)').matches;   // палец вместо мыши
 function renderPlan() {
   if (planRAF) { cancelAnimationFrame(planRAF); planRAF = 0; }
   S.rev = (S.rev || 0) + 1;
@@ -935,6 +942,24 @@ function renderPlan() {
   const gw = (n) => (n / s).toFixed(4);
   const css = `<style>#plan .sel-glow{filter:drop-shadow(0 0 ${gw(1)}px currentColor) drop-shadow(0 0 ${gw(3.5)}px currentColor) brightness(1.18)}</style>`;   // чёткая узкая подсветка
   plan.innerHTML = css + bg + `<g transform="${t}">${geo}${top}</g>` + scr;
+  // сенсорный экран: у мелких значков (свет, камеры, герои, мелкий реквизит) — невидимая зона касания не меньше ~44 px
+  // зоны лежат отдельным верхним слоем, чтобы героя на стуле или прибор у стола можно было взять, даже если рядом крупный предмет
+  const hitL = COARSE ? document.createElementNS('http://www.w3.org/2000/svg', 'g') : null;
+  if (COARSE) { const wg = plan.querySelector(':scope > g[transform]'); if (wg) wg.appendChild(hitL); }
+  if (COARSE) plan.querySelectorAll('g[data-id]').forEach(gr => {
+    const o = byId(gr.dataset.id); if (!o || o.x === undefined || o.type === 'note' || o.type === 'stroke') return;
+    if (o.type === 'prop' && Math.max(o.w, o.d) * s >= 44) return;   // крупную мебель и так легко взять
+    const need = 22 / s, c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', o.x); c.setAttribute('cy', o.y); c.setAttribute('r', need); c.setAttribute('fill', 'transparent'); c.setAttribute('data-id', o.id);
+    if (hitL) hitL.appendChild(c);
+  });
+  // сенсорный экран: у каждой ручки (точки стены, направления, размера) — невидимая зона касания радиусом ~22 px поверх неё
+  if (COARSE) plan.querySelectorAll('[data-handle]').forEach(h => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'), bb = h.getBBox();
+    c.setAttribute('cx', bb.x + bb.width / 2); c.setAttribute('cy', bb.y + bb.height / 2); c.setAttribute('r', 22); c.setAttribute('fill', 'transparent');
+    for (const at of h.attributes) if (at.name.startsWith('data-')) c.setAttribute(at.name, at.value);
+    c.setAttribute('class', 'handle'); c.style.cursor = getComputedStyle(h).cursor; h.after(c);
+  });
   $('zVal').textContent = Math.round(s / 90 * 100) + '%';
   $('planEmpty').hidden = objs().length > 0 || !!S.wallDraw || !!S.placing;
   positionPreview();
@@ -2908,15 +2933,23 @@ plan.addEventListener('contextmenu', (e) => { if (S.placing || S.wallDraw) e.pre
 const TOUCH = new Map(); let GEST = null;
 const tc = () => { const [a, b] = [...TOUCH.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 }; };
 plan.addEventListener('pointerdown', (e) => {
-  if (e.pointerType !== 'touch') return; const r = plan.getBoundingClientRect(); TOUCH.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top });
+  if (e.pointerType !== 'touch') return;
+  if (e.isPrimary) { TOUCH.clear(); GEST = null; }   // первый палец — новая серия касаний: забытые точки от прошлых касаний не должны «залипать»
+  try { plan.setPointerCapture(e.pointerId); } catch (er) { }   // отпускание пальца всегда придёт сюда, даже если элемент под ним перерисовался
+  const r = plan.getBoundingClientRect(); TOUCH.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top }); document.body.classList.add('ptouch');
+  if (TOUCH.size > 2) { e.stopImmediatePropagation(); return; }
   if (TOUCH.size === 2) { e.stopImmediatePropagation(); if (drag && drag.ck && drag.moved) { S.project = JSON.parse(drag.ck); } drag = null; const c = tc(); GEST = { c, s0: S.vp.s, ox: S.vp.ox, oy: S.vp.oy }; renderAll(true); }
 }, true);
 plan.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'touch' || !TOUCH.has(e.pointerId)) return; const r = plan.getBoundingClientRect(); TOUCH.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top });
   if (GEST && TOUCH.size === 2) { e.stopImmediatePropagation(); const c = tc(), g = GEST; const s = Math.max(20, Math.min(400, g.s0 * c.d / g.c.d)); const wx = (g.c.x - g.ox) / g.s0, wy = (g.c.y - g.oy) / g.s0; S.vp.s = s; S.vp.ox = c.x - wx * s; S.vp.oy = c.y - wy * s; renderPlanSoon(); }
 }, true);
-const touchEnd = (e) => { if (e.pointerType !== 'touch') return; TOUCH.delete(e.pointerId); if (GEST) { e.stopImmediatePropagation(); if (TOUCH.size < 2) GEST = TOUCH.size ? GEST : null; } };
+const touchEnd = (e) => { if (e.pointerType !== 'touch') return; TOUCH.delete(e.pointerId); if (!TOUCH.size) document.body.classList.remove('ptouch'); if (GEST) { e.stopImmediatePropagation(); if (TOUCH.size < 2) GEST = TOUCH.size ? GEST : null; } };
 plan.addEventListener('pointerup', touchEnd, true); plan.addEventListener('pointercancel', touchEnd, true);
+// страховка: палец отпущен вне схемы (над панелью свойств, меню) — всё равно забываем его
+window.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch' && TOUCH.has(e.pointerId)) { TOUCH.delete(e.pointerId); if (!TOUCH.size) { GEST = null; document.body.classList.remove('ptouch'); } } }, true);
+window.addEventListener('pointercancel', (e) => { if (e.pointerType === 'touch' && TOUCH.has(e.pointerId)) { TOUCH.delete(e.pointerId); if (!TOUCH.size) { GEST = null; document.body.classList.remove('ptouch'); } } }, true);
+plan.addEventListener('lostpointercapture', (e) => { if (e.pointerType === 'touch' && TOUCH.has(e.pointerId)) { TOUCH.delete(e.pointerId); if (!TOUCH.size) { GEST = null; document.body.classList.remove('ptouch'); } } });
 // ---------- линейка ----------
 function rulerSnap(w, free) {
   if (free) return w; let best = null, bd = 14 / S.vp.s;   // притяжение к объектам и концам стен (14 px)
@@ -2959,7 +2992,7 @@ plan.addEventListener('pointerdown', (e) => {
   const pt = ptr(e); const w = S2W(pt[0], pt[1]);
   plan.setPointerCapture(e.pointerId);
   const lb = e.target.closest('[data-lbl]');
-  if (lb && !S.draw) { const o = byId(lb.dataset.lbl); if (o) { drag = { mode: 'lbl', id: o.id, start: w, orig: Object.assign({ dx: 0, dy: 0 }, o.lbl || LBLPOS[o.id]), ck: JSON.stringify(S.project), moved: false }; return; } }
+  if (lb && !S.draw) { const o = byId(lb.dataset.lbl); if (o) { if (S.sel !== o.id) setSel([o.id]); drag = { mode: 'lbl', id: o.id, start: w, orig: Object.assign({ dx: 0, dy: 0 }, o.lbl || LBLPOS[o.id]), ck: JSON.stringify(S.project), moved: false }; return; } }
   const hd = e.target.closest('[data-handle]');
   if (hd) { const o = byId(S.sel); const md = hd.dataset.handle; drag = { mode: md, id: o.id, ck: JSON.stringify(S.project), moved: false, sx: +(hd.dataset.sx || 0), sy: +(hd.dataset.sy || 0), orig: JSON.parse(JSON.stringify(o)), links: md === 'p1' || md === 'p2' ? wallLinks(o, md.slice(1)) : [] }; if (o.type === 'wall') drag.ops = attachedOpenings([o.id, ...drag.links.map(l => l.id)]); if ((o.type === 'window' || o.type === 'door') && md !== 'rot') drag.host = hostWall(o); return; }
   if (S.draw) { const st = { id: uid(), type: 'stroke', pts: [[w[0], w[1]]] }; drag = { mode: 'draw', ck: JSON.stringify(S.project), st, moved: false }; objs().push(st); return; }
@@ -3084,6 +3117,8 @@ $('undoBtn').onclick = undo; $('redoBtn').onclick = redo;
 $('drawBtn').onclick = () => { S.draw = !S.draw; $('drawBtn').setAttribute('aria-pressed', S.draw); plan.classList.toggle('draw', S.draw); if (S.draw && S.view !== 'plan') setView('plan'); };
 $('listBtn').onclick = () => { S.list = !S.list; if (S.view !== 'plan') setView('plan'); renderSide(); setTimeout(() => renderPlan(), 0); };
 $('tab-plan').onclick = () => setView('plan'); $('tab-cams').onclick = () => setView('cams'); $('tab-3d').onclick = () => setView('3d');
+// исходный вид 3D: камера по центру площадки, тот же ракурс и расстояние, что при первом открытии
+$('v3Home').onclick = () => { V3.tgt = null; V3.az = 0.9; V3.el = 0.62; const b = t3bounds(); V3.tgt = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2); V3.dist = Math.max(6, Math.hypot(b.maxx - b.minx, b.maxy - b.miny) * 1.15); V3.dirty = true; };
 $('v3Lit').onclick = () => { V3.lit = !V3.lit; $('v3Lit').setAttribute('aria-pressed', V3.lit); V3.dirty = true; };
 
 // ---------- экспорт PNG: схема, 3D-вид, кадры камер ----------
