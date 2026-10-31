@@ -18,7 +18,7 @@
   --canvas: #0F1114; --room: #1E2228; --gridline: #1C2025; --wall: #8A9099; --propfill: #262A30; --propline: #6B7178;
   --accent: #E8E6E1; --accent-ink: #121417; --brand: #F2A93B; --glass: #9DB4C6;
   --cam: #7FB2E5; --light: #F2A93B; --prop: #9AA0A8; --danger: #F0A0A0;
-  --h1: #C9B3F2; --h2: #F28FB0; --h3: #8FD19E; --h4: #E3C08D;
+  --h1: #B9A2DB; --h2: #DE9AB2; --h3: #9CCBA6; --h4: #5A5D64;
   --shadow: rgba(0,0,0,0.5);
   --font-ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-data: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -31,7 +31,7 @@
   --canvas: #FBFCFD; --room: #FFFFFF; --gridline: #E3E8EF; --wall: #5B6472; --propfill: #EEF1F5; --propline: #8C95A3;
   --accent: #14171C; --accent-ink: #FFFFFF; --brand: #E0861A; --glass: #6F8AA0;
   --cam: #1E63D6; --light: #BF8B3E; --prop: #586170; --danger: #B3261E;
-  --h1: #8B3FD1; --h2: #C2185B; --h3: #2E7D32; --h4: #9C6B1F;
+  --h1: #7E5BA6; --h2: #B35C7A; --h3: #4F8A5B; --h4: #26272B;
   --shadow: rgba(20,23,28,0.14); color-scheme: light; } }
 :root[data-theme="light"] {
   --bg: #EEF1F5; --panel: #FFFFFF; --raised: #F6F8FA; --chip: #EDF0F4; --active: #E3E8EF;
@@ -40,7 +40,7 @@
   --canvas: #FBFCFD; --room: #FFFFFF; --gridline: #E3E8EF; --wall: #5B6472; --propfill: #EEF1F5; --propline: #8C95A3;
   --accent: #14171C; --accent-ink: #FFFFFF; --brand: #E0861A; --glass: #6F8AA0;
   --cam: #1E63D6; --light: #BF8B3E; --prop: #586170; --danger: #B3261E;
-  --h1: #8B3FD1; --h2: #C2185B; --h3: #2E7D32; --h4: #9C6B1F;
+  --h1: #7E5BA6; --h2: #B35C7A; --h3: #4F8A5B; --h4: #26272B;
   --shadow: rgba(20,23,28,0.14); color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 
@@ -239,6 +239,10 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 .swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; padding: 0; }
 .swatch[aria-pressed="true"] { border-color: var(--fg); }
 .swatch.fc { box-shadow: inset 0 0 0 1px rgba(128,128,128,.55); }
+.swatch.wpick { position: relative; display: inline-block; box-sizing: border-box; cursor: pointer; background-image: conic-gradient(from 0deg, #f55, #fd5, #5d5, #5dd, #55f, #f5f, #f55) !important; }
+.swatch.wpick input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }
+.inspector .wall-all { height: 32px; font-size: 12px; }
+.inspector .wall-all.done { color: var(--muted); cursor: default; opacity: 1; }
 .row:has(> .swatch) { gap: 12px; padding: 4px 4px; flex-wrap: wrap; }
 /* выбранный цвет: акцентное кольцо снаружи — видно и на тёмных, и на светлых кружках */
 .swatch[aria-pressed="true"], .swatch.fc[aria-pressed="true"] { border-color: transparent; box-shadow: inset 0 0 0 1px rgba(128,128,128,.55), 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
@@ -494,7 +498,10 @@ const LENSES = [10, 12, 14, 18, 24, 28, 35, 50, 85, 100, 135];
 const ASPECTS = [['2.39', '2.39:1', 2.39], ['1.85', '1.85:1', 1.85], ['1.78', '16:9', 16 / 9], ['1', '1:1', 1], ['0.56', '9:16', 9 / 16]];
 const SENSOR = { S35: 27.99, FF: 36 };
 const HERO_COLORS = ['h1', 'h2', 'h3', 'h4'];
-const HERO_3D = ['#9C86C9', '#C76E8E', '#6FAE7E', '#BF9C6C'];
+const HERO_3D = ['#8E7BB0', '#B87A8E', '#7FA287', '#2B2C30'];   // спокойные: лиловый, пыльная роза, шалфей, чёрный (не синий камер, не янтарный света, не серый реквизита)
+const heroCss = (o) => o.hcol || `var(--${HERO_COLORS[o.color || 0]})`, hero3d = (o) => o.hcol || HERO_3D[o.color || 0];   // свой цвет героя (hcol) важнее набора
+// кружок «свой цвет» в конце ряда цветов
+const customSwatch = (id, hex, on) => `<label class="swatch fc wpick" title="Свой цвет" aria-pressed="${on}"><input type="color" id="${id}" value="${(hex || '#888888').toLowerCase()}" aria-label="Свой цвет"></label>`;
 const F = 'class="f"';
 const LIGHTS = {
   softbox: { name: 'Софтбокс', half: 85, len: 3, icon: `<path d="M4 5h16c0 8-4 13-8 13S4 13 4 5z" ${F}/>` },
@@ -545,6 +552,8 @@ const PROPS = {
   picture: { name: 'Картина', w: .8, d: .04, h: .6, icon: `<rect x="4" y="5" width="16" height="14" rx=".5" ${F}/><path d="M6.5 16.5l4-4.5 3 3 2-2 2.5 3.5"/><circle cx="9" cy="8.5" r="1.2"/>` }
 };
 const CAM_ICON = (s) => `<rect x="3" y="7" width="12" height="10" rx="2" class="bgf"/><rect x="3" y="7" width="12" height="10" rx="2" ${F}/><path d="M15 10l6-3v10l-6-3z" ${F}/>` + (s === 'FF' ? '<rect x="5.6" y="9.8" width="6.8" height="4.4" class="d"/>' : '<rect x="7.2" y="10.8" width="3.6" height="2.4" class="d"/>');
+// у своего цвета героя — тонкий контур цвета текста: белый/светлый не сливается со светлой схемой, чёрный — с тёмной
+const HERO_EDGE = `<ellipse cx="12" cy="12.4" rx="9.6" ry="7.3" fill="none" stroke="var(--fg)" stroke-opacity=".4" stroke-width="1"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="var(--fg)" stroke-opacity=".4" stroke-width="1"/>`;
 const HERO_ICON = `<ellipse cx="12" cy="12.4" rx="9.6" ry="7.3" class="f2"/><circle cx="12" cy="12" r="4.1" class="d"/><path d="M10.3 7.3L12 4.3l1.7 3z" class="d"/>`;
 const ROOM = {
   wall: { name: 'Стена', len: 3, icon: '<rect x="2" y="10" width="20" height="4" class="f3"/>' },
@@ -702,7 +711,7 @@ function wedge(x, y, rot, half, len) {
 if (!S.multi) S.multi = new Set();
 const selIds = () => S.multi.size ? [...S.multi] : (S.sel ? [S.sel] : []);
 const isSel = (id) => id === S.sel || S.multi.has(id);
-function setSel(ids) { ids = [...new Set(ids)].filter(id => byId(id)); S.multi = new Set(); S.sel = null; if (ids.length === 1) S.sel = ids[0]; else if (ids.length > 1) S.multi = new Set(ids); }
+function setSel(ids) { if (commitColor()) renderPlanSoon(); ids = [...new Set(ids)].filter(id => byId(id)); S.multi = new Set(); S.sel = null; if (ids.length === 1) S.sel = ids[0]; else if (ids.length > 1) S.multi = new Set(ids); }
 function moveObj(o, O, dx, dy) {
   if (O.x1 !== undefined) { o.x1 = O.x1 + dx; o.y1 = O.y1 + dy; o.x2 = O.x2 + dx; o.y2 = O.y2 + dy; }
   else if (O.type === 'stroke') o.pts = O.pts.map(p => [p[0] + dx, p[1] + dy]);
@@ -828,7 +837,9 @@ function renderPlan() {
   if (S.layers.grid) bg += `<defs><pattern id="gp" width="${s}" height="${s}" patternUnits="userSpaceOnUse" x="${S.vp.ox}" y="${S.vp.oy}"><path d="M${s} 0H0V${s}" fill="none" stroke="var(--gridline)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(#gp)" data-bg="1"/>`;
   else bg += `<rect width="100%" height="100%" fill="transparent" data-bg="1"/>`;
   // пол комнаты заливается только внутри замкнутых контуров из стен/окон/дверей
-  roomFaces(objs().filter(o => o.x1 !== undefined)).forEach(f => { if (f.area > 0.05) geo += `<polygon points="${f.poly.map(n => n.x + ',' + n.y).join(' ')}" fill="var(--room)" fill-opacity=".8" pointer-events="none"/>`; });
+  roomFaces(objs().filter(o => o.x1 !== undefined)).forEach(f => { if (f.area <= 0.05) return;   // пол комнаты: щелчок выделяет «Пол»
+    const fo = floorOfFace(f), on = fo && isSel(fo.id), at = fo ? `data-id="${fo.id}"` : `data-floor="${innerPt(f.poly).map(v => v.toFixed(3)).join(',')}"`;
+    geo += `<polygon ${at} points="${f.poly.map(n => n.x + ',' + n.y).join(' ')}" fill="var(--room)" fill-opacity=".8"/>${on ? `<polygon points="${f.poly.map(n => n.x + ',' + n.y).join(' ')}" fill="var(--accent)" fill-opacity=".07" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 5" vector-effect="non-scaling-stroke" pointer-events="none"/>` : ''}`; });   // выбранный пол — лёгкая заливка и пунктир
   const order = { prop: 1, wall: 2, window: 3, door: 3, light: 4, hero: 5, camera: 6, note: 7, stroke: 8 };
   const list = objs().slice().sort((a, b) => (a.type === 'prop' && b.type === 'prop' ? (a.kind === 'carpet' ? -1 : b.kind === 'carpet' ? 1 : 0) : (order[a.type] || 0) - (order[b.type] || 0)));
   // beams & cones
@@ -862,6 +873,7 @@ function renderPlan() {
   });
   const isRoom = (o) => o.x1 !== undefined;
   const drawObj = (o) => {
+    if (o.type === 'floor') return;   // пол рисуется многоугольником комнаты
 
     const sel = isSel(o.id);
     const g = sel ? 'sel-glow' : '';
@@ -887,7 +899,7 @@ function renderPlan() {
       const L = LIGHTS[o.kind] || LIGHTS.fresnel;
       const lsz = lightSize(o.kind, o); geo += `<g data-id="${o.id}" class="${g}" style="color:${lightCss(o) || 'var(--light)'}"><circle cx="${o.x}" cy="${o.y}" r="${Math.max(0.2, lsz * 0.35)}" fill="transparent"/>${glyph(lightIcon(o), o.x, o.y, ((L.omni && !L.rotIcon) || o.kind === 'sun' || L.prac) ? 0 : o.rot, lsz, (lightCss(o) || 'var(--light)'))}</g>`;
     } else if (o.type === 'hero') {
-      geo += `<g data-id="${o.id}" class="${g}" style="color:var(--${HERO_COLORS[o.color || 0]})"><ellipse cx="${o.x}" cy="${o.y}" rx=".18" ry=".14" transform="rotate(${o.rot} ${o.x} ${o.y})" fill="transparent"/>${glyph(HERO_ICON, o.x, o.y, o.rot, 0.46, `var(--${HERO_COLORS[o.color || 0]})`)}</g>`;
+      geo += `<g data-id="${o.id}" class="${g}" style="color:${heroCss(o)}"><ellipse cx="${o.x}" cy="${o.y}" rx=".18" ry=".14" transform="rotate(${o.rot} ${o.x} ${o.y})" fill="transparent"/>${glyph(o.hcol ? HERO_ICON + HERO_EDGE : HERO_ICON, o.x, o.y, o.rot, 0.46, heroCss(o))}</g>`;
     } else if (o.type === 'camera') {
       geo += `<g data-id="${o.id}" class="${g}" style="color:var(--cam)"><circle cx="${o.x}" cy="${o.y}" r=".2" fill="transparent"/>${glyph(CAM_ICON(o.sensor), o.x, o.y, o.rot - 90, 0.62, 'var(--cam)')}</g>`;
     } else if (o.type === 'note') {
@@ -970,7 +982,7 @@ function renderPlan() {
   if (so && !so.locked) {
     if (so.x1 !== undefined) {
       [[so.x1, so.y1, 'p1'], [so.x2, so.y2, 'p2']].forEach(([x, y, h]) => { const [sx, sy] = W2S(x, y); scr += `<circle class="handle" data-handle="${h}" cx="${sx}" cy="${sy}" r="8" fill="var(--wall)" stroke="var(--canvas)" stroke-width="2"/>`; });
-    } else if (so.type !== 'note' && so.type !== 'stroke' && !(so.kind === 'sun' && sunAim(so).win) && !(so.type === 'light' && (LIGHTS[so.kind] || {}).omni && !(LIGHTS[so.kind] || {}).rotIcon)) {
+    } else if (so.type !== 'note' && so.type !== 'stroke' && so.type !== 'floor' && !(so.kind === 'sun' && sunAim(so).win) && !(so.type === 'light' && (LIGHTS[so.kind] || {}).omni && !(LIGHTS[so.kind] || {}).rotIcon)) {
       if (so.type === 'prop') {
         const a = so.rot * RAD, c = Math.cos(a), sn = Math.sin(a);
         const corner = (lx, ly) => W2S(so.x + lx * c - ly * sn, so.y + lx * sn + ly * c);
@@ -986,7 +998,7 @@ function renderPlan() {
       }
       if (!(so.type === 'prop' && NO_DIR.includes(so.kind))) {   // у круглых/симметричных предметов направления нет — ручку поворота не показываем
       const [sx, sy] = W2S(so.x, so.y); const [dx, dy] = dirOf(so.rot + (backRot(so) ? 180 : 0)); const L = so.type === 'prop' ? so.d / 2 * s + 32 : 70;
-      const col = so.type === 'camera' ? 'var(--cam)' : so.type === 'light' ? 'var(--light)' : so.type === 'hero' ? `var(--${HERO_COLORS[so.color || 0]})` : 'var(--prop)';
+      const col = so.type === 'camera' ? 'var(--cam)' : so.type === 'light' ? 'var(--light)' : so.type === 'hero' ? heroCss(so) : 'var(--prop)';
       scr += `<line x1="${sx}" y1="${sy}" x2="${sx + dx * L}" y2="${sy + dy * L}" stroke="${col}" stroke-width="2" stroke-dasharray="4 3" pointer-events="none"/><circle class="handle" data-handle="rot" cx="${sx + dx * L}" cy="${sy + dy * L}" r="9" fill="${col}" stroke="var(--canvas)" stroke-width="2" style="filter:drop-shadow(0 0 5px ${col})"/>`;
       }
     }
@@ -1071,7 +1083,7 @@ function buildScene(exceptId) {
   }
   objs().forEach(o => {
     if (o.id === exceptId) return;
-    if (o.type === 'wall') segFaces(o, 0.05, 0, 3, '#8F8A80', out);
+    if (o.type === 'wall') segFaces(o, 0.05, 0, 3, o.fin || o.wcol ? wallCol(o) : '#8F8A80', out);
     else if (o.type === 'window') { if (!o.floor) segFaces(o, 0.1, 0, WIN_SILL, '#8F8A80', out); segFaces(o, 0.1, winTop(o), WALL_H, '#8F8A80', out); segFaces(o, 0.12, winSill(o), winTop(o), '#BFD6EA', out, true); }
     else if (o.type === 'door') { segFaces(o, 0.12, 0, 2.05, '#5E4836', out); segFaces(o, 0.1, 2.05, 3, '#8F8A80', out); }
     else if (o.type === 'prop') propFaces(o, out);
@@ -1111,7 +1123,7 @@ function propFaces(o, out) {
   else B(-hw, -hd, hw, hd, 0, h, k === 'wardrobe' && o.name && /холод/i.test(o.name) ? PCOL.white : PCOL.light);
 }
 function heroFaces(o, out) {
-  const col = HERO_3D[o.color || 0]; const B = (x0, y0, x1, y1, z0, z1, c) => boxFaces(o, x0, y0, x1, y1, z0, z1, c, out);
+  const col = hero3d(o); const B = (x0, y0, x1, y1, z0, z1, c) => boxFaces(o, x0, y0, x1, y1, z0, z1, c, out);
   const skin = '#C9A07E', pants = '#33363D';
   if (o.pose === 'sit') {
     B(-0.17, -0.45, 0.17, 0.02, 0.42, 0.56, pants); B(-0.17, -0.52, 0.17, -0.4, 0, 0.42, pants);
@@ -1442,11 +1454,224 @@ function setCuts(cp) {
     if (c.stub) c.stub.visible = on;
   });
 }
+// отделка стен: текстура (светлая «маска» рисунка, умножается на цвет стены) и размер одного повтора в метрах
+const WALL_FIN = {
+  paint: { name: 'Покраска', col: '#A4A4A4', sx: 2, sy: 2, rough: 0.95 },
+  plaster: { name: 'Штукатурка', col: '#C6C7C3', sx: 1.2, sy: 1.2, rough: 0.95, bump: 0.011 },
+  stone: { name: 'Камень', col: '#CDBFA6', sx: 1.6, sy: 1.6, rough: 0.97, bump: 0.017 },
+  concrete: { name: 'Бетон', col: '#8A8A88', sx: 2.4, sy: 1.2, rough: 0.9 },
+  brick: { name: 'Кирпич', col: '#94695A', sx: 1.04, sy: 1.05, rough: 0.92 },
+  wood: { name: 'Дерево', col: '#C2A27C', sx: 2.4, sy: 3, rough: 0.92, px: 1024 },
+  laminate: { name: 'Ламинат', col: '#C2A27C', sx: 3.6, sy: 3, rough: 0.9, px: 1280 },   // повтор рисунка не чаще чем через 3,6 × 3 м — сучки не выстраиваются в линию
+  porcelain: { name: 'Керамогранит', col: '#D8D6D2', sx: 2.4, sy: 1.2, rough: 0.32, px: 1024 }
+};
+// в ряду кружков есть цвета по умолчанию всех отделок
+const WALL_COLORS = [['#E8E6E1', 'Белый'], ['#D8D6D2', 'Молочный'], ['#C6C7C3', 'Светло-серый'], ['#A4A4A4', 'Серый'], ['#8A8A88', 'Бетонный'], ['#4A4C50', 'Графит'], ['#232427', 'Чёрный'], ['#CDBFA6', 'Бежевый'], ['#C2A27C', 'Дерево'], ['#94695A', 'Кирпич'], ['#7A7C55', 'Оливковый'], ['#3F5A4C', 'Зелёный'], ['#3D5778', 'Синий']];
+// отделка пола (по комнатам): своя текстура-«маска», размер повтора в метрах, шероховатость
+const FLOOR_FIN = {
+  laminate: { name: 'Ламинат', tex: 'laminate', col: '#8A8A88', rough: 0.7 },
+  wood: { name: 'Дерево (доска)', tex: 'wood', col: '#C2A27C', rough: 0.75 },
+  herringbone: { name: 'Паркет «ёлочка»', tex: 'herringbone', col: '#C2A27C', rough: 0.6 },
+  porcelain: { name: 'Керамогранит', tex: 'porcelain', col: '#D8D6D2', rough: 0.3 },
+  tile: { name: 'Плитка', tex: 'tile', col: '#E8E6E1', rough: 0.4 },
+  carpet: { name: 'Ковролин', tex: 'carpetf', col: '#8A8A88', rough: 1 },
+  solid: { name: 'Наливной пол', tex: 'paint', col: '#8A8A88', rough: 0.6 }
+};
+const FLOOR_TEX = {   // текстуры, которые есть только у пола
+  herringbone: { sx: 1.6971, sy: 1.6971, px: 1024 },
+  tile: { sx: 1.2, sy: 1.2 },
+  micro: { sx: 2.4, sy: 2.4 },
+  carpetf: { sx: 1, sy: 1 }
+};
+const floorFin = (o) => o && FLOOR_FIN[o.fin] ? o.fin : 'laminate';
+const floorCol = (o) => (o && o.wcol) || FLOOR_FIN[floorFin(o)].col;
+function floorMat(o) {
+  const fin = floorFin(o), F = FLOOR_FIN[fin], T = WALL_FIN[F.tex] || FLOOR_TEX[F.tex], col = floorCol(o);
+  return mat('floor|' + fin + '|' + col, col, Object.assign({ roughness: F.rough, map: wallTex(F.tex) }, T.bump ? { bumpMap: wallBump(F.tex), bumpScale: T.bump } : {}));
+}
+const texDim = (tex) => WALL_FIN[tex] || FLOOR_TEX[tex];
+// UV пола в метрах (в плоскости XZ), чтобы рисунок был в реальном масштабе и непрерывным между комнатами
+function floorUV(geo, tex, rotX) {
+  const D = texDim(tex), P = geo.attributes.position, U = geo.attributes.uv;
+  for (let i = 0; i < P.count; i++) U.setXY(i, P.getX(i) / D.sx, (rotX ? -P.getY(i) : P.getY(i)) / D.sy);
+  U.needsUpdate = true;
+}
+// пол комнаты: объект type 'floor' с точкой-якорем внутри многоугольника комнаты
+const floorOfFace = (f) => objs().find(o => o.type === 'floor' && inPoly(o.x, o.y, f.poly));
+function innerPt(poly) {   // точка внутри многоугольника (центр, а если он снаружи — ближайшая к центру точка сетки внутри)
+  let cx = 0, cy = 0; poly.forEach(p => { cx += p.x; cy += p.y; }); cx /= poly.length; cy /= poly.length;
+  if (inPoly(cx, cy, poly)) return [cx, cy];
+  const xs = poly.map(p => p.x), ys = poly.map(p => p.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys); let best = null;
+  for (let i = 1; i < 24; i++) for (let j = 1; j < 24; j++) { const x = x0 + (x1 - x0) * i / 24, y = y0 + (y1 - y0) * j / 24; if (!inPoly(x, y, poly)) continue; const d = Math.hypot(x - cx, y - cy); if (!best || d < best[2]) best = [x, y, d]; }
+  return best ? [best[0], best[1]] : [cx, cy];
+}
+const wallFin = (o) => WALL_FIN[o.fin] ? o.fin : 'paint';
+const wallCol = (o) => o.wcol || WALL_FIN[wallFin(o)].col;
+// доски с древесным рисунком попиксельно: волокна обтекают сучки, у каждой доски свой тон, оттенок и частота колец
+function woodBoards(x, w, h, B, vert, o) {
+  const { r, vnoise } = noiseKit(19), im = x.getImageData(0, 0, w, h), d = im.data, n1 = vnoise(6), n2 = vnoise(40), n3 = vnoise(200), n4 = vnoise(12), n5 = vnoise(200);
+  B.forEach(bd => {
+    const k0 = o.k == null ? 1 : o.k, br = (o.br0 || 0.68) + r() * (o.brR || 0.32), tr = 1, tb = 1,   /* доски отличаются только яркостью, оттенок общий — задаётся цветом стены */ _t1 = r(), _t2 = r(), ringF = o.ring * (0.6 + r() * 0.8), ph = r() * 10, so = r() * 10, wav = 6 + r() * 16;
+    const L = vert ? bd.bh : bd.bw, C = vert ? bd.bw : bd.bh, K = [];
+    const cath = r() < o.cath, c0 = C * (0.15 + r() * 0.7), a0 = L * (r() * 1.4 - 0.2), q = 0.035 + r() * 0.07, tilt = (r() - 0.5) * 0.04, grad = (r() - 0.5) * 0.12;   // «арки» тангенциального распила
+    let nk = r() < o.knots ? (r() < 0.35 ? 2 : 1) : 0; while (nk--) K.push({ a: L * (0.1 + r() * 0.8), c: C * (0.3 + r() * 0.4), s: C * (0.12 + r() * 0.14) });
+    for (let yy = Math.floor(bd.y0); yy < bd.y0 + bd.bh; yy++) for (let xx = Math.floor(bd.x0); xx < bd.x0 + bd.bw; xx++) {
+      const la = vert ? yy - bd.y0 : xx - bd.x0, lc = vert ? xx - bd.x0 : yy - bd.y0;
+      let tt = (cath ? Math.hypot(lc - c0, q * (la - a0)) : lc + tilt * la) + (n1(la / 4000 + so, lc / 900 + so) - 0.5) * wav + (n2(la / 6000 + so, so) - 0.5) * 3, knot = 0;
+      K.forEach(k => { const da = (la - k.a) / (k.s * 3.2), dc = (lc - k.c) / k.s, e = Math.exp(-(da * da + dc * dc) * 0.5);
+        tt += (lc - k.c) * 1.6 * e; const kd = Math.hypot((la - k.a) / (k.s * 1.25), dc); if (kd < 1) knot = Math.max(knot, (1 - kd * kd)); });
+      const s = 0.5 + 0.5 * Math.sin((tt * ringF + ph) * 6.283), ring = (Math.pow(s, 4) * 0.15 + Math.pow(s, 14) * 0.08) * k0;   // поздняя древесина — узкие тёмные полосы
+      const pv = n3(la / 1600 + so, lc / 300), pore = pv > 0.74 ? (pv - 0.74) * 0.9 * k0 : 0;   // поры — короткие штрихи вдоль волокон
+      const streak = (n4(la / 2400 + so, lc / 72 + so) - 0.5) * 0.16 * k0, fiber = (n5(la / 6000 + so, lc / 200) - 0.5) * 0.06, gr = grad * (la / L - 0.5);
+      const ed = Math.min(lc, C - lc, la, L - la), edge = ed < o.seam ? (o.seamV || 0.55) : ed < o.seam + 2 ? (o.bevel || 0.88) : 1;   // шов и лёгкая фаска
+      let v = br * (1 - ring - pore + streak + fiber + gr) * (1 - knot * 0.4 * k0) * edge; if (knot) v *= 1 - 0.12 * Math.pow(0.5 + 0.5 * Math.sin(knot * 30), 3);
+      const X = ((xx % w) + w) % w, Y = ((yy % h) + h) % h, qd = (Y * w + X) * 4;
+      d[qd] = Math.min(255, v * 238 * tr); d[qd + 1] = Math.min(255, v * 238); d[qd + 2] = Math.min(255, v * 238 * tb); d[qd + 3] = 255;
+    }
+  });
+  x.putImageData(im, 0, 0);
+}
+// плиты под мрамор: у каждой своё направление и частота прожилок, облачная основа, тонкий шов
+function marbleTiles(x, w, h, cols, rows) {
+  const { r, fbm } = noiseKit(23), im = x.createImageData(w, h), d = im.data, tw = w / cols, th = h / rows, turb = fbm(2, 5), cloud = fbm(3, 4), fine = fbm(6, 4);
+  for (let ty = 0; ty < rows; ty++) for (let tx = 0; tx < cols; tx++) {
+    const A = r() * Math.PI, A2 = A + 0.6 + r() * 1.9, ca = Math.cos(A), sa = Math.sin(A), cb = Math.cos(A2), sb = Math.sin(A2), f = 3 + r() * 3, ph = r() * 6, ou = r(), ov = r(), amp = 3 + r() * 2;   // у каждой плиты свои случайные направления прожилок
+    for (let y = 0; y < th; y++) for (let x0 = 0; x0 < tw; x0++) {
+      const u = x0 / tw, v = y / th * (th / tw), uu = u * 0.5 + ou, vv = v * 0.5 + ov;
+      const T = turb(uu, vv), s1 = Math.sin(((u * ca + v * sa) * f + T * amp + ph)), s2 = Math.sin(((u * cb + v * sb) * f * 1.7 + fine(uu, vv) * amp * 1.6 + ph * 2));
+      const vein = Math.pow(1 - Math.abs(s1), 14) * 0.24 + Math.pow(1 - Math.abs(s1), 3) * 0.06 + Math.pow(1 - Math.abs(s2), 40) * 0.12;
+      let val = 0.95 + (cloud(uu, vv) - 0.5) * 0.08 - vein;
+      if (x0 < 2 || y < 2) val *= 0.62;   // шов
+      const q = ((ty * th + y) * w + tx * tw + x0) * 4, c = Math.max(0, Math.min(1, val)) * 255;
+      d[q] = c; d[q + 1] = c * 0.995; d[q + 2] = c * 0.985; d[q + 3] = 255;
+    }
+  }
+  x.putImageData(im, 0, 0);
+}
+function wallTex(fin) {
+  const F = texDim(fin), N = F.px || 512, W = N, H = Math.round(N * F.sy / F.sx / 64) * 64 || N;
+  return canvasTex('wall_' + fin, W, H, (x, w, h) => {
+    let s = 11; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+    const g = (v, a) => `rgba(${v},${v},${v},${a})`;
+    const noise = (n, amp) => { for (let i = 0; i < n; i++) { const v = r() < 0.5 ? 0 : 255; x.fillStyle = g(v, amp * r()); x.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2); } };
+    const blot = (n, rad, amp) => { for (let i = 0; i < n; i++) { const cx = r() * w, cy = r() * h, rr = rad * (0.4 + r()), v = r() < 0.5 ? 0 : 255;
+      for (const dx of [-w, 0, w]) for (const dy of [-h, 0, h]) { const gr = x.createRadialGradient(cx + dx, cy + dy, 0, cx + dx, cy + dy, rr); gr.addColorStop(0, g(v, amp)); gr.addColorStop(1, g(v, 0)); x.fillStyle = gr; x.fillRect(cx + dx - rr, cy + dy - rr, rr * 2, rr * 2); } } };
+    if (fin === 'carpetf') {   // ковролин: плотный мелкий ворс, лёгкая неравномерность тона
+      const im = x.createImageData(w, h), d = im.data;
+      for (let i = 0; i < w * h; i++) { const v = 215 + (r() - 0.5) * 50 + (r() < 0.08 ? -30 : 0); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = Math.max(0, Math.min(255, v)); d[i * 4 + 3] = 255; }
+      x.putImageData(im, 0, 0); blot(60, 60, 0.04); blot(120, 14, 0.035);
+    } else if (fin === 'micro') { x.fillStyle = '#F2F2F2'; x.fillRect(0, 0, w, h); blot(90, 90, 0.06); blot(140, 30, 0.04); noise(6000, 0.05); }   // микроцемент: гладкий, с мягкими разводами
+    else if (fin === 'tile') {   // плитка 30 × 30 см, шов ~3 мм
+      const n = 4, s = w / n;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const v = Math.round(236 + r() * 14); x.fillStyle = `rgb(${v},${v},${v})`; x.fillRect(i * s, j * s, s, s); }
+      blot(40, 40, 0.03); noise(2500, 0.04);
+      x.fillStyle = g(150, 0.9); for (let i = 0; i < n; i++) { x.fillRect(i * s, 0, 2, h); x.fillRect(0, i * s, w, 2); }
+      x.fillStyle = g(255, 0.35); for (let i = 0; i < n; i++) { x.fillRect(i * s + 2, 0, 1, h); x.fillRect(0, i * s + 2, w, 1); }
+    } else if (fin === 'herringbone') {   // паркет «ёлочка» (французская): колонки с планками под ±45°, у каждой планки свой тон
+      const im = x.createImageData(w, h), d = im.data, cols = 4, cw = w / cols, Wp = w / 1.6971 * 0.1, R2 = Math.SQRT1_2, nStrip = Math.round((h * R2) / Wp), tone = [];
+      for (let c = 0; c < cols; c++) { tone.push([]); for (let k = 0; k < nStrip + 2; k++) tone[c].push([0.72 + r() * 0.26, r() * 10]); }
+      for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+        const c = Math.floor(xx / cw), lx = xx - c * cw, up = c % 2 === 0, q = up ? (yy - lx) * R2 : (yy + lx) * R2, a = up ? (yy + lx) * R2 : (yy - lx) * R2;
+        const kq = q / Wp, k = ((Math.floor(kq) % nStrip) + nStrip) % nStrip, fq = kq - Math.floor(kq), tn = tone[c][k];
+        let v = tn[0] * (1 - 0.07 * Math.pow(0.5 + 0.5 * Math.sin(fq * 37 + Math.sin(a * 0.05 + tn[1]) * 2.5 + tn[1]), 6) - 0.04 * Math.pow(0.5 + 0.5 * Math.sin(fq * 91 + tn[1] * 3), 8));
+        if (fq < 0.025 || fq > 0.975 || lx < 1.2 || cw - lx < 1.2) v *= 0.6;   // швы
+        const qd = (yy * w + xx) * 4, cv = Math.min(255, v * 240); d[qd] = d[qd + 1] = d[qd + 2] = cv; d[qd + 3] = 255;
+      }
+      x.putImageData(im, 0, 0);
+    } else if (fin === 'paint') { x.fillStyle = '#FCFCFC'; x.fillRect(0, 0, w, h); blot(30, 90, 0.025); noise(3000, 0.05); }
+    else if (fin === 'stone' || fin === 'plaster') {   // фактурные: светлее на выступах, темнее в порах и впадинах
+      const H = hmap(fin, w), im = x.createImageData(w, h), d = im.data;
+      for (let i = 0; i < w * h; i++) { const v = Math.round(fin === 'plaster' ? 226 + H[i] * 26 + (r() - 0.5) * 5 : 214 + H[i] * 22 + (r() - 0.5) * 6); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = Math.max(0, Math.min(255, v)); d[i * 4 + 3] = 255; }
+      x.putImageData(im, 0, 0);
+    }
+    else if (fin === 'concrete') {
+      x.fillStyle = '#E4E4E4'; x.fillRect(0, 0, w, h); blot(120, 50, 0.08); noise(14000, 0.12);
+      for (let i = 0; i < 260; i++) { x.fillStyle = g(60, 0.25 + r() * 0.3); x.beginPath(); x.arc(r() * w, r() * h, 0.6 + r() * 1.6, 0, 7); x.fill(); }   // поры
+      x.strokeStyle = g(80, 0.35); x.lineWidth = 1.5; x.strokeRect(0.75, 0.75, w - 1.5, h - 1.5);   // швы опалубки
+      [[0.17, 0.25], [0.5, 0.25], [0.83, 0.25], [0.17, 0.75], [0.5, 0.75], [0.83, 0.75]].forEach(([u, v]) => { x.fillStyle = g(70, 0.6); x.beginPath(); x.arc(u * w, v * h, 5, 0, 7); x.fill(); x.fillStyle = g(255, 0.25); x.beginPath(); x.arc(u * w + 1, v * h + 1, 3, 0, 7); x.fill(); });   // отверстия стяжек
+    } else if (fin === 'brick') {
+      x.fillStyle = '#E2E0DC'; x.fillRect(0, 0, w, h); noise(6000, 0.15);   // раствор
+      const rows = 14, cols = 4, bh = h / rows, bw = w / cols, m = Math.max(2, Math.round(w * 0.01 / 1.04));
+      for (let i = 0; i < rows; i++) for (let j = -1; j <= cols; j++) {
+        const x0 = j * bw + (i % 2 ? bw / 2 : 0) + m / 2, y0 = i * bh + m / 2, v = Math.round(150 + r() * 55);
+        x.fillStyle = `rgb(${v},${Math.round(v * 0.97)},${Math.round(v * 0.95)})`; x.fillRect(x0, y0, bw - m, bh - m);
+        for (let k = 0; k < 40; k++) { x.fillStyle = g(r() < 0.5 ? 0 : 255, 0.12 * r()); x.fillRect(x0 + r() * (bw - m - 3), y0 + r() * (bh - m - 3), 2 + r() * 4, 1 + r() * 3); }
+      }
+    } else if (fin === 'laminate') {   // ламинат: горизонтальные доски 1,8 × 0,2 м вразбежку, каждая со своим тоном и рисунком
+      const rows = 15, bh = h / rows, pl = w / 2, B = [];
+      for (let i = 0; i < rows; i++) { const off = r() * pl; for (let j = 0; j < 2; j++) B.push({ x0: off + j * pl, y0: i * bh, bw: pl, bh }); }
+      woodBoards(x, w, h, B, false, { seam: 1, seamV: 0.78, bevel: 0.97, knots: 0.35, ring: 0.06, cath: 0.8, k: 0.55, br0: 0.9, brR: 0.1 });   // светлый дуб: мягкий рисунок, доски почти одного тона, очень тонкий шов
+    } else if (fin === 'porcelain') {   // керамогранит: плиты 120 × 60 см (горизонтально), рисунок мрамора, тонкий шов
+      marbleTiles(x, w, h, 2, 2);
+    } else if (fin === 'wood') {   // дерево: вертикальные доски ~12 см, стыки на разной высоте, сучки, разный тон досок
+      const n = 20, bw = w / n, B = [];
+      for (let j = 0; j < n; j++) { const ys = -r() * h; let y = ys; while (y < ys + h - 1) { let len = r() < 0.45 ? h : h * (0.5 + r() * 0.5); if (ys + h - (y + len) < h * 0.3) len = ys + h - y; B.push({ x0: j * bw, y0: y, bw, bh: len }); y += len; } }   // ровно один период по высоте — текстура бесшовная
+      woodBoards(x, w, h, B, true, { seam: 2, knots: 0.6, ring: 0.1, cath: 0.5, br0: 0.5, brR: 0.38 });
+    }
+  }, true);
+}
+// карты высот (бесшовные) для фактурных отделок
+const HMAPS = {};
+const hmap = (fin, N) => HMAPS[fin + N] || (HMAPS[fin + N] = (fin === 'stone' ? stoneH : plasterH)(N));
+function noiseKit(seed) {
+  let s = seed; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  const vnoise = (per) => { const g = new Float32Array(per * per).map(() => r()); return (x, y) => { const fx = x * per, fy = y * per, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const G = (i, j) => g[((j % per + per) % per) * per + ((i % per + per) % per)]; const a = G(x0, y0) + (G(x0 + 1, y0) - G(x0, y0)) * sx, b = G(x0, y0 + 1) + (G(x0 + 1, y0 + 1) - G(x0, y0 + 1)) * sx; return a + (b - a) * sy; }; };
+  const fbm = (base, oct) => { const ns = []; for (let k = 0; k < oct; k++) ns.push(vnoise(base << k)); return (x, y) => { let v = 0, a = 0.5, n = 0; ns.forEach(f => { v += f(x, y) * a; n += a; a *= 0.5; }); return v / n; }; };
+  return { r, vnoise, fbm };
+}
+const normH = (H) => { let mn = 1e9, mx = -1e9; H.forEach(v => { mn = Math.min(mn, v); mx = Math.max(mx, v); }); for (let i = 0; i < H.length; i++) H[i] = (H[i] - mn) / (mx - mn) - 0.5; return H; };
+// декоративная штукатурка: ровная мелкозернистая основа и рваные островки зернистой фактуры (как «короед»/«барашек» шпателем)
+function plasterH(N) {
+  const { r, vnoise, fbm } = noiseKit(5);
+  const mask = fbm(6, 4), warp = fbm(8, 2), edge = fbm(64, 2), grain = vnoise(200), grain2 = vnoise(120), micro = vnoise(256), H = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const u = i / N, v = j / N, wu = u + (warp(u, v) - 0.5) * 0.08, wv = v + (warp(v + 0.5, u + 0.3) - 0.5) * 0.08;
+    const m = mask(wu, wv) + (edge(u, v) - 0.5) * 0.26, e = Math.max(0, Math.min(1, (m - 0.45) / 0.05));   // рваный край островков
+    const gr = Math.pow(grain(u, v), 1.6) * 0.65 + Math.pow(grain2(u, v), 2) * 0.35;
+    H[j * N + i] = e * (0.15 + gr * 0.75) + (micro(u, v) - 0.5) * 0.22 + (grain2(u * 2, v * 2) - 0.5) * 0.08;
+  }
+  return normH(H);
+}
+// «Камень»: крупные мягкие наплывы, извилистые гребни, мелкая шероховатость, редкие поры
+function stoneH(N) {
+  let s = 3; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  const vnoise = (per) => { const g = new Float32Array(per * per).map(() => r()); return (x, y) => { const fx = x * per, fy = y * per, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+    const G = (i, j) => g[((j % per + per) % per) * per + ((i % per + per) % per)]; const a = G(x0, y0) + (G(x0 + 1, y0) - G(x0, y0)) * sx, b = G(x0, y0 + 1) + (G(x0 + 1, y0 + 1) - G(x0, y0 + 1)) * sx; return a + (b - a) * sy; }; };
+  const fbm = (base, oct) => { const ns = []; for (let k = 0; k < oct; k++) ns.push(vnoise(base << k)); return (x, y) => { let v = 0, a = 0.5, n = 0; ns.forEach(f => { v += f(x, y) * a; n += a; a *= 0.5; }); return v / n; }; };
+  const plates = fbm(6, 3), warp = fbm(4, 2), base = fbm(10, 5), ridge = fbm(14, 3), fine = fbm(80, 2), H = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const u = i / N, v = j / N, wu = u + (warp(u, v) - 0.5) * 0.1, wv = v + (warp(v + 0.37, u + 0.71) - 0.5) * 0.1;
+    const p = plates(wu, wv), e = Math.max(0, Math.min(1, (p - 0.42) / 0.16)), plate = e * e * (3 - 2 * e);   // мягкие наплывы от шпателя
+    const rg = 1 - Math.abs(ridge(wu, wv) * 2 - 1);   // извилистые гребни и складки
+    H[j * N + i] = plate * 0.22 + (base(wu, wv) - 0.5) * 0.7 + rg * rg * 0.3 + (fine(u, v) - 0.5) * 0.22;
+  }
+  for (let k = 0; k < 220; k++) { const cx = r() * N, cy = r() * N, rr = 0.8 + r() * 1.6;   // редкие мелкие поры
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const dd = Math.hypot(dx, dy); if (dd > rr) continue; const i = ((Math.round(cx + dx) % N) + N) % N, j = ((Math.round(cy + dy) % N) + N) % N; H[j * N + i] -= 0.12 * (1 - dd / rr); } }
+  return normH(H);
+}
+function wallBump(fin) {
+  return canvasTex('wallbump_' + fin, 512, 512, (x, w, h) => { const H = hmap(fin, w), im = x.createImageData(w, h), d = im.data;
+    for (let i = 0; i < w * h; i++) { const v = Math.round((H[i] + 0.5) * 255); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v; d[i * 4 + 3] = 255; } x.putImageData(im, 0, 0); }, true);
+}
+function wallMat(o) {
+  const fin = wallFin(o), F = WALL_FIN[fin], col = wallCol(o);
+  return mat('wall|' + fin + '|' + col, col, Object.assign({ roughness: F.rough, map: wallTex(fin) }, F.bump ? { bumpMap: wallBump(fin), bumpScale: F.bump } : {}));
+}
+// UV в метрах: рисунок одного масштаба на кусках любой длины и непрерывный по стене (над дверью, под окном)
+function wallUV(me, tc, yc, sx, sy) {
+  const g = me.geometry, P = g.attributes.position, Nn = g.attributes.normal, U = g.attributes.uv;
+  for (let i = 0; i < P.count; i++) {
+    const x = P.getX(i), y = P.getY(i), z = P.getZ(i), nx = Math.abs(Nn.getX(i)), ny = Math.abs(Nn.getY(i));
+    if (ny > 0.5) U.setXY(i, (x + tc) / sx, z / sy); else if (nx > 0.5) U.setXY(i, (z + tc) / sx, (y + yc) / sy); else U.setXY(i, (x + tc) / sx, (y + yc) / sy);
+  }
+  U.needsUpdate = true;
+}
 function buildWalls(sc) {
-  const wm = mat('wall', '#A4A4A4', { roughness: 0.95 });
   const ops = objs().filter(o => o.type === 'window' || o.type === 'door');
   objs().filter(o => o.type === 'wall').forEach(w => {
     const sg = segOf(w); if (sg.len < 0.02) return;
+    const wm = wallMat(w), WF = WALL_FIN[wallFin(w)];
     const P = (t) => [w.x1 + sg.ux * t, w.y1 + sg.uy * t];
     const iv = [];
     ops.forEach(op => {
@@ -1463,10 +1688,10 @@ function buildWalls(sc) {
       const [ax, ay] = P(t0 + e0), [bx, by] = P(t1 + e1);
       const len = Math.hypot(bx - ax, by - ay), mx = (ax + bx) / 2, mz = (ay + by) / 2;
       const me = mbox(sc, len, y1 - y0, WALL_T, wm, mx, (y0 + y1) / 2, mz);
-      me.rotation.y = -Math.atan2(sg.uy, sg.ux);
+      me.rotation.y = -Math.atan2(sg.uy, sg.ux); wallUV(me, t0 + e0 + len / 2, (y0 + y1) / 2, WF.sx, WF.sy);
       const [nx, nz] = outward(mx, mz, sg.nx, sg.ny); let stub = null;
       if (y0 === 0) { stub = mbox(sc, len, 0.3, WALL_T, mat('wallstub', '#7C7C7C', { roughness: 0.95 }), mx, 0.15, mz, true); stub.rotation.y = me.rotation.y; stub.visible = false; }
-      me.userData.bounce = '#A4A4A4'; cutTag(me, mx, mz, nx, nz, stub);
+      me.userData.bounce = wallCol(w); cutTag(me, mx, mz, nx, nz, stub);
     };
     let t = 0;
     iv.forEach(([a, b, type, op]) => {
@@ -1521,15 +1746,43 @@ function buildOpening(sc, o, lit) {
   g.traverse(m => { if (m.isMesh) cutTag(m, cx, cy, onx, onz, null); });
 }
 const FURN = [['gray', 'Серый', '#8E8E8E', '#A2A2A2'], ['white', 'Белый', '#E6E4DF', '#F0EEEA'], ['black', 'Чёрный', '#2A2B2E', '#3A3B3F'], ['blue', 'Синий', '#3E5B8A', '#5272A3'], ['beige', 'Бежевый', '#CDB894', '#DCCAA9'], ['brown', 'Коричневый', '#6B4A33', '#84603F']];
-const FURN_DEF = { ochair: 'black', stool: 'black', tcoffee: 'brown', bed: 'white', carpet: 'beige', trect: 'brown', tround: 'brown', chair: 'brown', armchair: 'blue', sofa: 'blue', shelf: 'beige', cabinet: 'beige', wardrobe: 'beige' };   // цвет по умолчанию
+const FURN_DEF = { ochair: 'black', stool: 'black', tcoffee: 'brown', bed: 'white', carpet: 'beige', trect: 'brown', tround: 'brown', chair: 'gray', armchair: 'blue', sofa: 'blue', shelf: 'beige', cabinet: 'beige', wardrobe: 'beige' };   // цвет по умолчанию
 const furnOf = (o) => o.fc || FURN_DEF[o.kind];
+const lighten = (hex, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.substr(i, 2), 16) + (255 - parseInt(hex.substr(i, 2), 16)) * k).toString(16).padStart(2, '0')).join('').toUpperCase();
+const furnRow = (o) => { const f = furnOf(o); return f && f[0] === '#' ? [f, 'Свой', f, lighten(f, 0.12)] : FURN.find(x => x[0] === f); };   // свой цвет мебели — hex в o.fc
 const FURN_KINDS = ['ochair', 'stool', 'tcoffee', 'bed', 'carpet', 'trect', 'tround', 'chair', 'armchair', 'sofa', 'shelf', 'cabinet', 'wardrobe'];
+// выгнутая мягкая панель (спинка/сиденье): скруглённые углы и края-«подушка», края загнуты вперёд по дуге радиуса R, кверху расширяется на flare
+function bentPanel(w, h, t, R, flare, qx, qy, rc) {
+  const geo = new THREE.BoxGeometry(w, h, t, 28, 16, 1), P = geo.attributes.position, U = geo.attributes.uv, N = geo.attributes.normal;
+  for (let i = 0; i < P.count; i++) {
+    let x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+    if (N.getZ(i) > 0.5) U.setXY(i, (x / w + 0.5) * qx, (y / h + 0.5) * qy); else U.setXY(i, 0.5, 0.5);   // стёжка qx × qy только на лицевой стороне, тыл и борта — гладкие
+    const cx = Math.abs(x) - (w / 2 - rc), cy = Math.abs(y) - (h / 2 - rc);   // скруглённые углы
+    if (cx > 0 && cy > 0) { const r0 = Math.hypot(cx, cy); if (r0 > rc) { x = Math.sign(x) * (w / 2 - rc + cx * rc / r0); y = Math.sign(y) * (h / 2 - rc + cy * rc / r0); } }
+    const e = Math.min(w / 2 - Math.abs(x), h / 2 - Math.abs(y), cx > 0 && cy > 0 ? rc - Math.hypot(cx, cy) : 1), k = Math.min(1, Math.max(0, e / 0.035));
+    z *= 0.4 + 0.6 * Math.sin(k * Math.PI / 2);   // к краю панель тоньше — мягкий скруглённый борт
+    x *= 1 + flare * (y / h + 0.5) - flare * 0.5;
+    const a = x / R; P.setXYZ(i, Math.sin(a) * (R - z), y, R - Math.cos(a) * (R - z));   // сгиб вокруг вертикали (центр дуги впереди): края уходят вперёд (+z)
+  }
+  geo.computeVertexNormals(); return geo;
+}
+// стёжка: квадраты-подушечки с мягкими швами (светлая «маска», цвет — от материала)
+function quiltTex() {
+  return canvasTex('quilt', 256, 256, (x, w, h) => {
+    const im = x.createImageData(w, h), d = im.data;
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+      const u = xx / w, v = yy / h, e = Math.min(u, 1 - u, v, 1 - v), pillow = Math.min(1, e / 0.2), c = 0.84 + 0.16 * Math.sqrt(pillow) - (e < 0.012 ? 0.14 : 0) + (Math.random() - 0.5) * 0.05;   // мягкие швы, лёгкий ворс
+      const q = (yy * w + xx) * 4, val = Math.max(0, Math.min(255, c * 250)); d[q] = d[q + 1] = d[q + 2] = val; d[q + 3] = 255;
+    }
+    x.putImageData(im, 0, 0);
+  }, true);
+}
 function buildProp(g, o) {
   const w = o.w, d = o.d, h = o.h, hw = w / 2, hd = d / 2, k = o.kind;
   let wood = mat('wood', '#7A5A40', { roughness: 0.55 }), light = mat('lwood', '#B89770', { roughness: 0.6 });
   let fabric = mat('fabric', '#5D6878', { roughness: 0.95 }), cushion = mat('cushion', '#6B7788', { roughness: 0.95 }); const dark = mat('dark', '#2A2D33', { roughness: 0.5 });
   const steel = mat('steel', '#8A8F96', { roughness: 0.3, metalness: 0.8 });
-  const fc = FURN_KINDS.includes(k) && FURN.find(f => f[0] === furnOf(o));
+  const fc = FURN_KINDS.includes(k) && furnRow(o);
   if (fc) { wood = light = mat('fw_' + fc[0], fc[2], { roughness: 0.55 }); fabric = mat('ff_' + fc[0], fc[2], { roughness: 0.95 }); cushion = mat('fc_' + fc[0], fc[3], { roughness: 0.95 }); }
   if (k === 'carpet') { const cb = fc && fc[0] !== 'beige' ? fc[2] : null; const m = mat('carpetm' + (cb || ''), '#FFFFFF', { map: carpetTex(cb), roughness: 1 }); mbox(g, w, 0.012, d, m, 0, 0.006, 0); }
   else if (k === 'trect') {
@@ -1538,11 +1791,12 @@ function buildProp(g, o) {
   } else if (k === 'tround') {
     const top = mcyl(g, hw, hw, 0.04, wood, 0, h - 0.02, 0, 40); top.scale.z = d / w;
     mcyl(g, 0.05, 0.06, h - 0.04, wood, 0, (h - 0.04) / 2, 0, 12); mcyl(g, 0.24, 0.27, 0.03, wood, 0, 0.015, 0, 24);
-  } else if (k === 'chair') {
-    const sh = 0.45;
-    mbox(g, w, 0.05, d * 0.9, wood, 0, sh, d * 0.05);
-    mbox(g, w, Math.max(0.1, h - sh), 0.04, wood, 0, sh + (h - sh) / 2, -hd + 0.02);
-    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => mbox(g, 0.035, sh, 0.035, wood, sx * (hw - 0.03), sh / 2, sy * (hd - 0.03)));
+  } else if (k === 'chair') {   // мягкий стул-«ракушка»: гладкое мягкое сиденье и выгнутая спинка (цвет меняется), тонкие чёрные металлические ножки враспор
+    const fcol = (fc || ['gray', '', '#8E8E8E'])[2], vel = mat('chairv2|' + fcol, fcol, { roughness: 0.9 }), blk = mat('chairleg', '#16171A', { roughness: 0.45, metalness: 0.6 });
+    const sh = 0.47, st = 0.075, sw = w * 0.96, sd = d * 0.86, bt = 0.06;
+    const seat = mesh(g, bentPanel(sw, sd, st, 1.6, -0.08, 4, 3, 0.09), vel, 0, sh - st / 2, d * 0.05); seat.rotation.x = -Math.PI / 2;   // сиденье: почти плоское, края чуть подняты, спереди скруглено
+    const bh = Math.max(0.25, h - sh + 0.06), back = mesh(g, bentPanel(w, bh, bt, 0.34, 0.16, 4, 4, 0.1), vel, 0, sh - 0.02 + bh / 2, -hd + 0.06); back.rotation.x = -0.16;   // спинка: охватывает спину, расширяется кверху, отклонена назад
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => mrod(g, V(sx * (hw - 0.09), sh - st, sy * (hd - 0.11) + d * 0.03), V(sx * (hw - 0.025), 0, sy * (hd - 0.03)), 0.011, blk));
   } else if (k === 'armchair' || k === 'sofa') {
     // мягкая мебель mid-century: всё из скруглённых блоков, деревянные ножки враспор
     const legW = mat('legwood', '#6B4A33', { roughness: 0.5 });
@@ -1796,6 +2050,28 @@ function shirtTex(hex) {
   ctx.putImageData(img, 0, 0);
   const tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding; tx.anisotropy = 4; SHIRT.cache[hex] = tx; return tx;
 }
+// самая низкая точка позированной модели (подошвы): вершины скин-меша с учётом костей, в координатах корня
+// стопы носками вперёд (с естественным разворотом ~7° наружу): поворачиваем кость стопы вокруг вертикали
+function alignFeet(c) {
+  const F = [['L', 'Left'], ['R', 'Right']].map(([sd, mx]) => { const ft = findBone(c, new RegExp('^(Foot\\.?' + sd + '|mixamorig:?' + mx + 'Foot)$', 'i')); const toe = ft && findBone(ft, /toe/i); return ft && toe ? { ft, toe } : null; });
+  if (F.some(f => !f)) return;
+  const hdir = (f) => { const a = f.ft.getWorldPosition(new THREE.Vector3()), b = f.toe.getWorldPosition(new THREE.Vector3()); return new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize(); };
+  const d0 = F.map(hdir), fwd = d0[0].clone().add(d0[1]).normalize();
+  const lx = F[0].ft.getWorldPosition(new THREE.Vector3()), rx = F[1].ft.getWorldPosition(new THREE.Vector3()), side = new THREE.Vector3().subVectors(lx, rx).setY(0).normalize();   // от правой стопы к левой
+  F.forEach((f, i) => {
+    const s = i === 0 ? 1 : -1, want = fwd.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0);
+    want.addScaledVector(side, s * Math.tan(7 * RAD)).normalize();   // лёгкий разворот наружу
+    const cur = hdir(f), q = new THREE.Quaternion().setFromUnitVectors(cur, want);
+    const bw = f.ft.getWorldQuaternion(new THREE.Quaternion()), pw = f.ft.parent.getWorldQuaternion(new THREE.Quaternion());
+    f.ft.quaternion.copy(pw.invert().multiply(q.multiply(bw))); f.ft.updateMatrixWorld(true);
+  });
+}
+function skinnedMinY(root) {
+  root.updateMatrixWorld(true); let mn = Infinity; const v = new THREE.Vector3();
+  root.traverse(m => { if (!m.isSkinnedMesh) return; const P = m.geometry.attributes.position, step = P.count > 30000 ? 2 : 1;
+    for (let i = 0; i < P.count; i += step) { v.fromBufferAttribute(P, i); m.boneTransform(i, v); v.applyMatrix4(m.matrixWorld); if (v.y < mn) mn = v.y; } });
+  return mn;
+}
 function buildHumanModel(g, o) {
   const H = HUMAN[heroSex(o)] || HUMAN.m || HUMAN.f; if (!H || !H.stand) return false;
   const sit = o.pose === 'sit'; const tpl = sit && H.sit ? H.sit : H.stand; const procSit = sit && !H.sit;
@@ -1803,7 +2079,7 @@ function buildHumanModel(g, o) {
   c.traverse(m => {
     if (!m.isMesh) return; m.userData.shared = true; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
     const arr = Array.isArray(m.material) ? m.material : [m.material];
-    const nm = arr.map(x => { if (x.name === 'outfit_map') { shirtLoad(); const tx = shirtTex(HERO_3D[o.color || 0]); if (tx) { const y = x.clone(); y.map = tx; y.userData.own = true; return y; } return x; } if (/shirt|top|dress|tank|jacket|suit/i.test(x.name)) { const y = x.clone(); y.color = c3(HERO_3D[o.color || 0]); y.userData.own = true; return y; } return x; });
+    const nm = arr.map(x => { if (x.name === 'outfit_map') { shirtLoad(); const tx = shirtTex(hero3d(o)); if (tx) { const y = x.clone(); y.map = tx; y.userData.own = true; return y; } return x; } if (/shirt|top|dress|tank|jacket|suit/i.test(x.name)) { const y = x.clone(); y.color = c3(hero3d(o)); y.userData.own = true; return y; } return x; });
     m.material = Array.isArray(m.material) ? nm : nm[0];
   });
   const wrap = new THREE.Group(); wrap.scale.setScalar(H.scale); wrap.rotation.y = Math.PI; wrap.add(c); wrap.updateMatrixWorld(true);
@@ -1811,12 +2087,13 @@ function buildHumanModel(g, o) {
   const hips = findBone(c, /hips|pelvis/i); const feet = []; c.traverse(b => { if (b.isBone && /foot/i.test(b.name)) feet.push(wp(b).y); });
   const hp = hips ? wp(hips) : new THREE.Vector3();
   const footY = feet.length ? Math.min.apply(null, feet) : 0;
+  const sole = Math.max(0.02, footY - skinnedMinY(wrap));   // от кости стопы до подошвы ботинка
   if (sit) {
     const legs = [['L', 'Left'], ['R', 'Right']].map(([sd, mx]) => ({ up: findBone(c, new RegExp('^(UpperLeg\\.?' + sd + '|mixamorig:?' + mx + 'UpLeg)$', 'i')), lo: findBone(c, new RegExp('^(LowerLeg\\.?' + sd + '|mixamorig:?' + mx + 'Leg)$', 'i')), ft: findBone(c, new RegExp('^(Foot\\.?' + sd + '|mixamorig:?' + mx + 'Foot)$', 'i')), sd }));
     const ok = legs.every(l => l.up && l.lo && l.ft);
     let shin = 0.44;
     if (ok) shin = legs.reduce((a, l) => a + wp(l.lo).distanceTo(wp(l.ft)), 0) / 2;
-    const HIPJ = 0.53, ANKLE = 0.09;
+    const st0 = heroSeat(o), HIPJ = st0 && SUPPORT_H[st0.kind] ? SUPPORT_H[st0.kind] + 0.06 : 0.53, ANKLE = sole + 0.006;   // тазобедренный сустав на ~6 см выше поверхности сиденья   // стопа ставится так, чтобы подошва стояла на полу
     const hjY0 = ok ? (wp(legs[0].up).y + wp(legs[1].up).y) / 2 : hp.y - 0.08 * H.scale;
     wrap.position.set(-hp.x, HIPJ - hjY0, -hp.z); wrap.updateMatrixWorld(true);
     const hipY = HIPJ - 0.03;
@@ -1828,15 +2105,43 @@ function buildHumanModel(g, o) {
       const kn = wp(l.lo);
       aimBone(l.lo, l.ft, new THREE.Vector3(kn.x, kn.y - sh, kn.z + 0.03));
     });
-    if (procSit) [['L', 'Left'], ['R', 'Right']].forEach(([sd, mx]) => {
+    // руки: плечо почти вертикально, локоть согнут, предплечье вперёд, ладони вниз лежат на бёдрах, пальцы слегка свисают
+    if (procSit) [['L', 'Left'], ['R', 'Right']].forEach(([sd, mx], li) => {
       const ua = findBone(c, new RegExp('^(UpperArm\\.?' + sd + '|mixamorig:?' + mx + 'Arm)$', 'i')), fa = findBone(c, new RegExp('^(LowerArm\\.?' + sd + '|mixamorig:?' + mx + 'ForeArm)$', 'i')), hd = findBone(c, new RegExp('^(Palm\\.?' + sd + '|mixamorig:?' + mx + 'Hand)$', 'i'));
       if (!ua || !fa || !hd) return;
       const shp = wp(ua), side = shp.x >= 0 ? 1 : -1, ul = shp.distanceTo(wp(fa)), fl = wp(fa).distanceTo(wp(hd));
-      const elT = new THREE.Vector3(shp.x + side * 0.03, shp.y - ul * 0.92, shp.z - ul * 0.35);
-      aimBone(ua, fa, elT); const el = wp(fa);
-      aimBone(fa, hd, new THREE.Vector3(side * 0.12, hipY + 0.11, el.z - fl * 0.95));
+      const leg = ok ? legs.find(l => (wp(l.up).x >= 0 ? 1 : -1) === side) || legs[li] : null;
+      const S = shp; let E = null, T = null;   // кисти на 2 см выше поверхности бедра — не уходят в него
+      if (leg) {   // плечо опускаем почти вертикально и наклоняем вперёд, пока предплечье не ляжет кистью на верх бедра
+        const hj = wp(leg.up), kn = wp(leg.lo), P = (u) => new THREE.Vector3(hj.x + (kn.x - hj.x) * u + side * 0.01, hj.y + (kn.y - hj.y) * u + 0.13, hj.z + (kn.z - hj.z) * u + 0.05);
+        const solve = (zMax) => { E = null; T = null; for (let th = 5; th <= 75 && !E; th += 1) {
+          const a = th * RAD, e = new THREE.Vector3(S.x + side * 0.03, S.y - ul * Math.cos(a), S.z - ul * Math.sin(a)); if (e.z > zMax) continue;
+          let best = null; for (let u = 0.35; u <= 0.85; u += 0.01) { const q = P(u), dd = Math.abs(q.distanceTo(e) - fl); if (q.y < e.y && e.y - q.y < fl * 0.5 && (!best || dd < best.dd)) best = { q, dd };   /* предплечье почти горизонтально (наклон до ~30°) */ }
+          if (best && best.dd < 0.008) { E = e; T = best.q; }
+        } };
+        solve(Infinity);
+        if (E) { const E0 = E, T0 = T; solve(E0.z - 0.03); if (!E) { E = E0; T = T0; } }   // локти на 3 см вперёд (вперёд — это −z)
+      }
+      if (!E) {   // запасной вариант — двухзвенный IK к точке над бедром
+        T = new THREE.Vector3(side * 0.12, hipY + 0.15, shp.z - 0.3);
+        const d = Math.min(S.distanceTo(T), ul + fl - 0.002), dir = T.clone().sub(S).normalize(); T = S.clone().addScaledVector(dir, d);
+        const ax = (ul * ul - fl * fl + d * d) / (2 * d), hh = Math.sqrt(Math.max(0, ul * ul - ax * ax));
+        const pole = new THREE.Vector3(side * 0.12, -1, 0.35); pole.addScaledVector(dir, -pole.dot(dir)).normalize();
+        E = S.clone().addScaledVector(dir, ax).addScaledVector(pole, hh);
+      }
+      aimBone(ua, fa, E); aimBone(fa, hd, T);
+      const mid = findBone(hd, /Middle1/i), idx = findBone(hd, /Index1/i), pin = findBone(hd, /Pinky1/i);
+      if (mid && idx && pin) {
+        hd.traverse(b => { if (b !== hd && b.isBone && /Index|Middle|Ring|Pinky/i.test(b.name)) b.quaternion.identity(); }); hd.updateMatrixWorld(true);   // пальцы выпрямлены — лежат на бедре, а не впиваются в него
+        const W = wp(hd); aimBone(hd, mid, W.clone().add(new THREE.Vector3(0, -0.3, -1).normalize()));   // пальцы вперёд и слегка вниз — облегают бедро
+        const f = wp(mid).sub(wp(hd)).normalize(), across = wp(idx).sub(wp(pin)); across.addScaledVector(f, -across.dot(f)).normalize();
+        const want = new THREE.Vector3(-side, 0.55, 0); want.addScaledVector(f, -want.dot(f)).normalize();   // большой палец к середине тела и приподнят — ладонь вниз и развёрнута внутрь (~30°)
+        const ang = Math.atan2(f.dot(new THREE.Vector3().crossVectors(across, want)), across.dot(want)), q = new THREE.Quaternion().setFromAxisAngle(f, ang), bw = hd.getWorldQuaternion(new THREE.Quaternion()), pw = hd.parent.getWorldQuaternion(new THREE.Quaternion());
+        hd.quaternion.copy(pw.invert().multiply(q.multiply(bw))); hd.updateMatrixWorld(true);
+      }
     });
-  } else wrap.position.set(-hp.x, 0.07 - footY, -hp.z);
+    wrap.updateMatrixWorld(true); alignFeet(c); const low = skinnedMinY(wrap); if (low < 0.004) wrap.position.y += 0.004 - low;   // подстраховка: ничего не уходит под пол
+  } else { wrap.position.set(-hp.x, -footY, -hp.z); wrap.updateMatrixWorld(true); alignFeet(c); wrap.position.y += 0.004 - skinnedMinY(wrap); }   // стоя: подошвы точно на полу
   g.add(wrap); return true;
 }
 function blob(p, r, m, x, y, z, sx, sy, sz) { const me = msph(p, r, m, x, y, z); me.scale.set(sx || 1, sy || 1, sz || 1); return me; }
@@ -1844,7 +2149,7 @@ function buildHero(g, o) {
   if (HUMAN.state === 'loading' || HUMAN.state === 'idle') return;
   try { if (buildHumanModel(g, o)) return; } catch (e) { console.error(e); }
   const skin = mat('skin', '#C99D7C', { roughness: 0.6 }), pants = mat('pants', '#2E333B', { roughness: 0.9 }), shoe = mat('shoe', '#18191C', { roughness: 0.45 });
-  const shirt = mat('shirt' + (o.color || 0), HERO_3D[o.color || 0], { roughness: 0.9 }), hair = mat('hair', '#2A211C', { roughness: 0.85 });
+  const shirt = mat('shirt' + hero3d(o), hero3d(o), { roughness: 0.9 }), hair = mat('hair', '#2A211C', { roughness: 0.85 });
   const sit = o.pose === 'sit';
   const W0 = sit ? 0.55 : 0.98;            // waist height
   const D = W0 - 0.98;                      // vertical offset vs. standing
@@ -2318,7 +2623,7 @@ function sceneKeyFilter(k, v) { return NON3D_KEYS.has(k) && !(k === 'name' && th
 // экспозиция зависит только от света и обстановки: правка камер (положение, объектив, наклон) её не пересчитывает
 // ключи сцены (для кэша 3D) пересчитываются только когда проект менялся (S.rev), а не на каждый кадр вращения 3D-вида
 // «структурные» объекты меняют свет и стены — после их правки сцена собирается целиком; остальные пересобираются по одному
-const STRUCT_T = ['light', 'wall', 'window', 'door'];
+const STRUCT_T = ['light', 'wall', 'window', 'door', 'floor'];
 const KEYS = { rev: -1, full: '', light: '', per: new Map() };
 function sceneKeys() {
   if (KEYS.rev !== S.rev || KEYS.p !== S.project) {
@@ -2340,8 +2645,14 @@ function t3build(lit) {
   const sc = new THREE.Scene(); sc.background = c3('#151413'); T3.byId = {}; T3.cut = []; T3.corr = []; T3.lightsOf = {};
   const b = t3bounds(); const cx = (b.minx + b.maxx) / 2, cz = (b.miny + b.maxy) / 2; T3.center = V(cx, 1, cz);
   const pad = b.walls ? 0.1 : 8; const fw = b.maxx - b.minx + pad * 2, fd = b.maxy - b.miny + pad * 2;
-  const ftex = floorTex().clone(); ftex.needsUpdate = true; ftex.repeat.set(fw / 2, fd / 2);
-  const floor = mesh(sc, new THREE.PlaneGeometry(fw, fd), ownMat({ map: ftex, roughness: 0.55, metalness: 0 }), cx, 0, cz, true); floor.rotation.x = -Math.PI / 2; floor.userData.bounce = '#8C877F';
+  const fgeo = new THREE.PlaneGeometry(fw, fd); fgeo.translate(cx, -cz, 0); floorUV(fgeo, FLOOR_FIN.laminate.tex, true);
+  const floor = mesh(sc, fgeo, floorMat(null), 0, 0, 0, true); floor.rotation.x = -Math.PI / 2; floor.userData.bounce = floorCol(null);
+  // полы комнат: у каждой замкнутой комнаты — своя отделка (объект «Пол» внутри неё)
+  roomFaces(objs().filter(o => o.x1 !== undefined)).filter(f => f.area > 0.05).forEach(f => {
+    const fo = floorOfFace(f); if (!fo || (!fo.fin && !fo.wcol)) return;
+    const sh = new THREE.Shape(f.poly.map(p => new THREE.Vector2(p.x, -p.y))), geo = new THREE.ShapeGeometry(sh); floorUV(geo, FLOOR_FIN[floorFin(fo)].tex, true);
+    const m = mesh(sc, geo, floorMat(fo), 0, 0.002, 0, true); m.rotation.x = -Math.PI / 2; m.userData.bounce = floorCol(fo);
+  });
   T3.refl = [];
   if (lit) sc.add(new THREE.HemisphereLight(c3('#C9D3E2'), c3('#3A2E24'), 0.28));
   else { sc.add(new THREE.HemisphereLight(0xffffff, c3('#6A5E52'), 0.95)); const dl = new THREE.DirectionalLight(0xffffff, 0.45); dl.position.set(cx + 3, 7, cz + 5); sc.add(dl); }
@@ -2357,7 +2668,7 @@ function t3build(lit) {
 }
 // один объект сцены (предмет, герой, камера, прибор) — в своей группе, чтобы его можно было пересобрать отдельно
 function t3obj(sc, o, lit, budget) {
-  if (o.x === undefined || o.type === 'note' || o.type === 'stroke') return;
+  if (o.x === undefined || o.type === 'note' || o.type === 'stroke' || o.type === 'floor') return;
   const g = new THREE.Group(); g.position.set(o.x, 0, o.y); g.rotation.y = -(o.rot || 0) * RAD; g.userData.id = o.id; T3.byId[o.id] = g; sc.add(g);
   try {   // ошибка в одном объекте не должна выключать весь 3D-движок
     if (o.type === 'prop') { if (ON_TABLE.includes(o.kind) && !o.wall) g.position.y = supportTop(o); buildProp(g, o); }
@@ -2646,7 +2957,7 @@ function typeName(o) {
   if (o.type === 'camera') return 'Камера'; if (o.type === 'hero') return 'Герой';
   if (o.type === 'light') return ((LIGHTS[o.kind] || {}).prac ? 'Practical · ' : 'Свет · ') + ((LIGHTS[o.kind] || {}).name || '');
   if (o.type === 'prop') return 'Реквизит · ' + ((PROPS[o.kind] || {}).name || '');
-  if (ROOM[o.type]) return ROOM[o.type].name; if (o.type === 'note') return 'Заметка'; return 'Рисунок';
+  if (ROOM[o.type]) return ROOM[o.type].name; if (o.type === 'note') return 'Заметка'; if (o.type === 'floor') return 'Пол'; return 'Рисунок';
 }
 function capBlock(o) {
   const lock = `<label class="chk"><input type="checkbox" id="inLock" ${o.locked ? 'checked' : ''}> Закрепить</label>`;
@@ -2689,6 +3000,7 @@ function colorBlock(o) {
 function lightSwatch(o) { if (!window.THREE) return '#fff'; const c = lightColor(o).clone().convertLinearToSRGB(); const m = Math.max(c.r, c.g, c.b, 1e-3); return '#' + new THREE.Color(c.r / m, c.g / m, c.b / m).getHexString(); }
 function field(label, inner) { return `<label class="fld"><span>${label}</span><span class="v">${inner}</span></label>`; }
 function renderInspector() {
+  if (commitColor()) renderPlanSoon();
   const el = $('inspector'); const o = S.sel && byId(S.sel);
   if (S.multi.size > 1 && S.view === 'plan') {
     const allL = [...S.multi].every(id => (byId(id) || {}).locked);
@@ -2708,7 +3020,7 @@ function renderInspector() {
     h += field('Формат', `<select id="inAspect">${ASPECTS.map(a => `<option value="${a[0]}" ${a[0] === o.aspect ? 'selected' : ''}>${a[1]}</option>`).join('')}</select>`);
   } else if (o.type === 'hero') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
-    h += `<span class="row" role="group" aria-label="Цвет">${HERO_COLORS.map((c, i) => `<button class="swatch" data-act="color" data-v="${i}" aria-label="Цвет ${i + 1}" aria-pressed="${(o.color || 0) === i}" style="background:var(--${c})"></button>`).join('')}</span>`;
+    h += `<span class="row" role="group" aria-label="Цвет">${HERO_COLORS.map((c, i) => `<button class="swatch" data-act="color" data-v="${i}" aria-label="Цвет ${i + 1}" aria-pressed="${!o.hcol && (o.color || 0) === i}" style="background:var(--${c})"></button>`).join('')}${customSwatch('inHCol', hero3d(o), !!o.hcol)}</span>`;
     h += `<span class="seg" role="group" aria-label="Поза"><button data-act="pose" data-v="stand" aria-pressed="${o.pose !== 'sit'}">Стоит</button><button data-act="pose" data-v="sit" aria-pressed="${o.pose === 'sit'}">Сидит</button></span>`;
   } else if (o.type === 'light') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
@@ -2726,24 +3038,38 @@ function renderInspector() {
     h += field('Г', `<input type="number" id="inD" step="0.05" min="0.02" max="20" value="${o.d}"> м`);
     h += field('В', `<input type="number" id="inHH" step="0.05" min="0.01" max="5" value="${o.h}"> м`);
     if (o.kind === 'tv' && (o.wall || supportTop(o) <= 0.1)) h += field(o.wall ? 'Высота' : 'Стойка', `<input type="number" id="inTvH" step="0.05" min="0.3" max="1.8" value="${tvStandH(o)}"> м`);   // высота нижнего края экрана от пола
-    if (FURN_KINDS.includes(o.kind)) h += `<span class="vsep"></span><span class="row" role="group" aria-label="Цвет мебели">${FURN.map(f => `<button class="swatch fc" data-act="fc" data-v="${f[0]}" aria-label="${f[1]}" title="${f[1]}" aria-pressed="${furnOf(o) === f[0]}" style="background:${f[2]}"></button>`).join('')}</span>`;
+    if (FURN_KINDS.includes(o.kind)) h += `<span class="vsep"></span><span class="row" role="group" aria-label="Цвет мебели">${FURN.map(f => `<button class="swatch fc" data-act="fc" data-v="${f[0]}" aria-label="${f[1]}" title="${f[1]}" aria-pressed="${furnOf(o) === f[0]}" style="background:${f[2]}"></button>`).join('')}${customSwatch('inFCol', (furnRow(o) || FURN[0])[2], (furnOf(o) || '')[0] === '#')}</span>`;
   } else if (o.x1 !== undefined) {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
     h += o.type === 'wall' ? field('Длина', `<span class="ro">${fx(segOf(o).len, 2)}</span> м`)   // у стены длина только для просмотра — меняется точками на схеме
       : field(o.type === 'window' ? 'Ширина' : 'Длина', `<input type="number" id="inLen" step="0.05" min="0.1" max="50" value="${fx(segOf(o).len, 2).replace(',', '.')}"> м`);
+    if (o.type === 'wall') {   // отделка и цвет стены
+      const col = wallCol(o).toUpperCase();
+      h += field('Отделка', `<select id="inWFin">${Object.keys(WALL_FIN).map(k => `<option value="${k}" ${k === wallFin(o) ? 'selected' : ''}>${WALL_FIN[k].name}</option>`).join('')}</select>`);
+      h += `<span class="row" role="group" aria-label="Цвет стены">${WALL_COLORS.map(c => `<button class="swatch fc" data-act="wcol" data-v="${c[0]}" aria-label="${c[1]}" title="${c[1]}" aria-pressed="${col === c[0]}" style="background:${c[0]}"></button>`).join('')}${customSwatch('inWCol', col, !WALL_COLORS.some(c => c[0] === col))}</span>`;
+      const others = objs().filter(w => w.type === 'wall' && w !== o), same = others.every(w => wallFin(w) === wallFin(o) && wallCol(w) === wallCol(o));
+      if (others.length) h += same ? `<button class="btn wall-all done" disabled>✓ Все стены с этой отделкой</button>` : `<button class="btn wall-all" data-act="wallall">Применить ко всем стенам</button>`;
+    }
     if (o.type === 'window') h += field('Высота', `<input type="number" id="inWH" step="0.05" min="0.3" max="${fx(winMaxH(o), 2).replace(',', '.')}" value="${o.h || 1.2}"> м`) + `<label class="chk solo"><input type="checkbox" id="inFloor" ${o.floor ? 'checked' : ''}> Окно в пол</label>`;
     if (o.type === 'door') {
       const di = doorInfo(o);
       h += `<span class="seg" role="group" aria-label="Открывание"><button data-act="dswing" data-v="in" aria-pressed="${di.inward}">Внутрь</button><button data-act="dswing" data-v="out" aria-pressed="${!di.inward}">Наружу</button></span>`;
       h += `<span class="seg" role="group" aria-label="Петли"><button data-act="dhinge" data-v="l" aria-pressed="${di.left}">Налево</button><button data-act="dhinge" data-v="r" aria-pressed="${!di.left}">Направо</button></span>`;
     }
+  } else if (o.type === 'floor') {   // пол комнаты: отделка и цвет
+    const col = floorCol(o).toUpperCase();
+    h += `<div class="ins-head"><span class="kind">Пол</span></div>`;
+    h += field('Отделка', `<select id="inWFin">${Object.keys(FLOOR_FIN).map(k => `<option value="${k}" ${k === floorFin(o) ? 'selected' : ''}>${FLOOR_FIN[k].name}</option>`).join('')}</select>`);
+    h += `<span class="row" role="group" aria-label="Цвет пола">${WALL_COLORS.map(c => `<button class="swatch fc" data-act="wcol" data-v="${c[0]}" aria-label="${c[1]}" title="${c[1]}" aria-pressed="${col === c[0]}" style="background:${c[0]}"></button>`).join('')}${customSwatch('inWCol', col, !WALL_COLORS.some(c => c[0] === col))}</span>`;
+    const faces = roomFaces(objs().filter(x => x.x1 !== undefined)).filter(f => f.area > 0.05), others = faces.map(floorOfFace).filter(f => f !== o);
+    if (faces.length > 1) h += others.length === faces.length - 1 && others.every(f => f && floorFin(f) === floorFin(o) && floorCol(f) === floorCol(o)) ? `<button class="btn wall-all done" disabled>✓ Во всех комнатах этот пол</button>` : `<button class="btn wall-all" data-act="floorall">Применить ко всем комнатам</button>`;
   } else if (o.type === 'note') {
     h += `<div class="ins-head"><span class="kind">Заметка</span></div>`;
     h += `<textarea id="inText" class="note-ta" rows="4" aria-label="Текст заметки" placeholder="Текст заметки (Enter — новая строка)">${esc(o.text || '')}</textarea>`;
   } else if (o.type === 'stroke') {
     h += `<span class="ins-name">Рисунок</span>`;
   }
-  h += `<button class="del" data-act="del" title="Delete">Удалить</button>`;
+  h += o.type === 'floor' ? `<button class="del" data-act="del" title="Вернуть пол по умолчанию">Сбросить пол</button>` : `<button class="del" data-act="del" title="Delete">Удалить</button>`;
   el.innerHTML = h; el.hidden = false;
   // крупные кнопки −/+ вместо мелких стрелок браузера
   el.querySelectorAll('input[type="number"]:not(.nostp)').forEach(inp => {
@@ -2766,8 +3092,11 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'opencam') { S.activeCam = o.id; setView('cams'); return; }
   checkpoint();
   if (a === 'sensor') o.sensor = b.dataset.v;
-  if (a === 'color') o.color = +b.dataset.v;
+  if (a === 'color') { o.color = +b.dataset.v; delete o.hcol; }
   if (a === 'fc') o.fc = b.dataset.v;
+  if (a === 'wcol') o.wcol = b.dataset.v;
+  if (a === 'floorall') { let n = 0; roomFaces(objs().filter(x => x.x1 !== undefined)).filter(f => f.area > 0.05).forEach(f => { let fo = floorOfFace(f); if (fo === o) return; if (!fo) { const [fx, fy] = innerPt(f.poly); fo = { id: uid(), type: 'floor', x: fx, y: fy }; objs().push(fo); } n++; if (o.fin) fo.fin = o.fin; else delete fo.fin; if (o.wcol) fo.wcol = o.wcol; else delete fo.wcol; }); toast(`Пол применён ко всем комнатам (${n + 1})`); }
+  if (a === 'wallall') { let n = 0; objs().forEach(w => { if (w.type !== 'wall' || w === o) return; n++; if (o.fin) w.fin = o.fin; else delete w.fin; if (o.wcol) w.wcol = o.wcol; else delete w.wcol; }); toast(`Отделка применена ко всем стенам (${n + 1})`); }
   if (a === 'dswing') { const di = doorInfo(o); if (di.inward !== (b.dataset.v === 'in')) o.swing = -(o.swing || 1); }
   if (a === 'dhinge') { const di = doorInfo(o); if (di.left !== (b.dataset.v === 'l')) { [o.x1, o.x2] = [o.x2, o.x1]; [o.y1, o.y2] = [o.y2, o.y1]; o.swing = -(o.swing || 1); } }
   if (a === 'pose') o.pose = b.dataset.v;
@@ -2786,14 +3115,32 @@ function colorEdited(o, t) {
   renderPlanSoon(); save();
 }
 let editCk = null;
-$('inspector').addEventListener('focusin', () => { editCk = JSON.stringify(S.project); });
+// свой цвет: значок запоминается вместе с объектом, для которого открыта палитра, и применяется к нему,
+// даже если палитру закрыли щелчком по другому объекту (выделение сменилось раньше, чем пришло change)
+const CUSTOM_COL = ['inWCol', 'inFCol', 'inHCol'];
+let colorPending = null;
+function commitColor() {
+  const p = colorPending; colorPending = null; if (!p) return false; const o = byId(p.oid); if (!o) return false;
+  const cur = p.id === 'inWCol' ? o.wcol : p.id === 'inFCol' ? o.fc : o.hcol; if (cur === p.v) return false;
+  checkpoint(); if (p.id === 'inWCol') o.wcol = p.v; else if (p.id === 'inFCol') o.fc = p.v; else o.hcol = p.v;
+  save(); return true;
+}
+$('inspector').addEventListener('change', (e) => {
+  const t = e.target; if (!CUSTOM_COL.includes(t.id)) return;
+  if (!colorPending && t.value.toLowerCase() === t.defaultValue.toLowerCase()) return;   // цвет не меняли
+  colorPending = { oid: (colorPending && colorPending.oid) || S.sel, id: t.id, v: t.value.toUpperCase() };
+  if (commitColor()) renderAll(true);
+});
+$('inspector').addEventListener('focusin', (e) => { editCk = JSON.stringify(S.project); if (CUSTOM_COL.includes(e.target.id)) colorPending = null; });
 $('inspector').addEventListener('input', (e) => {
+  if (CUSTOM_COL.includes(e.target.id)) { colorPending = { oid: (colorPending && colorPending.oid) || S.sel, id: e.target.id, v: e.target.value.toUpperCase() }; return; }   // свой цвет — применяется по change или при смене выделения
   const o = byId(S.sel); if (!o) return; const t = e.target; const num = parseFloat(t.value);
   if (editCk) { S.history.push(editCk); S.future = []; editCk = null; }
   const ok = !isNaN(num);
   switch (t.id) {
     case 'inName': o.name = t.value; if (o.type === 'camera') { const m = t.value.match(/\b([A-ZА-Я0-9]{1,2})$/); if (m) o.letter = m[1]; } break;
     case 'inLens': o.lens = +t.value; break;
+    case 'inWFin': o.fin = t.value; delete o.wcol; renderInspector(); break;   // новая отделка — со своим цветом по умолчанию
     case 'inAspect': o.aspect = t.value; break;
     case 'inH': if (ok) o.h = Math.max(0, num); break;
     case 'inTilt': if (ok) o.tilt = Math.max(-60, Math.min(60, num)); break;
@@ -2822,6 +3169,7 @@ $('inspector').addEventListener('input', (e) => {
   renderPlan(); renderSide(); save();
 });
 function duplicate(o) {
+  if (o.type === 'floor') return;
   checkpoint(); const c = JSON.parse(JSON.stringify(o)); c.id = uid();
   if (c.x1 !== undefined) { c.x1 += 0.5; c.x2 += 0.5; c.y1 += 0.5; c.y2 += 0.5; } else if (c.type === 'stroke') c.pts = c.pts.map(p => [p[0] + 0.5, p[1] + 0.5]); else { c.x += 0.5; c.y += 0.5; }
   if (c.type === 'camera') { c.letter = nextLetter(); c.cap = c.letter; c.name = 'Камера ' + c.letter; }
@@ -2854,10 +3202,10 @@ function renderSide() {
     const items = objs().filter(o => t === 'room' ? (o.x1 !== undefined) : o.type === t);
     if (!items.length) return '';
     return `<div class="grp"><h3>${title} · ${items.length}</h3>${items.map(o => {
-      const c = t === 'hero' ? `var(--${HERO_COLORS[o.color || 0]})` : col;
+      const c = t === 'hero' ? heroCss(o) : col;
       const sub = o.type === 'camera' ? `${o.sensor === 'FF' ? 'Full Frame' : 'S35'} · ${o.lens} мм` : o.type === 'light' ? `${(LIGHTS[o.kind] || {}).name || ''}` : o.type === 'prop' ? `${fx(o.w, 2)} × ${fx(o.d, 2)} м` : o.x1 !== undefined ? `${fx(segOf(o).len, 2)} м` : o.type === 'hero' ? (o.pose === 'sit' ? 'сидит' : 'стоит') : '';
       const nm = o.type === 'camera' ? camName(o) : o.x1 !== undefined ? ROOM[o.type].name : o.type === 'note' ? (o.text || 'Заметка') : (o.name || (o.type === 'hero' ? 'Без имени' : ''));
-      return `<button class="li" data-pick="${o.id}" aria-current="${o.id === S.sel}"><span class="dot" style="background:${c}"></span><span>${esc(nm)}<small>${esc(sub)}</small></span></button>`;
+      return `<button class="li" data-pick="${o.id}" aria-current="${o.id === S.sel}"><span class="dot" style="background:${c}${o.hcol ? ';box-shadow:inset 0 0 0 1px rgba(128,128,128,.6)' : ''}"></span><span>${esc(nm)}<small>${esc(sub)}</small></span></button>`;
     }).join('')}</div>`;
   }).join('');
 }
@@ -2872,7 +3220,7 @@ function renderMenus() {
   if (S.pop === 'menu' || S.pop === 'menu-exp') {
     h += `<div class="menu" role="menu" style="left:78px;top:10px;min-width:220px">
       <button class="mi" role="menuitem" data-m="new">Новый проект</button>
-      <button class="mi" role="menuitem" data-m="savefile">Сохранить</button>
+      <button class="mi" role="menuitem" data-m="savefile">Сохранить как…</button>
       <button class="mi" role="menuitem" data-m="open">Открыть…</button>
       <button class="mi" role="menuitem" data-m="projects">Мои проекты…</button>
       <button class="mi" role="menuitem" data-sub="menu-exp" aria-haspopup="menu" aria-expanded="${S.pop === 'menu-exp'}">Экспорт PNG${CHEV}</button>
@@ -2979,18 +3327,26 @@ function revealSel(n) {
   requestAnimationFrame(step);
 }
 // герой, поставленный на стул/кресло/диван, садится на него лицом вперёд; иначе — стоит
-function seatHero(o) {
-  if (o.type !== 'hero') return;
-  const seat = objs().find(p => {
-    if (p.type !== 'prop' || !['chair', 'armchair', 'sofa', 'ochair', 'bed'].includes(p.kind)) return false;
+const SEAT_KINDS = ['chair', 'armchair', 'sofa', 'ochair', 'bed'];
+function heroSeat(o) {   // сиденье под героем (стул, кресло, диван…), если он стоит на нём
+  return objs().find(p => {
+    if (p.type !== 'prop' || !SEAT_KINDS.includes(p.kind)) return false;
     const a = (p.rot || 0) * RAD, dx = o.x - p.x, dy = o.y - p.y, lx = dx * Math.cos(a) + dy * Math.sin(a), ly = -dx * Math.sin(a) + dy * Math.cos(a);
-    return Math.abs(lx) <= p.w / 2 && Math.abs(ly) <= p.d / 2;
+    return Math.abs(lx) <= p.w / 2 + 0.02 && Math.abs(ly) <= p.d / 2 + 0.02;
   });
-  if (!seat) { o.pose = 'stand'; return; }
+}
+// передний край сиденья от центра предмета (м): колени героя должны выходить за него, иначе голени уходят в мебель
+const seatFront = (s) => s.kind === 'chair' ? s.d * 0.48 : s.kind === 'armchair' || s.kind === 'sofa' ? s.d / 2 - 0.03 : s.d / 2;
+function seatHero(o, keep) {
+  if (o.type !== 'hero') return;
+  const seat = heroSeat(o);
+  if (!seat) { if (!keep) o.pose = 'stand'; return; }
   const a = (seat.rot || 0) * RAD, dx = o.x - seat.x, dy = o.y - seat.y;
   let lx = seat.kind === 'sofa' ? dx * Math.cos(a) + dy * Math.sin(a) : 0;   // на диване — где поставили вдоль, на стуле/кресле — по центру
   const half = Math.max(0, seat.w / 2 - 0.3); lx = Math.max(-half, Math.min(half, lx));
-  o.x = seat.x + lx * Math.cos(a); o.y = seat.y + lx * Math.sin(a);
+  const ly = Math.max(0, seatFront(seat) + 0.1 - 0.44);   // глубокое сиденье: таз сдвигается вперёд, чтобы колени были у края
+  const [fx, fy] = dirOf((seat.rot || 0) + 180);   // направление «вперёд» сиденья
+  o.x = seat.x + lx * Math.cos(a) + fx * ly; o.y = seat.y + lx * Math.sin(a) + fy * ly;
   o.pose = 'sit'; o.rot = ((seat.rot || 0) + 180) % 360;
 }
 function endPlacing(ok) {
@@ -3044,7 +3400,7 @@ function projectsDialog() {
   if (S.pid) projWrite(S.pid, S.project);
   const fmt = (ts) => new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const rows = () => projIndex().map(x => `<div class="prow${x.id === S.pid ? ' cur' : ''}"${x.id === S.pid ? '' : ` data-open="${x.id}" role="button" tabindex="0" title="Открыть проект"`}><div class="pinfo"><b>${esc(x.name)}</b><small>${fmt(x.updated)} · объектов: ${x.count}${x.id === S.pid ? ' · открыт' : ''}</small></div><button class="btn ghost" data-del="${x.id}" aria-label="Удалить ${esc(x.name)}">Удалить</button></div>`).join('');
-  dialog(`<h2>Мои проекты</h2><p>Проекты хранятся в этом браузере и сохраняются автоматически. Чтобы передать проект или не потерять его при очистке браузера, сохраняйте файл: Меню → «Сохранить».</p><div class="plist">${rows()}</div><div class="acts"><button class="btn" data-close>Закрыть</button><button class="btn primary" id="pNew">Новый проект</button></div>`, (d, close) => {
+  dialog(`<h2>Мои проекты</h2><p>Проекты хранятся в этом браузере и сохраняются автоматически. Чтобы передать проект или не потерять его при очистке браузера, сохраняйте файл: Меню → «Сохранить как…».</p><div class="plist">${rows()}</div><div class="acts"><button class="btn" data-close>Закрыть</button><button class="btn primary" id="pNew">Новый проект</button></div>`, (d, close) => {
     d.querySelector('#pNew').onclick = () => { close(); menuAction('new'); };
     d.querySelector('.plist').addEventListener('keydown', (e) => { const o = e.target.closest('[data-open]'); if (o && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); o.click(); } });
     d.querySelector('.plist').addEventListener('click', (e) => {
@@ -3125,7 +3481,7 @@ plan.addEventListener('lostpointercapture', (e) => { if (e.pointerType === 'touc
 // ---------- линейка ----------
 function rulerSnap(w, free) {
   if (free) return w; let best = null, bd = 14 / S.vp.s;   // притяжение к объектам и концам стен (14 px)
-  objs().forEach(o => { (o.x1 !== undefined ? [[o.x1, o.y1], [o.x2, o.y2]] : o.type === 'stroke' || o.type === 'note' ? [] : [[o.x, o.y]]).forEach(q => { const d = Math.hypot(q[0] - w[0], q[1] - w[1]); if (d < bd) { bd = d; best = q; } }); });
+  objs().forEach(o => { (o.x1 !== undefined ? [[o.x1, o.y1], [o.x2, o.y2]] : o.type === 'stroke' || o.type === 'note' || o.type === 'floor' ? [] : [[o.x, o.y]]).forEach(q => { const d = Math.hypot(q[0] - w[0], q[1] - w[1]); if (d < bd) { bd = d; best = q; } }); });
   return best ? [best[0], best[1]] : [snap(w[0]), snap(w[1])];
 }
 function setRuler(on) { S.ruler = on ? { a: null, b: null } : null; $('rulerBtn').setAttribute('aria-pressed', !!on); plan.classList.toggle('placing', !!on); if (on && S.draw) $('drawBtn').click(); renderPlan(); }
@@ -3181,7 +3537,11 @@ plan.addEventListener('pointerdown', (e) => {
   const hd = e.target.closest('[data-handle]');
   if (hd) { const o = byId(S.sel); const md = hd.dataset.handle; drag = { mode: md, id: o.id, ck: JSON.stringify(S.project), moved: false, sx: +(hd.dataset.sx || 0), sy: +(hd.dataset.sy || 0), orig: JSON.parse(JSON.stringify(o)), links: md === 'p1' || md === 'p2' ? wallLinks(o, md.slice(1)) : [] }; if (o.type === 'wall') drag.ops = attachedOpenings([o.id, ...drag.links.map(l => l.id)]); if ((o.type === 'window' || o.type === 'door') && md !== 'rot') drag.host = hostWall(o); return; }
   if (S.draw) { const st = { id: uid(), type: 'stroke', pts: [[w[0], w[1]]] }; drag = { mode: 'draw', ck: JSON.stringify(S.project), st, moved: false }; objs().push(st); return; }
-  const g = e.target.closest('[data-id]');
+  let g = e.target.closest('[data-id]');
+  const add0 = e.shiftKey || e.ctrlKey || e.metaKey;
+  if (g && add0 && (byId(g.dataset.id) || {}).type === 'floor') g = null;   // Shift/Ctrl+протяжка внутри комнаты — по-прежнему рамка выделения
+  const fl = !g && !add0 && e.target.closest('[data-floor]');
+  if (fl) { const [fx, fy] = fl.dataset.floor.split(',').map(Number), fo = { id: uid(), type: 'floor', x: fx, y: fy }; objs().push(fo); g = { dataset: { id: fo.id } }; }   // первый щелчок по комнате заводит её «Пол»
   const add = e.shiftKey || e.ctrlKey || e.metaKey;
   if (g) {
     const o = byId(g.dataset.id);
@@ -3191,7 +3551,7 @@ plan.addEventListener('pointerdown', (e) => {
     // палец: невыбранный объект не двигаем — протяжка двигает всю схему, касание без движения выбирает объект;
     // перетаскивать можно только уже выбранный объект
     const touchPan = e.pointerType === 'touch' && S.sel !== o.id && !S.multi.has(o.id);
-    if (o.locked || touchPan) {   // закреплённый: только выбрать, протяжка двигает схему
+    if (o.locked || touchPan || o.type === 'floor') {   // пол не двигается: протяжка двигает схему, щелчок выделяет   // закреплённый: только выбрать, протяжка двигает схему
       drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, ox: S.vp.ox, oy: S.vp.oy, moved: false, pick: o.id }; return;
     }
     if (S.multi.has(o.id)) {   // тянем группу (закреплённые остаются на месте)
@@ -3212,7 +3572,7 @@ plan.addEventListener('pointermove', (e) => {
   if (drag.mode === 'box') {
     drag.moved = true; S.box = [drag.a, pp]; const [a, b] = [S2W(drag.a[0], drag.a[1]), w];
     const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
-    const inBox = objs().filter(o => { const [ax, ay] = anchorOf(o); return ax >= x0 && ax <= x1 && ay >= y0 && ay <= y1; }).map(o => o.id);
+    const inBox = objs().filter(o => { if (o.type === 'floor') return false; const [ax, ay] = anchorOf(o); return ax >= x0 && ax <= x1 && ay >= y0 && ay <= y1; }).map(o => o.id);
     setSel([...drag.base, ...inBox]); renderAll(true); return;
   }
   if (drag.mode === 'gmove') {
@@ -3272,6 +3632,7 @@ function endDrag() {
   if (drag.mode === 'draw') { if (drag.st.pts.length < 2) S.project.objects = objs().filter(o => o !== drag.st); else { S.history.push(drag.ck); S.future = []; save(); } drag = null; renderAll(true); return; }
   if (drag.mode === 'lbl' && !drag.moved) S.sel = drag.id;
   const wasPick = drag.mode === 'move' || drag.mode === 'lbl';
+  if (drag.moved && drag.mode === 'move') { const ho = byId(drag.id); if (ho && ho.type === 'hero') { const was = heroSeat(Object.assign({}, ho, drag.orig)); if (heroSeat(ho)) seatHero(ho); else if (was && ho.pose === 'sit') ho.pose = 'stand'; } }   // герой «примагничивается» к стулу/креслу/дивану; сняли с сиденья — встаёт
   if (drag.moved) { S.history.push(drag.ck); S.future = []; save(); }
   drag = null; renderAll(true); if (wasPick) setTimeout(() => revealSel(), 60);
 }
@@ -3434,10 +3795,10 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === 'Delete' || e.key === 'Backspace') && selIds().length && S.view === 'plan') { e.preventDefault(); checkpoint(); const del = new Set(selIds()); S.project.objects = objs().filter(o => !del.has(o.id)); setSel([]); renderAll(true); save(); return; }
   // клавиатура на схеме: Tab — следующий объект, стрелки — сдвиг выделенного
   if (S.view === 'plan' && e.key === 'Tab' && document.activeElement === plan && !mod) {
-    e.preventDefault(); const L = objs().filter(o => o.type !== 'stroke'); if (!L.length) return;
+    e.preventDefault(); const L = objs().filter(o => o.type !== 'stroke' && o.type !== 'floor'); if (!L.length) return;
     const i = L.findIndex(o => o.id === S.sel); const n = L[(i + (e.shiftKey ? -1 : 1) + L.length) % L.length]; setSel([n.id]); renderAll(true); revealSel(); return;
   }
-  if (S.view === 'plan' && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) && selIds().length && !mod) {
+  if (S.view === 'plan' && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) && selIds().length && !mod && (byId(S.sel) || {}).type !== 'floor') {
     e.preventDefault(); const st = e.shiftKey ? 0.5 : 0.05, dx = e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, dy = e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0;
     checkpoint(); selIds().forEach(id => { const o = byId(id); if (o && !o.locked) moveObj(o, JSON.parse(JSON.stringify(o)), dx, dy); }); renderAll(true); save(); return;
   }
@@ -3512,7 +3873,7 @@ function renderMini(c) {
     if (o.type === 'camera') h += `<polygon points="${wedge(o.x, o.y, o.rot, hfov(o) / RAD / 2, 5)}" fill="var(--cam)" fill-opacity="${o.id === c.id ? 0.3 : 0.06}"/>`;
   });
   objs().forEach(o => {
-    if (o.type === 'hero') h += `<circle cx="${o.x}" cy="${o.y}" r=".2" fill="var(--${HERO_COLORS[o.color || 0]})"/>`;
+    if (o.type === 'hero') h += `<circle cx="${o.x}" cy="${o.y}" r=".2" fill="${heroCss(o)}"/>`;
     if (o.type === 'light') h += `<circle cx="${o.x}" cy="${o.y}" r=".11" fill="var(--light)"/>`;
     if (o.type === 'camera') h += `<circle cx="${o.x}" cy="${o.y}" r=".24" fill="var(--cam)" ${o.id === c.id ? 'stroke="var(--fg)" stroke-width=".05"' : ''}/><text x="${o.x}" y="${o.y + 0.09}" text-anchor="middle" style="font:600 .26px var(--font-ui);fill:var(--ink)">${esc(o.letter || '')}</text>`;
   });
