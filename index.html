@@ -61,7 +61,7 @@ button { cursor: pointer; }
 .pfield { display: flex; align-items: center; gap: 4px; padding-right: 8px; border: 1px solid transparent; border-radius: 6px; color: var(--muted); transition: border-color .15s, background .15s; }
 .pfield:hover { border-color: var(--line2); background: var(--raised); }
 .pfield:focus-within { border-color: var(--accent); background: var(--raised); }
-.pname { border: none; background: transparent; padding: 3px 0 3px 7px; font-weight: 600; width: 14ch; min-width: 0; outline: none; color: var(--fg); }
+.pname { border: none; background: transparent; padding: 3px 0 3px 7px; font-weight: 600; width: 14ch; min-width: 0; outline: none; color: var(--fg); text-overflow: ellipsis; }
 .tabs { display: flex; gap: 4px; margin-left: auto; }
 .tab { border: none; background: transparent; color: var(--muted); padding: 8px 12px; border-radius: 6px; white-space: nowrap; }
 .tab[aria-selected="true"] { background: var(--active); color: var(--fg); font-weight: 500; }
@@ -120,6 +120,7 @@ button { cursor: pointer; }
 .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .bar h1 { margin: 0; font-size: 16px; font-weight: 600; text-wrap: balance; }
 .hint { font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+.h-touch { display: none; }
 .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
 /* панели поверх схемы */
 .ovl { position: absolute; z-index: 5; display: flex; align-items: center; gap: 8px; pointer-events: none; }
@@ -281,15 +282,27 @@ button { cursor: pointer; }
   .top { flex-wrap: nowrap; gap: 8px; padding-block: 6px; }
   .brand span, .plab, .psep { display: none; }
   .pfield svg { display: none; }
+  .pwrap { min-width: 0; flex: 1 1 auto; } .pfield { min-width: 0; } .pname { max-width: 100%; }   /* длинное название — с многоточием */
+  /* «Камеры»: кадр сразу под лентой камер, а не по центру пустого места; наложения компактнее */
+  #camView .stage { place-items: start center; }
+  #camView .frame .ovl-tr { top: 6px; right: 6px; left: auto; } #camView .frame .pill { height: 26px; padding: 0 8px; font-size: 11px; }
   .tabs { margin-left: auto; gap: 0; } .tab { padding: 6px 8px; font-size: 13px; }
   #themeBtn { display: none; }
   #exportBtn { padding: 0 10px; font-size: 0; } #exportBtn::after { content: 'PNG'; font-size: 13px; }
   .body { flex-direction: column-reverse; }
   .tools { flex-direction: row; justify-content: space-around; padding: 4px 4px max(4px, env(safe-area-inset-bottom, 0px)); border-right: none; border-top: 1px solid var(--line); }
   .tools .sep { display: none; } .tools .tool.list { margin-top: 0; }
+  #helpBtn { display: none; }   /* подсказки по клавишам на телефоне не нужны */
+  .h-desk, .h-touch { display: none; }   /* на телефоне подсказку под 3D-видом не показываем */
   .tool { width: 52px; height: 48px; }
   #menus .menu { left: 8px !important; top: auto !important; bottom: 64px; position: fixed; max-width: calc(100vw - 16px); }
   #menus .menu .sub { position: fixed; left: 8px !important; bottom: 64px; top: auto !important; }
+  /* подменю открывается вместо главного, а не поверх его нижних пунктов */
+  #menus .menu:has(> .menu.sub) { background: transparent; border-color: transparent; box-shadow: none; pointer-events: none; }
+  #menus .menu:has(> .menu.sub) > :not(.menu) { visibility: hidden; }
+  #menus .menu > .menu.sub { pointer-events: auto; }
+  #insCanvas { width: auto; max-width: 100%; max-height: 22vh; margin: 0 auto; }
+  .pwrap .pname { font-size: 14px; }
   .inspector { top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; max-height: 52%; }
   .ovl-tr { left: 8px; right: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .ovl .pills { flex-wrap: nowrap; } .ovl .pill { padding: 0 9px; }
@@ -363,7 +376,7 @@ button { cursor: pointer; }
         <div class="loadbadge" id="v3busy" hidden style="left:50%;top:50%;transform:translate(-50%,-50%)"><span class="spin"></span>Подгружаются текстуры и свет…</div>
         <div class="planempty" id="v3Empty" hidden><p class="t">Сцена пуста</p><p>Расставьте стены, героев, свет и камеры на «Схеме» — здесь они появятся в 3D.</p><button class="btn primary" id="v3ToPlan">Перейти к схеме</button></div>
         <div class="ovl ovl-tr"><div class="pills" role="group" aria-label="Слои 3D"><button class="pill" id="v3Lit" aria-pressed="true">Освещение</button></div></div>
-        <div class="ovl ovl-bl"><span class="hint">Вращение — перетаскивание · Сдвиг — правая кнопка или Shift · Масштаб — колесо</span></div>
+        <div class="ovl ovl-bl"><span class="hint h-desk">Вращение — перетаскивание · Сдвиг — правая кнопка или Shift · Масштаб — колесо</span><span class="hint h-touch">Вращение — один палец · Масштаб и сдвиг — два пальца</span></div>
       </div>
     </section>
 
@@ -2404,14 +2417,33 @@ function ensureV3() {
     catch (e) { T3.failed = true; return false; }
     const cv = V3.r.domElement; cv.className = 'v3cv'; cv.setAttribute('aria-label', '3D-вид площадки'); wrap.appendChild(cv);
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
-    cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); V3.drag = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey }; cv.classList.add('grab'); });
+    // сенсорный экран: один палец — вращение, два пальца — щипок (масштаб) и сдвиг
+    const T = new Map(); let pinch = null;
+    const two = () => { const [a, b] = [...T.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 }; };
+    cv.addEventListener('pointerdown', (e) => {
+      cv.setPointerCapture(e.pointerId);
+      if (e.pointerType === 'touch') { T.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (T.size === 2) { V3.drag = null; pinch = Object.assign(two(), { dist: V3.dist }); return; } if (T.size > 2) return; }
+      V3.drag = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey }; cv.classList.add('grab');
+    });
     cv.addEventListener('pointermove', (e) => {
+      if (e.pointerType === 'touch' && T.has(e.pointerId)) {
+        T.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pinch && T.size === 2) {
+          const c = two(); V3.dist = Math.max(1.2, Math.min(40, pinch.dist * pinch.d / c.d));
+          const dx = c.x - pinch.x, dy = c.y - pinch.y, k = V3.dist * 0.0016, sa = Math.sin(V3.az), ca = Math.cos(V3.az);
+          V3.tgt.x += (-sa * dx - ca * dy) * k; V3.tgt.z += (ca * dx - sa * dy) * k; pinch.x = c.x; pinch.y = c.y;
+          V3.wheelT = performance.now(); V3.dirty = true; return;
+        }
+      }
       const d = V3.drag; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; d.x = e.clientX; d.y = e.clientY;
       if (d.pan) { const k = V3.dist * 0.0016, sa = Math.sin(V3.az), ca = Math.cos(V3.az); V3.tgt.x += (-sa * dx - ca * dy) * k; V3.tgt.z += (ca * dx - sa * dy) * k; }
       else { V3.az += dx * 0.006; V3.el = Math.max(0.05, Math.min(1.5, V3.el + dy * 0.006)); }
       V3.dirty = true;
     });
-    const up = () => { V3.drag = null; cv.classList.remove('grab'); V3.dirty = true; };   // после вращения — кадр в полном разрешении
+    const up = (e) => {
+      if (e && e.pointerType === 'touch') { T.delete(e.pointerId); if (pinch) { if (T.size < 2) pinch = null; if (T.size === 1) { const [p] = [...T.values()]; V3.drag = { x: p.x, y: p.y, pan: false }; } else V3.drag = null; V3.dirty = true; return; } }
+      V3.drag = null; cv.classList.remove('grab'); V3.dirty = true;   // после вращения — кадр в полном разрешении
+    };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
     cv.addEventListener('wheel', (e) => { e.preventDefault(); V3.wheelT = performance.now(); clearTimeout(V3.wheelTO); V3.wheelTO = setTimeout(() => { V3.dirty = true; }, 260); V3.dist = Math.max(1.2, Math.min(40, V3.dist * Math.exp(e.deltaY * 0.001))); V3.dirty = true; }, { passive: false });
   }
@@ -2690,7 +2722,7 @@ $('menus').addEventListener('click', (e) => {
 });
 function addObject(type, v) {
   if (S.wallDraw) endWallDraw(); if (S.placing) endPlacing(false);
-  if (type === 'wall') { S.pop = null; if (S.view !== 'plan') setView('plan'); S.sel = null; S.wallDraw = { pts: [], cur: null }; plan.classList.add('placing'); renderAll(true); toast('Кликами задайте точки стен · Esc или двойной клик — завершить'); return; }
+  if (type === 'wall') { S.pop = null; if (S.view !== 'plan') setView('plan'); S.sel = null; S.wallDraw = { pts: [], cur: null }; plan.classList.add('placing'); renderAll(true); toast(matchMedia('(pointer: coarse)').matches ? 'Касаниями задайте углы стен · нажмите на первую точку, чтобы замкнуть' : 'Кликами задайте точки стен · Esc или двойной клик — завершить'); return; }
   checkpoint(); S.pop = null;
   const r = plan.getBoundingClientRect(); let [cx, cy] = S2W(r.width / 2, r.height / 2); cx = snap(cx); cy = snap(cy);
   let o;
@@ -3033,9 +3065,12 @@ function fit() {
   let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
   objs().forEach(o => { const pts = o.x1 !== undefined ? [[o.x1, o.y1], [o.x2, o.y2]] : o.type === 'stroke' ? o.pts : [[o.x, o.y]]; pts.forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }); });
   if (minx > maxx) { minx = 0; miny = 0; maxx = 8; maxy = 5; }
-  minx -= 0.8; miny -= 0.8; maxx += 0.8; maxy += 0.8;
-  const s = Math.max(20, Math.min(300, Math.min(r.width / (maxx - minx), r.height / (maxy - miny))));
-  S.vp.s = s; S.vp.ox = (r.width - (maxx - minx) * s) / 2 - minx * s; S.vp.oy = (r.height - (maxy - miny) * s) / 2 - miny * s; S.fitted = true;
+  minx -= 0.6; miny -= 0.6; maxx += 0.6; maxy += 0.6;
+  // поля в пикселях под подписи по краям и сверху — под плавающие кнопки слоёв/масштаба (на телефоне они в две строки)
+  const ov = plan.parentElement && plan.parentElement.querySelector('.ovl-tr'), top = ov ? Math.max(0, ov.getBoundingClientRect().bottom - r.top) : 0;
+  const mx = r.width < 700 ? 34 : 24, mt = Math.max(mx, top + 6), mb = r.width < 700 ? 30 : 24, W = r.width - 2 * mx, H = r.height - mt - mb;
+  const s = Math.max(20, Math.min(300, Math.min(W / (maxx - minx), H / (maxy - miny))));
+  S.vp.s = s; S.vp.ox = mx + (W - (maxx - minx) * s) / 2 - minx * s; S.vp.oy = mt + (H - (maxy - miny) * s) / 2 - miny * s; S.fitted = true;
 }
 $('zIn').onclick = () => { const r = plan.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, 1.2); };
 $('zOut').onclick = () => { const r = plan.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, 1 / 1.2); };
