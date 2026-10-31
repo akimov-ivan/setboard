@@ -184,6 +184,21 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 .inspector .fld input[type="number"]::-webkit-inner-spin-button, .inspector .fld input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .inspector .stp { width: 28px; height: 28px; flex: none; display: grid; place-items: center; padding: 0; border-radius: 6px; border: 1px solid var(--line2); background: var(--raised); color: var(--fg); }
 .inspector .stp:hover { border-color: var(--muted); } .inspector .stp:active { background: var(--active); }
+.cblock { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 2px; border-top: 1px solid var(--line); margin-top: 4px; }
+.cb-top { display: flex; align-items: center; justify-content: space-between; }
+.cswatch { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line2); box-shadow: inset 0 0 0 2px var(--panel); }
+.sld { display: flex; flex-direction: column; gap: 2px; }
+.sld-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
+.sld-v { display: flex; align-items: center; gap: 2px; color: var(--fg); font-family: var(--font-data); font-size: 12px; }
+.sld-v input { width: 6ch; text-align: right; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--fg); font: inherit; padding: 2px 4px; }
+.sld-v input::-webkit-outer-spin-button, .sld-v input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; } .sld-v input { -moz-appearance: textfield; }
+.sld-v input:focus { border-color: var(--accent); background: var(--raised); outline: none; }
+.sld input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; margin: 0; cursor: pointer; }
+.sld input[type="range"]::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: var(--trk, var(--line2)); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.sld input[type="range"]::-moz-range-track { height: 8px; border-radius: 4px; background: var(--trk, var(--line2)); }
+.sld input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -5px; border-radius: 50%; background: #fff; border: 2px solid var(--fg); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.sld input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--fg); }
+@media (pointer: coarse) { .sld input[type="range"] { height: 32px; } .sld input[type="range"]::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -8px; } }
 .inspector .fld .ro { font-family: var(--font-data); color: var(--fg); padding: 0 9px; }
 .inspector .note-ta { width: 100%; box-sizing: border-box; min-height: 88px; resize: vertical; padding: 8px; border-radius: 6px; border: none; background: var(--chip); color: var(--fg); font: 13px/1.4 var(--font-ui); }
 .inspector .seg { width: 100%; box-sizing: border-box; }
@@ -797,13 +812,13 @@ function renderPlan() {
       const L = LIGHTS[o.kind] || LIGHTS.fresnel; const on = isSel(o.id);
       if (o.kind === 'sun' && objs().some(w => w.type === 'window')) { beams += sunPlan(o, on); return; }
       const R = L.omni ? Math.min(L.len, 2.2) : Math.min(L.len, o.kind === 'sun' ? 4.5 : 2.8), id = 'lb' + o.id;
-      if (L.omni) { beams += grad(id, o.x, o.y, R, 'var(--light)', on ? 0.26 : 0.11) + `<circle cx="${o.x}" cy="${o.y}" r="${R}" fill="url(#${id})" pointer-events="none"/>`; }
+      if (L.omni) { beams += grad(id, o.x, o.y, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11) + `<circle cx="${o.x}" cy="${o.y}" r="${R}" fill="url(#${id})" pointer-events="none"/>`; }
       else {
         // луч начинается от передней (светящей) плоскости прибора и имеет её ширину — у софтбокса от рассеивающего полотна
         const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85, half = Math.min(L.half, 80);
         const [fx, fy] = dirOf(o.rot), cx = o.x + fx * fo, cy = o.y + fy * fo, [lx, ly] = dirOf(o.rot - 90), [ax, ay] = dirOf(o.rot - half), [bx, by] = dirOf(o.rot + half);
         const p1 = [cx + lx * hw, cy + ly * hw], p2 = [cx - lx * hw, cy - ly * hw];
-        beams += grad(id, cx, cy, R, 'var(--light)', on ? 0.26 : 0.11);
+        beams += grad(id, cx, cy, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11);
         beams += `<path d="M${p1[0]} ${p1[1]}L${p1[0] + ax * R} ${p1[1] + ay * R}A${R} ${R} 0 ${half > 90 ? 1 : 0} 1 ${p2[0] + bx * R} ${p2[1] + by * R}L${p2[0]} ${p2[1]}Z" fill="url(#${id})" pointer-events="none"/>`;
       }
     }
@@ -838,7 +853,7 @@ function renderPlan() {
       geo += `<g data-id="${o.id}" class="${g}" style="color:var(--prop)" transform="translate(${o.x} ${o.y}) rotate(${o.rot})"><rect x="${-hw / 2}" y="${-hd / 2}" width="${hw}" height="${hd}" fill="transparent"/><g class="glyph" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(${o.w / bb.w} ${o.d / bb.h}) translate(${-bb.x - bb.w / 2} ${-bb.y - bb.h / 2})">${propPaint(P.icon, o.kind === 'carpet')}</g></g>`;
     } else if (o.type === 'light') {
       const L = LIGHTS[o.kind] || LIGHTS.fresnel;
-      const lsz = lightSize(o.kind, o); geo += `<g data-id="${o.id}" class="${g}" style="color:var(--light)"><circle cx="${o.x}" cy="${o.y}" r="${Math.max(0.2, lsz * 0.35)}" fill="transparent"/>${glyph(lightIcon(o), o.x, o.y, ((L.omni && !L.rotIcon) || o.kind === 'sun' || L.prac) ? 0 : o.rot, lsz, 'var(--light)')}</g>`;
+      const lsz = lightSize(o.kind, o); geo += `<g data-id="${o.id}" class="${g}" style="color:${lightCss(o) || 'var(--light)'}"><circle cx="${o.x}" cy="${o.y}" r="${Math.max(0.2, lsz * 0.35)}" fill="transparent"/>${glyph(lightIcon(o), o.x, o.y, ((L.omni && !L.rotIcon) || o.kind === 'sun' || L.prac) ? 0 : o.rot, lsz, (lightCss(o) || 'var(--light)'))}</g>`;
     } else if (o.type === 'hero') {
       geo += `<g data-id="${o.id}" class="${g}" style="color:var(--${HERO_COLORS[o.color || 0]})"><ellipse cx="${o.x}" cy="${o.y}" rx=".18" ry=".14" transform="rotate(${o.rot} ${o.x} ${o.y})" fill="transparent"/>${glyph(HERO_ICON, o.x, o.y, o.rot, 0.46, `var(--${HERO_COLORS[o.color || 0]})`)}</g>`;
     } else if (o.type === 'camera') {
@@ -1150,6 +1165,33 @@ function kelvin3(k) {
   else { r = 329.7 * Math.pow(t - 60, -0.1332); g = 288.12 * Math.pow(t - 60, -0.0755); b = 255; }
   const q = (v) => Math.max(0, Math.min(255, v)) / 255;
   return new THREE.Color(q(r), q(g), q(b)).convertSRGBToLinear();
+}
+// цвет прибора: режим CCT (температура + поправка G/M) или HSI (тон + насыщенность); яркость — множитель 0…1
+const NO_COLOR = ['sun', 'reflector'];   // солнце и отражатель свой цвет не задают
+const lightKelvin = (o) => o.kelvin != null ? o.kelvin : ((LIGHTS[o.kind] || {}).cct || 5600);
+const lightPower = (o) => Math.max(0, Math.min(100, o.power != null ? o.power : 100)) / 100;
+function lightColor(o) {
+  if (o.mode === 'hsi') { const c = new THREE.Color().setHSL(((o.hue || 0) % 360) / 360, 1, 0.5), w = new THREE.Color(1, 1, 1), s = Math.max(0, Math.min(100, o.sat != null ? o.sat : 100)) / 100; return w.lerp(c, s).convertSRGBToLinear(); }
+  return kelvin3(lightKelvin(o));
+}
+// цвет для схемы (значок/луч): HSI — сам цвет; CCT — подкрашенный тёплый/холодный оттенок только вдали от 5600 K
+function lightCss(o) {
+  if (NO_COLOR.includes(o.kind)) return null;
+  if (o.mode === 'hsi') { const s = Math.max(0, Math.min(100, o.sat != null ? o.sat : 100)); return s < 15 ? null : `hsl(${Math.round(o.hue || 0)} ${Math.round(40 + s * 0.45)}% 48%)`; }
+  const k = lightKelvin(o); if (Math.abs(k - 5600) < 600 || (LIGHTS[o.kind] || {}).prac && k < 3300) return null;
+  return k < 5600 ? 'hsl(28 85% 48%)' : 'hsl(208 70% 50%)';
+}
+// смена цвета/яркости без пересборки сцены: меняем параметры уже созданных источников и светящихся поверхностей
+function t3lightUpdate(o, quiet) {
+  const ls = (T3.lightsOf || {})[o.id]; if (!ls) return false;
+  const col = lightColor(o), pw = lightPower(o);
+  ls.forEach(l => { l.color.copy(col); l.intensity = l.userData.base * pw; });
+  const g = T3.byId[o.id];
+  if (g) g.traverse(m => { const mm = m.material; if (!mm) return; (Array.isArray(mm) ? mm : [mm]).forEach(x => { if (x.userData && x.userData.own && x.emissive && x.userData.glow !== false) { x.emissive.copy(col); if (x.userData.ei != null) x.emissiveIntensity = x.userData.ei * (0.12 + 0.88 * pw); } }); });
+  if (quiet) return true;
+  clearTimeout(T3.expoT); T3.expoT = setTimeout(() => { const sc = T3.scene; if (sc && /\|true\|/.test(T3.key || '')) { sc.children.filter(l => l.isLight && l.userData && l.userData.bounce === true).forEach(l => { sc.remove(l); if (l.target) sc.remove(l.target); }); try { t3bounce(sc); } catch (e) { } }   /* отражённый свет — под новый цвет/яркость */
+    T3.expKey = ''; V3.dirty = true; if (S.view === 'cams') renderCams(); if (S.sel) positionPreview(); }, 350);   // экспозицию пересчитываем, когда закончили двигать ползунок
+  V3.dirty = true; return true;
 }
 function t3setup(r) {
   r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05;
@@ -1969,7 +2011,7 @@ function cobBody(head) {
   return { AY, z0, gry, dk };
 }
 function buildLight(sc, g, o, lit, shadowBudget) {
-  const L = LIGHTS[o.kind] || LIGHTS.fresnel; const I = 1; const col = kelvin3(L.cct || 5600); // приборы 5600 K, практикалы тёплые
+  const L = LIGHTS[o.kind] || LIGHTS.fresnel; const I = 1; const col = o.kind === 'sun' ? kelvin3(5600) : lightColor(o); // цвет — из режима CCT/HSI прибора
   const h = o.h || 2; const [dx, dy] = dirOf(o.rot || 0); const hq = T3.quality === 'high';
   const emi = ownMat({ color: col, emissive: col, emissiveIntensity: lit ? 0.5 + 1.6 * I : 0.2, roughness: 0.6, side: THREE.DoubleSide });
   const black = mat('fixture', '#24262B', { roughness: 0.5, metalness: 0.4 }), steel = mat('steel', '#8A8F96', { roughness: 0.3, metalness: 0.8 });
@@ -2222,7 +2264,7 @@ function shadowPicks(n, hq) {
 }
 const shadowOK = (o, budget) => budget.n > 0 && (!T3.shadowIds || T3.shadowIds.has(o.id));
 // подписи, закрепление, формат кадра и т. п. на 3D-сцену не влияют — их правка не должна пересобирать сцену
-const NON3D_KEYS = new Set(['name', 'cap', 'showLbl', 'lbl', 'locked', 'aspect', 'sensor', 'letter', 'desc', 'text']);
+const NON3D_KEYS = new Set(['name', 'cap', 'showLbl', 'lbl', 'locked', 'aspect', 'sensor', 'letter', 'desc', 'text', 'mode', 'kelvin', 'gm', 'hue', 'sat', 'power', 'cct']);   // цвет/яркость прибора меняются на месте
 function sceneKeyFilter(k, v) { return NON3D_KEYS.has(k) && !(k === 'name' && this && this.kind === 'wardrobe') ? undefined : v; }   // имя шкафа решает «холодильник»
 // экспозиция зависит только от света и обстановки: правка камер (положение, объектив, наклон) её не пересчитывает
 // ключи сцены (для кэша 3D) пересчитываются только когда проект менялся (S.rev), а не на каждый кадр вращения 3D-вида
@@ -2246,7 +2288,7 @@ function t3build(lit) {
   if (T3.scene && T3.key && T3.keyNC === keyNC && objs().some(o => o.type === 'wall')) {   // T3.key = '' — принудительная полная сборка (догрузились модели/текстуры)
     try { if (t3partial(T3.scene, lit, K)) T3.ver = (T3.ver || 0) + 1; T3.key = key; return T3.scene; }   /* тени — только если менялись не одни камеры */ catch (e) { console.error('partial update', e); } }
   if (T3.scene) t3dispose(T3.scene);
-  const sc = new THREE.Scene(); sc.background = c3('#151413'); T3.byId = {}; T3.cut = []; T3.corr = [];
+  const sc = new THREE.Scene(); sc.background = c3('#151413'); T3.byId = {}; T3.cut = []; T3.corr = []; T3.lightsOf = {};
   const b = t3bounds(); const cx = (b.minx + b.maxx) / 2, cz = (b.miny + b.maxy) / 2; T3.center = V(cx, 1, cz);
   const pad = b.walls ? 0.1 : 8; const fw = b.maxx - b.minx + pad * 2, fd = b.maxy - b.miny + pad * 2;
   const ftex = floorTex().clone(); ftex.needsUpdate = true; ftex.repeat.set(fw / 2, fd / 2);
@@ -2272,7 +2314,13 @@ function t3obj(sc, o, lit, budget) {
     if (o.type === 'prop') { if (ON_TABLE.includes(o.kind) && !o.wall) g.position.y = supportTop(o); buildProp(g, o); }
     else if (o.type === 'hero') buildHero(g, o);
     else if (o.type === 'camera') { g.userData.cam = true; buildCamera(g, o); }
-    else if (o.type === 'light') buildLight(sc, g, o, lit, budget);
+    else if (o.type === 'light') {
+      const n0 = sc.children.length; buildLight(sc, g, o, lit, budget);
+      const ls = sc.children.slice(n0).filter(l => l.isLight); ls.forEach(l => { l.userData.base = l.intensity; l.userData.oid = o.id; });
+      if (!T3.lightsOf) T3.lightsOf = {}; T3.lightsOf[o.id] = ls;
+      g.traverse(m => { const mm = m.material; if (mm) (Array.isArray(mm) ? mm : [mm]).forEach(x => { if (x.userData && x.userData.own && x.emissive && x.userData.ei == null) x.userData.ei = x.emissiveIntensity; }); });
+      if (!NO_COLOR.includes(o.kind)) t3lightUpdate(o, true);
+    }
   } catch (e) { console.error('3D object', o.type, o.kind, e); }
 }
 function t3drop(sc, id) {
@@ -2554,6 +2602,25 @@ function capBlock(o) {
   const val = o.type === 'camera' ? capOf(o) : (o.name || ''), ph = o.type === 'camera' ? (o.letter || 'Подпись') : o.type === 'hero' ? 'Имя героя' : 'Подпись';
   return `<div class="capb"><span class="lab">Подпись</span><textarea id="inCap" rows="${Math.max(1, val.split('\n').length)}" aria-label="Подпись" placeholder="${esc(ph)}">${esc(val)}</textarea><label class="chk"><input type="checkbox" id="inShow" ${lblShown(o) ? 'checked' : ''}> Показать подпись</label><label class="chk"><input type="checkbox" id="inLock" ${o.locked ? 'checked' : ''}> Закрепить</label></div>`;
 }
+// блок цвета прибора: CCT / HSI и яркость — ползунок + поле с числом
+function slider(id, label, min, max, step, val, unit, track) {
+  return `<div class="sld"><div class="sld-h"><span>${label}</span><span class="sld-v"><input type="number" class="nostp" id="${id}N" data-pair="${id}" min="${min}" max="${max}" step="${step}" value="${val}">${unit}</span></div>`
+    + `<input type="range" id="${id}" data-pair="${id}N" min="${min}" max="${max}" step="${step}" value="${val}" ${track ? `style="--trk:${track}"` : ''}></div>`;
+}
+function colorBlock(o) {
+  const hsi = o.mode === 'hsi';
+  let h = `<div class="cblock"><div class="cb-top"><span class="seg" role="group" aria-label="Режим цвета"><button data-act="lmode" data-v="cct" aria-pressed="${!hsi}">CCT</button><button data-act="lmode" data-v="hsi" aria-pressed="${hsi}">HSI</button></span><span class="cswatch" id="cSw" style="background:${lightSwatch(o)}"></span></div>`;
+  if (!hsi) {
+    h += slider('inK', 'Температура', 2000, 10000, 100, lightKelvin(o), ' K', 'linear-gradient(90deg,#ff8a2a,#ffd9a8,#fff4e8,#dbe8ff,#a9c6ff)');
+  } else {
+    h += slider('inHue', 'Тон', 0, 360, 1, Math.round(o.hue || 0), '°', 'linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)');
+    h += slider('inSat', 'Насыщенность', 0, 100, 1, o.sat != null ? o.sat : 100, ' %', `linear-gradient(90deg,#fff,hsl(${Math.round(o.hue || 0)} 100% 50%))`);
+  }
+  h += slider('inPw', 'Яркость', 0, 100, 1, Math.round(lightPower(o) * 100), ' %', 'linear-gradient(90deg,#333,#fff)');
+  return h + '</div>';
+}
+// цвет образца в панели: тот же цвет, что светит прибор (в sRGB для экрана)
+function lightSwatch(o) { if (!window.THREE) return '#fff'; const c = lightColor(o).clone().convertLinearToSRGB(); const m = Math.max(c.r, c.g, c.b, 1e-3); return '#' + new THREE.Color(c.r / m, c.g / m, c.b / m).getHexString(); }
 function field(label, inner) { return `<label class="fld"><span>${label}</span><span class="v">${inner}</span></label>`; }
 function renderInspector() {
   const el = $('inspector'); const o = S.sel && byId(S.sel);
@@ -2584,6 +2651,7 @@ function renderInspector() {
     if (!PRAC_FIXED.includes(o.kind) && o.kind !== 'astera' && o.kind !== 'sun') h += field('Высота', `<input type="number" id="inH" step="0.1" min="0" max="8" value="${o.h}"> м`);
     if (!SHADOW_KINDS_OFF.includes(o.kind)) { const hq = T3.quality === 'high', picks = shadowPicks(hq ? 7 : 3, hq);
       if (!picks.has(o.id)) h += `<span class="hint" style="font-family:var(--font-ui)">В 3D без тени: тени получают приборы, сильнее всего освещающие героев (не больше ${hq ? 7 : 3})</span>`; }
+    if (!NO_COLOR.includes(o.kind)) h += colorBlock(o);
     const L = LIGHTS[o.kind] || {}; if (!(L.omni || L.prac || o.kind === 'sun' || o.kind === 'astera')) h += `<label class="chk solo"><input type="checkbox" id="inStand" ${o.stand !== false ? 'checked' : ''}> C-stand</label>`;
   } else if (o.type === 'prop') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
@@ -2611,7 +2679,7 @@ function renderInspector() {
   h += `<button class="del" data-act="del" title="Delete">Удалить</button>`;
   el.innerHTML = h; el.hidden = false;
   // крупные кнопки −/+ вместо мелких стрелок браузера
-  el.querySelectorAll('input[type="number"]').forEach(inp => {
+  el.querySelectorAll('input[type="number"]:not(.nostp)').forEach(inp => {
     const mk = (d, txt, lab) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'stp'; b.dataset.step = d; b.setAttribute('aria-label', lab); b.innerHTML = txt; return b; };
     inp.before(mk(-1, '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>', 'Уменьшить'));
     inp.after(mk(1, '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6h7M6 2.5v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>', 'Увеличить'));
@@ -2636,10 +2704,19 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'dswing') { const di = doorInfo(o); if (di.inward !== (b.dataset.v === 'in')) o.swing = -(o.swing || 1); }
   if (a === 'dhinge') { const di = doorInfo(o); if (di.left !== (b.dataset.v === 'l')) { [o.x1, o.x2] = [o.x2, o.x1]; [o.y1, o.y2] = [o.y2, o.y1]; o.swing = -(o.swing || 1); } }
   if (a === 'pose') o.pose = b.dataset.v;
+  if (a === 'lmode') { o.mode = b.dataset.v; if (o.mode === 'hsi') { if (o.hue == null) o.hue = 200; if (o.sat == null) o.sat = 100; } if (window.THREE && T3.scene) t3lightUpdate(o); }
   if (a === 'horiz') { o.horiz = b.dataset.v === 'h'; o.h = asteraH(o); }
   if (a === 'sex') o.sex = b.dataset.v;
   renderAll(true); save();
 });
+// правка цвета/яркости: синхронизируем ползунок и число, обновляем 3D на месте, схему — один раз за кадр
+function colorEdited(o, t) {
+  const pair = t.dataset.pair && document.getElementById(t.dataset.pair); if (pair && document.activeElement !== pair) pair.value = t.value;
+  const sw = document.getElementById('cSw'); if (sw) sw.style.background = lightSwatch(o);
+  if (t.id.startsWith('inHue')) { const s = document.getElementById('inSat'); if (s) s.style.setProperty('--trk', `linear-gradient(90deg,#fff,hsl(${Math.round(o.hue || 0)} 100% 50%))`); }
+  if (window.THREE && T3.scene) t3lightUpdate(o);
+  renderPlanSoon(); save();
+}
 let editCk = null;
 $('inspector').addEventListener('focusin', () => { editCk = JSON.stringify(S.project); });
 $('inspector').addEventListener('input', (e) => {
@@ -2653,8 +2730,10 @@ $('inspector').addEventListener('input', (e) => {
     case 'inH': if (ok) o.h = Math.max(0, num); break;
     case 'inTilt': if (ok) o.tilt = Math.max(-60, Math.min(60, num)); break;
     case 'inKind': o.kind = t.value; break;
-    case 'inCct': if (ok) o.cct = num; break;
-    case 'inPow': if (ok) o.power = Math.max(0, Math.min(100, num)); break;
+    case 'inK': case 'inKN': if (ok) o.kelvin = Math.max(2000, Math.min(10000, num)); colorEdited(o, t); return;
+    case 'inHue': case 'inHueN': if (ok) o.hue = ((num % 360) + 360) % 360; colorEdited(o, t); return;
+    case 'inSat': case 'inSatN': if (ok) o.sat = Math.max(0, Math.min(100, num)); colorEdited(o, t); return;
+    case 'inPw': case 'inPwN': if (ok) o.power = Math.max(0, Math.min(100, num)); colorEdited(o, t); return;
     case 'inW': if (ok && num > 0) o.w = num; break;
     case 'inD': if (ok && num > 0) o.d = num; break;
     case 'inHH': if (ok && num > 0) o.h = num; break;
