@@ -186,6 +186,9 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 .inspector .stp:hover { border-color: var(--muted); } .inspector .stp:active { background: var(--active); }
 .cblock { display: flex; flex-direction: column; gap: 6px; padding: 10px 0 2px; border-top: 1px solid var(--line); margin-top: 4px; }
 .cb-top { display: flex; align-items: center; justify-content: space-between; }
+.tilt-row { display: flex; align-items: center; gap: 10px; }
+.tiltv { width: 96px; height: 54px; flex: none; border-radius: 6px; background: var(--raised); border: 1px solid var(--line); }
+.tilt-q { display: flex; gap: 4px; margin-top: 4px; } .tilt-q button { flex: 1; height: 24px; padding: 0; font-size: 11px; border-radius: 5px; border: 1px solid var(--line2); background: var(--raised); color: var(--fg); cursor: pointer; } .tilt-q button:hover { border-color: var(--muted); }
 .cswatch { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line2); box-shadow: inset 0 0 0 2px var(--panel); }
 .sld { display: flex; flex-direction: column; gap: 2px; }
 .sld-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
@@ -215,6 +218,9 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 .chk.solo { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); cursor: pointer; padding: 2px 2px; }
 .chk.solo input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
 .capb .chk input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+/* чекбокс и его надпись — одна кнопка: везде «рука», текст не выделяется при клике */
+.chk, .chk *, .inspector .seg button, .inspector .swatch { cursor: pointer; -webkit-user-select: none; user-select: none; }
+.inspector .ins-head, .inspector .sld-h > span:first-child, .inspector .fld > span:first-child { -webkit-user-select: none; user-select: none; }
 .ins-head .kind { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 .letter { width: 4ch; height: 36px; box-sizing: border-box; border-radius: 8px; border: 1px solid var(--line2); background: var(--cam); color: var(--ink); font: 600 18px var(--font-ui); text-align: center; padding: 0; text-transform: uppercase; }
 #insCanvas { display: block; width: 100%; border-radius: 6px; background: #000; }
@@ -467,7 +473,7 @@ const F = 'class="f"';
 const LIGHTS = {
   softbox: { name: 'Софтбокс', half: 85, len: 3, icon: `<path d="M4 5h16c0 8-4 13-8 13S4 13 4 5z" ${F}/>` },
   mat: { name: 'Ковёр', half: 55, len: 2.5, icon: `<rect x="5" y="5" width="14" height="14" rx="1.5" ${F}/>` + [8.5, 12, 15.5].map(y => [8.5, 12, 15.5].map(x => `<circle cx="${x}" cy="${y}" r=".9" class="d"/>`).join('')).join('') },
-  pot: { name: 'Горшок', half: 35, len: 4, icon: `<path d="M4 7h16l-5 7v4H9v-4z" ${F}/>` },
+  pot: { name: 'Горшок', half: 60, len: 3.5, icon: `<path d="M4 7h16l-5 7v4H9v-4z" ${F}/>` },
   astera: { name: 'Astera', half: 45, len: 2.5, icon: `<rect x=".5" y="11" width="23" height="2.2" rx="1.1" ${F}/>` },
   spot: { name: 'Spotlight', half: 12, len: 6, icon: `<rect x="6.5" y="15" width="11" height="7" rx="1.5" ${F}/><rect x="9.6" y="8" width="4.8" height="7" ${F}/><rect x="8.6" y="2.5" width="6.8" height="5.5" rx=".8" ${F}/><path d="M6.5 12h3.1M14.4 12h3.1M6.5 10.8v2.4M17.5 10.8v2.4"/>` },
   china: { name: 'China Ball', omni: true, len: 2, icon: `<path d="M10 4.5h4l5 5.5H5z" ${F}/><path d="M5 10h14c.6 5.3-3 9.6-7 9.6S4.4 15.3 5 10z" ${F}/>` },
@@ -1159,16 +1165,24 @@ const MAT = {};
 const has3 = () => !!window.THREE && !T3.failed;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 function c3(h) { return new THREE.Color(h).convertSRGBToLinear(); }
-function kelvin3(k) {
+// цвет по температуре относительно 5600 K: как камера с балансом белого на дневной свет — 5600 K чисто белый,
+// ниже — теплее (жёлто-оранжевый), выше — холоднее (голубой)
+function kelvinRaw(k) {
   const t = (k || 5600) / 100; let r, g, b;
   if (t <= 66) { r = 255; g = 99.47 * Math.log(t) - 161.12; b = t <= 19 ? 0 : 138.52 * Math.log(t - 10) - 305.04; }
   else { r = 329.7 * Math.pow(t - 60, -0.1332); g = 288.12 * Math.pow(t - 60, -0.0755); b = 255; }
   const q = (v) => Math.max(0, Math.min(255, v)) / 255;
   return new THREE.Color(q(r), q(g), q(b)).convertSRGBToLinear();
 }
+let K_REF = null;
+function kelvin3(k) {
+  if (!K_REF) K_REF = kelvinRaw(5600);
+  const c = kelvinRaw(k); c.r /= K_REF.r; c.g /= K_REF.g; c.b /= K_REF.b;
+  const m = Math.max(c.r, c.g, c.b); return c.multiplyScalar(1 / m);
+}
 // цвет прибора: режим CCT (температура + поправка G/M) или HSI (тон + насыщенность); яркость — множитель 0…1
 const NO_COLOR = ['sun', 'reflector'];   // солнце и отражатель свой цвет не задают
-const lightKelvin = (o) => o.kelvin != null ? o.kelvin : ((LIGHTS[o.kind] || {}).cct || 5600);
+const lightKelvin = (o) => Math.max(2700, Math.min(7000, o.kelvin != null ? o.kelvin : ((LIGHTS[o.kind] || {}).cct || 5600)));
 const lightPower = (o) => Math.max(0, Math.min(100, o.power != null ? o.power : 100)) / 100;
 function lightColor(o) {
   if (o.mode === 'hsi') { const c = new THREE.Color().setHSL(((o.hue || 0) % 360) / 360, 1, 0.5), w = new THREE.Color(1, 1, 1), s = Math.max(0, Math.min(100, o.sat != null ? o.sat : 100)) / 100; return w.lerp(c, s).convertSRGBToLinear(); }
@@ -1708,6 +1722,8 @@ function prepHuman(obj, base, texMap) {
       const name = (m && m.name) || ''; const tm = texMap && texMap[name];
       const n = new THREE.MeshStandardMaterial({ color: tm ? new THREE.Color(1, 1, 1) : (m && m.color ? m.color.clone() : new THREE.Color(0.5, 0.5, 0.5)), roughness: /cornea|eye/i.test(name) ? 0.15 : 0.7, skinning: !!o.isSkinnedMesh, flatShading: false });
       if (tm) { n.map = texLoad(base + tm[0], true); if (tm[1]) n.normalMap = texLoad(base + tm[1], false); }
+      // текстура кожи очень светлая (≈ 225/255) — реальная кожа отражает заметно меньше; без этого лица «выгорают» при любом свете
+      if (/^(Body|Head)_map$/.test(name)) { n.color.setRGB(0.6, 0.58, 0.57); n.roughness = 0.6; }
       n.name = name; return n;
     });
     o.material = Array.isArray(o.material) ? nm : nm[0]; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
@@ -1961,13 +1977,19 @@ function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
 // Astera (трубка): стоит вертикально на маленькой треноге на полу/столе, либо лежит горизонтально на поверхности; длина трубки задаётся
 const asteraLen = (o) => Math.max(0.3, Math.min(2.5, o.alen || 1));
 const asteraH = (o) => o.horiz ? 0.03 : 0.07 + asteraLen(o) / 2;   // высота центра трубки над поверхностью
+// наклон прибора в градусах: задан в свойствах, иначе — автоматически «смотрит» на уровень лица (1,2 м) на расстоянии 3 м
+const TILT_KINDS = ['softbox', 'mat', 'fresnel', 'astera', 'spot', 'pot', 'panel', 'kino'];
+const tiltable = (o) => TILT_KINDS.includes(o.kind) && !(o.kind === 'astera' && !o.horiz);   // вертикальная Astera не наклоняется
+const lightTilt = (o) => o.kind === 'astera' && !o.horiz ? 0 : o.ltilt != null ? o.ltilt : (o.kind === 'astera' ? 0 : -Math.round(Math.atan2((o.h || 2) - 1.2, 3) / RAD));
 function buildAstera(sc, g, o, L, lit, col, emi, budget, hq) {
   const e = supportTop(o), len = asteraLen(o), r = 0.023;
   const cap = mat('astcap', '#9A9EA4', { roughness: 0.35, metalness: 0.6 }), blk = mat('asttri', '#1A1B1E', { roughness: 0.55, metalness: 0.3 });
-  const tube = new THREE.Group(); g.add(tube);
-  if (o.horiz) { tube.position.set(0, e + r + 0.002, 0); tube.rotation.z = Math.PI / 2; }   // лежит вдоль поперечной оси значка
+  // наклон: вертикальная трубка наклоняется вперёд/назад от узла треноги, лежащая — поворачивается вокруг своей оси (луч вверх/вниз)
+  const tg = new THREE.Group(); tg.rotation.x = lightTilt(o) * RAD; g.add(tg);
+  const tube = new THREE.Group(); tg.add(tube);
+  if (o.horiz) { tg.position.set(0, e + r + 0.002, 0); tube.rotation.z = Math.PI / 2; }   // лежит вдоль поперечной оси значка
   else {
-    tube.position.set(0, e + 0.07 + len / 2, 0);
+    tg.position.set(0, e + 0.07, 0); tube.position.set(0, len / 2, 0);
     mcyl(g, 0.018, 0.022, 0.05, blk, 0, e + 0.045, 0, 14);                                      // втулка треноги
     for (let i = 0; i < 3; i++) {                                                                // три плоские ноги
       const a = -Math.PI / 2 + i * 2.094, ux = Math.cos(a), uz = Math.sin(a);
@@ -1981,7 +2003,7 @@ function buildAstera(sc, g, o, L, lit, col, emi, budget, hq) {
   if (!lit) return;
   g.updateWorldMatrix(true, true);
   // свет идёт сплошной мягкой полосой по всей длине трубки: прямоугольный (площадной) источник, обращённый вперёд
-  const fwd = g.localToWorld(V(0, 0, -1)).sub(g.getWorldPosition(V(0, 0, 0))).normalize();
+  const fwd = tg.localToWorld(V(0, 0, -1)).sub(tg.getWorldPosition(V(0, 0, 0))).normalize();
   const c = tube.getWorldPosition(V(0, 0, 0)), L2 = len - 0.06;
   if (THREE.RectAreaLight && THREE.RectAreaLightUniformsLib) {
     if (!T3.rectInit) { THREE.RectAreaLightUniformsLib.init(); T3.rectInit = true; }
@@ -2079,7 +2101,7 @@ function buildLight(sc, g, o, lit, shadowBudget) {
       mcyl(g, 0.014, 0.014, 0.035, foot, ux * (R + 0.03), 0.0175, uz * (R + 0.03), 10, true);   // синяя пятка
     });
   } else if (!stand) mcyl(g, 0.004, 0.004, Math.max(0.05, WALL_H - h), black, 0, (WALL_H + h) / 2, 0, 6, true);
-  const pitch = L.omni || o.kind === 'reflector' ? 0 : Math.atan2(h - 1.2, 3);   // отражатель висит строго вертикально
+  const pitch = L.omni || o.kind === 'reflector' ? 0 : -lightTilt(o) * RAD;   // наклон прибора (вниз — отрицательный); отражатель висит строго вертикально
   // у «Ковра» небольшой вынос вперёд, чтобы при наклоне стойка не входила в панель
   const arm = stand && o.kind === 'mat' ? 0.16 : 0;
   const head = new THREE.Group(); head.position.set(0, h, -arm); head.rotation.x = -pitch; g.add(head);
@@ -2607,11 +2629,25 @@ function slider(id, label, min, max, step, val, unit, track) {
   return `<div class="sld"><div class="sld-h"><span>${label}</span><span class="sld-v"><input type="number" class="nostp" id="${id}N" data-pair="${id}" min="${min}" max="${max}" step="${step}" value="${val}">${unit}</span></div>`
     + `<input type="range" id="${id}" data-pair="${id}N" min="${min}" max="${max}" step="${step}" value="${val}" ${track ? `style="--trk:${track}"` : ''}></div>`;
 }
+// наклон прибора: схема «вид сбоку» (прибор, луч, горизонт) + ползунок от −90° (вниз) до +90° (вверх)
+function tiltSvg(a) {
+  const r = -a * RAD, cx = 34, cy = 34, dx = Math.cos(r), dy = Math.sin(r), L = 78, sp = 0.36;
+  const p1 = [cx + Math.cos(r - sp) * L, cy + Math.sin(r - sp) * L], p2 = [cx + Math.cos(r + sp) * L, cy + Math.sin(r + sp) * L];
+  return `<svg class="tiltv" viewBox="0 0 120 68" aria-hidden="true"><line x1="4" y1="34" x2="116" y2="34" stroke="var(--line3)" stroke-dasharray="3 3"/>`
+    + `<path d="M${cx} ${cy}L${p1[0].toFixed(1)} ${p1[1].toFixed(1)}L${p2[0].toFixed(1)} ${p2[1].toFixed(1)}Z" fill="var(--light)" opacity=".22"/>`
+    + `<line x1="${cx}" y1="${cy}" x2="${(cx + dx * L).toFixed(1)}" y2="${(cy + dy * L).toFixed(1)}" stroke="var(--light)" stroke-width="1.5" stroke-dasharray="4 3"/>`
+    + `<g transform="translate(${cx} ${cy}) rotate(${(-a).toFixed(1)})"><rect x="-14" y="-7" width="18" height="14" rx="3" fill="var(--fg)"/><path d="M4 -9L12 -11V11L4 9Z" fill="var(--fg)"/></g>`
+    + `<line x1="${cx}" y1="${cy + 7}" x2="${cx}" y2="66" stroke="var(--muted)" stroke-width="2"/></svg>`;
+}
+function tiltBlock(o) {
+  const a = lightTilt(o);
+  return `<div class="cblock"><div class="tilt-row"><span id="tiltV">${tiltSvg(a)}</span><div style="flex:1;min-width:0">${slider('inLTilt', 'Наклон', -90, 90, 1, a, '°', 'linear-gradient(90deg,var(--line2),var(--line2))')}</div></div></div>`;
+}
 function colorBlock(o) {
   const hsi = o.mode === 'hsi';
   let h = `<div class="cblock"><div class="cb-top"><span class="seg" role="group" aria-label="Режим цвета"><button data-act="lmode" data-v="cct" aria-pressed="${!hsi}">CCT</button><button data-act="lmode" data-v="hsi" aria-pressed="${hsi}">HSI</button></span><span class="cswatch" id="cSw" style="background:${lightSwatch(o)}"></span></div>`;
   if (!hsi) {
-    h += slider('inK', 'Температура', 2000, 10000, 100, lightKelvin(o), ' K', 'linear-gradient(90deg,#ff8a2a,#ffd9a8,#fff4e8,#dbe8ff,#a9c6ff)');
+    h += slider('inK', 'Температура', 2700, 7000, 100, Math.max(2700, Math.min(7000, lightKelvin(o))), ' K', 'linear-gradient(90deg,#ffb264 0%,#ffc48c 11.6%,#ffe3cb 37.2%,#ffffff 67.4%,#e6f4ff 88.4%,#d6e4ff 100%)');
   } else {
     h += slider('inHue', 'Тон', 0, 360, 1, Math.round(o.hue || 0), '°', 'linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)');
     h += slider('inSat', 'Насыщенность', 0, 100, 1, o.sat != null ? o.sat : 100, ' %', `linear-gradient(90deg,#fff,hsl(${Math.round(o.hue || 0)} 100% 50%))`);
@@ -2651,6 +2687,7 @@ function renderInspector() {
     if (!PRAC_FIXED.includes(o.kind) && o.kind !== 'astera' && o.kind !== 'sun') h += field('Высота', `<input type="number" id="inH" step="0.1" min="0" max="8" value="${o.h}"> м`);
     if (!SHADOW_KINDS_OFF.includes(o.kind)) { const hq = T3.quality === 'high', picks = shadowPicks(hq ? 7 : 3, hq);
       if (!picks.has(o.id)) h += `<span class="hint" style="font-family:var(--font-ui)">В 3D без тени: тени получают приборы, сильнее всего освещающие героев (не больше ${hq ? 7 : 3})</span>`; }
+    if (tiltable(o)) h += tiltBlock(o);
     if (!NO_COLOR.includes(o.kind)) h += colorBlock(o);
     const L = LIGHTS[o.kind] || {}; if (!(L.omni || L.prac || o.kind === 'sun' || o.kind === 'astera')) h += `<label class="chk solo"><input type="checkbox" id="inStand" ${o.stand !== false ? 'checked' : ''}> C-stand</label>`;
   } else if (o.type === 'prop') {
@@ -2704,6 +2741,7 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'dswing') { const di = doorInfo(o); if (di.inward !== (b.dataset.v === 'in')) o.swing = -(o.swing || 1); }
   if (a === 'dhinge') { const di = doorInfo(o); if (di.left !== (b.dataset.v === 'l')) { [o.x1, o.x2] = [o.x2, o.x1]; [o.y1, o.y2] = [o.y2, o.y1]; o.swing = -(o.swing || 1); } }
   if (a === 'pose') o.pose = b.dataset.v;
+  if (a === 'ltilt') { if (b.dataset.v === 'auto') delete o.ltilt; else o.ltilt = +b.dataset.v; }
   if (a === 'lmode') { o.mode = b.dataset.v; if (o.mode === 'hsi') { if (o.hue == null) o.hue = 200; if (o.sat == null) o.sat = 100; } if (window.THREE && T3.scene) t3lightUpdate(o); }
   if (a === 'horiz') { o.horiz = b.dataset.v === 'h'; o.h = asteraH(o); }
   if (a === 'sex') o.sex = b.dataset.v;
@@ -2730,7 +2768,8 @@ $('inspector').addEventListener('input', (e) => {
     case 'inH': if (ok) o.h = Math.max(0, num); break;
     case 'inTilt': if (ok) o.tilt = Math.max(-60, Math.min(60, num)); break;
     case 'inKind': o.kind = t.value; break;
-    case 'inK': case 'inKN': if (ok) o.kelvin = Math.max(2000, Math.min(10000, num)); colorEdited(o, t); return;
+    case 'inLTilt': case 'inLTiltN': if (ok) { o.ltilt = Math.max(-90, Math.min(90, Math.round(num))); const pr = t.dataset.pair && document.getElementById(t.dataset.pair); if (pr && document.activeElement !== pr) pr.value = o.ltilt; const v = document.getElementById('tiltV'); if (v) v.innerHTML = tiltSvg(o.ltilt); } break;
+    case 'inK': case 'inKN': if (ok) o.kelvin = Math.max(2700, Math.min(7000, num)); colorEdited(o, t); return;
     case 'inHue': case 'inHueN': if (ok) o.hue = ((num % 360) + 360) % 360; colorEdited(o, t); return;
     case 'inSat': case 'inSatN': if (ok) o.sat = Math.max(0, Math.min(100, num)); colorEdited(o, t); return;
     case 'inPw': case 'inPwN': if (ok) o.power = Math.max(0, Math.min(100, num)); colorEdited(o, t); return;
