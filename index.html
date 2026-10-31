@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Setboard</title>
+<script>/* тема до первой отрисовки: по умолчанию светлая, тёмная — если пользователь выбрал её в прошлый раз (без вспышки) */try{document.documentElement.setAttribute('data-theme',localStorage.getItem('setboard-theme')==='dark'?'dark':'light')}catch(e){document.documentElement.setAttribute('data-theme','light')}</script>
 <meta name="description" content="Setboard — схема площадки для оператора-постановщика: камеры, свет, герои, реквизит, 3D-превиз и кадр с любой камеры.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23121417'/%3E%3Cpath d='M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4' stroke='%23F2A93B' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='12' r='2.6' fill='%23F2A93B'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -132,6 +133,8 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 /* «Исходный вид» в 3D: полупрозрачная иконка в правом нижнем углу */
 .v3home { position: absolute; z-index: 6; right: 10px; bottom: 10px; width: 40px; height: 40px; display: grid; place-items: center; border: none; border-radius: 8px; background: transparent; color: #fff; opacity: .55; cursor: pointer; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); transition: opacity .15s, background .15s; }
 .v3home:hover, .v3home:focus-visible { opacity: 1; background: rgba(255,255,255,.12); }
+.v3home.plan-home { color: var(--fg); opacity: .45; filter: none; }   /* на светлой схеме — тёмная иконка */
+.v3home.plan-home:hover, .v3home.plan-home:focus-visible { opacity: .9; background: var(--chip); }
 #v3wrap .ovl-tr .pill, #frame .ovl-tr .pill { background: var(--panel); color: var(--muted); box-shadow: 0 4px 14px var(--shadow); }
 #v3wrap .ovl-tr .pill[aria-pressed="true"], #frame .ovl-tr .pill[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }   /* включённое — заметно светлее/темнее */
 #frame .ovl-tr { top: 10px; right: 10px; }
@@ -364,11 +367,12 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
       <div class="stagewrap" id="stagewrap">
         <div class="planempty" id="planEmpty" hidden><p class="t">Схема пуста</p><p>Начните со стен помещения: кликами поставьте углы, замкните контур на первой точке.</p><button class="btn primary" id="startWalls">Нарисовать стены</button><p class="s">или «+ Добавить» слева — камеры, свет, герои и реквизит</p></div>
         <svg id="plan" tabindex="0" role="application" aria-label="Схема площадки. Tab — выбрать следующий объект, стрелки — сдвиг на 5 см (с Shift — 50 см), Delete — удалить"></svg>
+        <button class="v3home plan-home" id="zFit" title="Показать всё" aria-label="Показать всё"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
         <div class="ovl ovl-tr"><div class="pills ovl-box" role="group" aria-label="Слои">
           <button class="pill" id="lyCones" aria-pressed="false">Углы обзора</button>
           <button class="pill" id="lyLight" aria-pressed="false">Лучи света</button>
           <button class="pill" id="lyGrid" aria-pressed="true">Сетка</button>
-        </div><div class="ovl-box"><div class="zoom"><button id="zOut" aria-label="Уменьшить"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 7h8"/></svg></button><span id="zVal">100%</span><button id="zIn" aria-label="Увеличить"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 7h8M7 3v8"/></svg></button><button id="zFit" aria-label="Показать всё" title="Показать всё"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></div></div></div>
+        </div><div class="ovl-box"><div class="zoom"><button id="zOut" aria-label="Уменьшить"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 7h8"/></svg></button><span id="zVal">100%</span><button id="zIn" aria-label="Увеличить"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 7h8M7 3v8"/></svg></button></div></div></div>
         <div class="ovl ovl-bl"><span class="hint">1 клетка = 1 × 1 м</span></div>
         <div class="preview" id="preview" hidden><canvas id="pvCanvas"></canvas></div>
         <div class="inspector" id="inspector" hidden></div>
@@ -2421,6 +2425,15 @@ function renderFrame(cv, cam, opts) {
 }
 // ---------- 3D view ----------
 const V3 = { r: null, az: 0.9, el: 0.62, dist: 10, tgt: null, dirty: true, raf: 0, lit: true, drag: null };
+// исходный вид 3D: вся площадка целиком помещается в кадр при любой форме окна (на телефоне — узкий вертикальный)
+function v3fitDist(aspect) {
+  const b = t3bounds(), R = Math.hypot(b.maxx - b.minx, b.maxy - b.miny) / 2 + 0.3, vf = 45 * RAD, hf = 2 * Math.atan(Math.tan(vf / 2) * aspect);
+  return Math.max(4, R / Math.sin(Math.min(vf, hf) / 2) * (aspect < 1 ? 1.12 : 0.85));   // в узком окне углы комнаты уходят дальше к краям — запас больше
+}
+function v3HomeView() {
+  const b = t3bounds(), w = $('v3wrap').getBoundingClientRect(), ar = w.width > 50 && w.height > 50 ? w.width / w.height : 16 / 9;
+  V3.az = 0.9; V3.el = 0.62; V3.tgt = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2); V3.dist = v3fitDist(ar);
+}
 function start3d() {
   if (!ensureV3()) { start3d0(); return; }
   V3.dirty = true; cancelAnimationFrame(V3.raf);
@@ -2472,7 +2485,7 @@ function ensureV3() {
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
     cv.addEventListener('wheel', (e) => { e.preventDefault(); V3.wheelT = performance.now(); clearTimeout(V3.wheelTO); V3.wheelTO = setTimeout(() => { V3.dirty = true; }, 260); V3.dist = Math.max(1.2, Math.min(40, V3.dist * Math.exp(e.deltaY * 0.001))); V3.dirty = true; }, { passive: false });
   }
-  if (!V3.tgt) { const b = t3bounds(); V3.tgt = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2); V3.dist = Math.max(6, Math.hypot(b.maxx - b.minx, b.maxy - b.miny) * 1.15); }
+  if (!V3.tgt) v3HomeView();
   return true;
 }
 // фоновая подготовка 3D, пока открыта схема: сцена собирается и шейдеры компилируются заранее (маленький невидимый кадр),
@@ -2710,8 +2723,8 @@ function renderMenus() {
   if (S.pop === 'menu' || S.pop === 'menu-exp') {
     h += `<div class="menu" role="menu" style="left:78px;top:10px;min-width:220px">
       <button class="mi" role="menuitem" data-m="new">Новый проект</button>
-      <button class="mi" role="menuitem" data-m="savefile">Сохранить проект</button>
-      <button class="mi" role="menuitem" data-m="open">Открыть файл проекта…</button>
+      <button class="mi" role="menuitem" data-m="savefile">Сохранить</button>
+      <button class="mi" role="menuitem" data-m="open">Открыть…</button>
       <button class="mi" role="menuitem" data-m="projects">Мои проекты…</button>
       <button class="mi" role="menuitem" data-sub="menu-exp" aria-haspopup="menu" aria-expanded="${S.pop === 'menu-exp'}">Экспорт PNG${CHEV}</button>
       <div class="sep"></div>
@@ -2860,7 +2873,7 @@ function menuAction(a) {
   if (a === 'savefile') saveProjectFile();
   if (a === 'copy' || a === 'share') {
     const json = JSON.stringify(S.project);
-    dialog(`<h2>${a === 'share' ? 'Поделиться проектом' : 'Файл проекта'}</h2><p>Скачайте файл проекта (.setboard.json) и отправьте его коллеге — он откроет его через Меню → «Открыть файл проекта…» или просто перетащит в окно Setboard. Можно и скопировать текст проекта.</p><textarea id="dJson" readonly aria-label="Текст проекта">${esc(json)}</textarea><div class="acts"><button class="btn" data-close>Закрыть</button><button class="btn" id="dCopy">Скопировать текст</button><button class="btn primary" id="dFile">Скачать файл</button></div>`, (d) => { d.querySelector('#dCopy').onclick = () => copyText(json, d.querySelector('#dJson')); d.querySelector('#dFile').onclick = () => saveProjectFile(); });
+    dialog(`<h2>${a === 'share' ? 'Поделиться проектом' : 'Файл проекта'}</h2><p>Скачайте файл проекта (.setboard.json) и отправьте его коллеге — он откроет его через Меню → «Открыть…» или просто перетащит в окно Setboard. Можно и скопировать текст проекта.</p><textarea id="dJson" readonly aria-label="Текст проекта">${esc(json)}</textarea><div class="acts"><button class="btn" data-close>Закрыть</button><button class="btn" id="dCopy">Скопировать текст</button><button class="btn primary" id="dFile">Скачать файл</button></div>`, (d) => { d.querySelector('#dCopy').onclick = () => copyText(json, d.querySelector('#dJson')); d.querySelector('#dFile').onclick = () => saveProjectFile(); });
   }
   if (a === 'paste') dialog(`<h2>Вставить проект</h2><p>Вставьте текст проекта Setboard.</p><textarea id="dIn" aria-label="Текст проекта" placeholder='{"v":1,"name":"…","objects":[…]}'></textarea><div class="acts"><button class="btn" data-close>Отмена</button><button class="btn primary" id="dOk">Открыть</button></div>`, (d, close) => d.querySelector('#dOk').onclick = () => { if (openJSON(d.querySelector('#dIn').value)) close(); });
   if (a === 'export') exportCams();
@@ -2881,7 +2894,7 @@ function projectsDialog() {
   if (S.pid) projWrite(S.pid, S.project);
   const fmt = (ts) => new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const rows = () => projIndex().map(x => `<div class="prow${x.id === S.pid ? ' cur' : ''}"${x.id === S.pid ? '' : ` data-open="${x.id}" role="button" tabindex="0" title="Открыть проект"`}><div class="pinfo"><b>${esc(x.name)}</b><small>${fmt(x.updated)} · объектов: ${x.count}${x.id === S.pid ? ' · открыт' : ''}</small></div><button class="btn ghost" data-del="${x.id}" aria-label="Удалить ${esc(x.name)}">Удалить</button></div>`).join('');
-  dialog(`<h2>Мои проекты</h2><p>Проекты хранятся в этом браузере и сохраняются автоматически. Чтобы передать проект или не потерять его при очистке браузера, сохраняйте файл: Меню → «Сохранить проект».</p><div class="plist">${rows()}</div><div class="acts"><button class="btn" data-close>Закрыть</button><button class="btn primary" id="pNew">Новый проект</button></div>`, (d, close) => {
+  dialog(`<h2>Мои проекты</h2><p>Проекты хранятся в этом браузере и сохраняются автоматически. Чтобы передать проект или не потерять его при очистке браузера, сохраняйте файл: Меню → «Сохранить».</p><div class="plist">${rows()}</div><div class="acts"><button class="btn" data-close>Закрыть</button><button class="btn primary" id="pNew">Новый проект</button></div>`, (d, close) => {
     d.querySelector('#pNew').onclick = () => { close(); menuAction('new'); };
     d.querySelector('.plist').addEventListener('keydown', (e) => { const o = e.target.closest('[data-open]'); if (o && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); o.click(); } });
     d.querySelector('.plist').addEventListener('click', (e) => {
@@ -2930,15 +2943,17 @@ plan.addEventListener('pointerdown', (e) => {
 }, true);
 plan.addEventListener('contextmenu', (e) => { if (S.placing || S.wallDraw) e.preventDefault(); });
 // ---------- жесты двумя пальцами: масштаб и сдвиг схемы ----------
-const TOUCH = new Map(); let GEST = null;
+const TOUCH = new Map(); let GEST = null, TSEL = null;
 const tc = () => { const [a, b] = [...TOUCH.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 }; };
 plan.addEventListener('pointerdown', (e) => {
   if (e.pointerType !== 'touch') return;
-  if (e.isPrimary) { TOUCH.clear(); GEST = null; }   // первый палец — новая серия касаний: забытые точки от прошлых касаний не должны «залипать»
+  if (e.isPrimary) { TOUCH.clear(); GEST = null; TSEL = { sel: S.sel, multi: new Set(S.multi) }; }   // запоминаем выделение до касания   // первый палец — новая серия касаний: забытые точки от прошлых касаний не должны «залипать»
   try { plan.setPointerCapture(e.pointerId); } catch (er) { }   // отпускание пальца всегда придёт сюда, даже если элемент под ним перерисовался
   const r = plan.getBoundingClientRect(); TOUCH.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top }); document.body.classList.add('ptouch');
   if (TOUCH.size > 2) { e.stopImmediatePropagation(); return; }
-  if (TOUCH.size === 2) { e.stopImmediatePropagation(); if (drag && drag.ck && drag.moved) { S.project = JSON.parse(drag.ck); } drag = null; const c = tc(); GEST = { c, s0: S.vp.s, ox: S.vp.ox, oy: S.vp.oy }; renderAll(true); }
+  if (TOUCH.size === 2) { e.stopImmediatePropagation(); if (drag && drag.ck && drag.moved) { S.project = JSON.parse(drag.ck); } drag = null;
+    if (TSEL) { S.sel = TSEL.sel; S.multi = TSEL.multi; }   /* щипок, а не выбор: первый палец на объекте не выделяет его */
+    const c = tc(); GEST = { c, s0: S.vp.s, ox: S.vp.ox, oy: S.vp.oy }; renderAll(true); }
 }, true);
 plan.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'touch' || !TOUCH.has(e.pointerId)) return; const r = plan.getBoundingClientRect(); TOUCH.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top });
@@ -3118,7 +3133,7 @@ $('drawBtn').onclick = () => { S.draw = !S.draw; $('drawBtn').setAttribute('aria
 $('listBtn').onclick = () => { S.list = !S.list; if (S.view !== 'plan') setView('plan'); renderSide(); setTimeout(() => renderPlan(), 0); };
 $('tab-plan').onclick = () => setView('plan'); $('tab-cams').onclick = () => setView('cams'); $('tab-3d').onclick = () => setView('3d');
 // исходный вид 3D: камера по центру площадки, тот же ракурс и расстояние, что при первом открытии
-$('v3Home').onclick = () => { V3.tgt = null; V3.az = 0.9; V3.el = 0.62; const b = t3bounds(); V3.tgt = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2); V3.dist = Math.max(6, Math.hypot(b.maxx - b.minx, b.maxy - b.miny) * 1.15); V3.dirty = true; };
+$('v3Home').onclick = () => { v3HomeView(); V3.dirty = true; };
 $('v3Lit').onclick = () => { V3.lit = !V3.lit; $('v3Lit').setAttribute('aria-pressed', V3.lit); V3.dirty = true; };
 
 // ---------- экспорт PNG: схема, 3D-вид, кадры камер ----------
@@ -3175,7 +3190,15 @@ async function export3D() {
   if (!has3()) { toast('3D-движок не загрузился'); return; }
   const prevView = S.view; if (S.view !== '3d') { setView('3d'); await frames(3); await new Promise(r => setTimeout(r, 400)); }
   if (!V3.r) { toast('3D-вид ещё не готов'); return; }
-  draw3(); const blob = await toBlob(V3.r.domElement);   // снимок сразу после отрисовки
+  // снимок всегда горизонтальный 1920×1080 с текущего ракурса, но с расстоянием, при котором видна вся площадка
+  const W = 1920, H = 1080, r = V3.r, sc = t3build(V3.lit), b = t3bounds();
+  const t = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2), d = Math.max(v3fitDist(W / H), 1.2);
+  const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200);
+  cam.position.set(t.x + d * Math.cos(V3.el) * Math.cos(V3.az), t.y + d * Math.sin(V3.el), t.z + d * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
+  r.setPixelRatio(1); r.setSize(W, H, false); r.toneMappingExposure = sceneExposure(r, sc, V3.lit); shadowSync(r);
+  if (T3.helpers) T3.helpers.visible = false; setCuts(cam.position); (T3.corr || []).forEach(c => c.visible = false);
+  r.render(sc, cam); const blob = await toBlob(r.domElement);
+  V3.dirty = true;   // вернуть обычный кадр окна
   if (prevView !== '3d') setView(prevView);
   if (blob) await saveFile('3D-вид.png', blob);
 }
