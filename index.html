@@ -21,7 +21,7 @@
   --h1: #B9A2DB; --h2: #DE9AB2; --h3: #9CCBA6; --h4: #5A5D64;
   --shadow: rgba(0,0,0,0.5);
   --font-ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-data: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-data: 'IBM Plex Mono', 'Cascadia Mono', Consolas, 'Roboto Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
@@ -177,7 +177,7 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 .inspector .fld input, .inspector .fld select { text-align: right; }
 /* редактируемые значения — явные поля ввода */
 .inspector .fld input[type="number"], .inspector .fld select { width: 8ch; box-sizing: content-box; height: 22px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line2); background: var(--raised); cursor: text; transition: border-color .15s; }
-.inspector .fld select { width: auto; cursor: pointer; }
+.inspector .fld select, .fld select, .fld select option { width: auto; cursor: pointer; font-family: var(--font-ui); font-size: 13px; }   /* списки — обычным шрифтом интерфейса, не моноширинным */
 .inspector .fld input[type="number"]:hover, .inspector .fld select:hover { border-color: var(--muted); }
 .inspector .fld input[type="number"]:focus, .inspector .fld select:focus { border-color: var(--accent); outline: none; }
 .inspector .fld input[type="number"] { -moz-appearance: textfield; appearance: textfield; width: 6ch; text-align: center; }
