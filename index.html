@@ -1232,13 +1232,14 @@ function lightCss(o) {
 // смена цвета/яркости без пересборки сцены: меняем параметры уже созданных источников и светящихся поверхностей
 function t3lightUpdate(o, quiet) {
   const ls = (T3.lightsOf || {})[o.id]; if (!ls) return false;
-  const col = lightColor(o), pw = lightPower(o);
+  const col = lightColor(o), pw = lightPower(o), pwPrev = (T3.pwOf || (T3.pwOf = {}))[o.id]; T3.pwOf[o.id] = pw;
   ls.forEach(l => { l.color.copy(col); l.intensity = l.userData.base * pw; });
   const g = T3.byId[o.id];
   if (g) g.traverse(m => { const mm = m.material; if (!mm) return; (Array.isArray(mm) ? mm : [mm]).forEach(x => { if (x.userData && x.userData.own && x.emissive && x.userData.glow !== false) { x.emissive.copy(col); if (x.userData.ei != null) x.emissiveIntensity = x.userData.ei * (0.12 + 0.88 * pw); } }); });
   if (quiet) return true;
   clearTimeout(T3.expoT); T3.expoT = setTimeout(() => { const sc = T3.scene; if (sc && /\|true\|/.test(T3.key || '')) { sc.children.filter(l => l.isLight && l.userData && l.userData.bounce === true).forEach(l => { sc.remove(l); if (l.target) sc.remove(l.target); }); try { t3bounce(sc); } catch (e) { } }   /* отражённый свет — под новый цвет/яркость */
-    T3.expKey = ''; V3.dirty = true; if (S.view === 'cams') renderCams(); if (S.sel) positionPreview(); }, 350);   // экспозицию пересчитываем, когда закончили двигать ползунок
+    if (pwPrev === undefined || Math.abs(pwPrev - pw) > 1e-6) T3.expKey = '';   /* экспозицию пересчитываем только при смене яркости: температура и оттенок её почти не меняют */
+    V3.dirty = true; if (S.view === 'cams') renderCams(); if (S.sel) positionPreview(); const pc = document.querySelector('#pip canvas'); if (pc) { pc._k = ''; schedPipDraw(); } }, 350);   // экспозицию пересчитываем, когда закончили двигать ползунок
   V3.dirty = true; return true;
 }
 function t3setup(r) {
@@ -2198,7 +2199,9 @@ function buildHumanModel(g, o) {
   const hips = findBone(c, /hips|pelvis/i); const feet = []; c.traverse(b => { if (b.isBone && /foot/i.test(b.name)) feet.push(wp(b).y); });
   const hp = hips ? wp(hips) : new THREE.Vector3();
   const footY = feet.length ? Math.min.apply(null, feet) : 0;
-  const sole = Math.max(0.02, footY - skinnedMinY(wrap));   // от кости стопы до подошвы ботинка
+  // нижняя точка обутой модели считается по всем вершинам — дорого (~30 мс на героя), поэтому кэшируется по шаблону и позе: результат не зависит от места на площадке
+  const MY = HUMAN._minY || (HUMAN._minY = new Map()), tk = tpl.uuid, myc = (key, f) => { if (!MY.has(key)) MY.set(key, f()); return MY.get(key); };
+  const sole = myc(tk + '|sole', () => Math.max(0.02, footY - skinnedMinY(wrap)));   // от кости стопы до подошвы ботинка
   if (sit) {
     const legs = [['L', 'Left'], ['R', 'Right']].map(([sd, mx]) => ({ up: findBone(c, new RegExp('^(UpperLeg\\.?' + sd + '|mixamorig:?' + mx + 'UpLeg)$', 'i')), lo: findBone(c, new RegExp('^(LowerLeg\\.?' + sd + '|mixamorig:?' + mx + 'Leg)$', 'i')), ft: findBone(c, new RegExp('^(Foot\\.?' + sd + '|mixamorig:?' + mx + 'Foot)$', 'i')), sd }));
     const ok = legs.every(l => l.up && l.lo && l.ft);
@@ -2251,8 +2254,8 @@ function buildHumanModel(g, o) {
         hd.quaternion.copy(pw.invert().multiply(q.multiply(bw))); hd.updateMatrixWorld(true);
       }
     });
-    wrap.updateMatrixWorld(true); alignFeet(c); const low = skinnedMinY(wrap); if (low < 0.004) wrap.position.y += 0.004 - low;   // подстраховка: ничего не уходит под пол
-  } else { wrap.position.set(-hp.x, -footY, -hp.z); wrap.updateMatrixWorld(true); alignFeet(c); wrap.position.y += 0.004 - skinnedMinY(wrap); }   // стоя: подошвы точно на полу
+    wrap.updateMatrixWorld(true); alignFeet(c); const low = wrap.position.y + myc(tk + '|sit|' + HIPJ.toFixed(3), () => skinnedMinY(wrap) - wrap.position.y); if (low < 0.004) wrap.position.y += 0.004 - low;   // подстраховка: ничего не уходит под пол
+  } else { wrap.position.set(-hp.x, -footY, -hp.z); wrap.updateMatrixWorld(true); alignFeet(c); wrap.position.y += 0.004 - (wrap.position.y + myc(tk + '|stand', () => skinnedMinY(wrap) - wrap.position.y)); }   // стоя: подошвы точно на полу
   g.add(wrap); return true;
 }
 function blob(p, r, m, x, y, z, sx, sy, sz) { const me = msph(p, r, m, x, y, z); me.scale.set(sx || 1, sy || 1, sz || 1); return me; }
@@ -2760,7 +2763,7 @@ function t3build(lit) {
   if (T3.scene && T3.key && T3.keyNC === keyNC && objs().some(o => o.type === 'wall')) {   // T3.key = '' — принудительная полная сборка (догрузились модели/текстуры)
     try { if (t3partial(T3.scene, lit, K)) T3.ver = (T3.ver || 0) + 1; T3.key = key; return T3.scene; }   /* тени — только если менялись не одни камеры */ catch (e) { console.error('partial update', e); } }
   if (T3.scene) t3dispose(T3.scene);
-  const sc = new THREE.Scene(); sc.background = c3('#151413'); T3.byId = {}; T3.vw = {}; T3.cut = []; T3.corr = []; T3.lightsOf = {};
+  const sc = new THREE.Scene(); sc.background = c3('#151413'); T3.byId = {}; T3.vw = {}; T3.cut = []; T3.corr = []; T3.ceil = []; T3.lightsOf = {};
   const b = t3bounds(); const cx = (b.minx + b.maxx) / 2, cz = (b.miny + b.maxy) / 2; T3.center = V(cx, 1, cz);
   const pad = b.walls ? 0.1 : 8; const fw = b.maxx - b.minx + pad * 2, fd = b.maxy - b.miny + pad * 2;
   const fgeo = new THREE.PlaneGeometry(fw, fd); fgeo.translate(cx, -cz, 0); floorUV(fgeo, FLOOR_FIN.laminate.tex, true);
@@ -2771,6 +2774,11 @@ function t3build(lit) {
     const sh = new THREE.Shape(f.poly.map(p => new THREE.Vector2(p.x, -p.y))), geo = new THREE.ShapeGeometry(sh); floorUV(geo, FLOOR_FIN[floorFin(fo)].tex, true);
     const m = mesh(sc, geo, floorMat(fo), 0, 0.002, 0, true); m.rotation.x = -Math.PI / 2; m.userData.bounce = floorCol(fo);
   });
+  // потолок: белый, на высоте стен над каждой замкнутой комнатой; в кадрах камер виден всегда, в общем 3D-виде — только при низком ракурсе (камера ниже потолка)
+  { const ceilM = mat('ceiling' + (lit ? 1 : 0), '#F1F0EC', { roughness: 0.95, emissive: c3('#F1F0EC'), emissiveIntensity: lit ? 0.2 : 0.3 }),   /* белый потолок: свет снизу почти не попадает на него в рендере, поэтому добавлено ровное «отражённое от пола» свечение */ faces = roomFaces(objs().filter(o => o.x1 !== undefined)).filter(f => f.area > 0.05);
+    const polys = faces.length ? faces.map(f => f.poly) : (objs().some(o => o.type === 'wall') ? (() => { const b = t3bounds(); return [[{ x: b.minx, y: b.miny }, { x: b.maxx, y: b.miny }, { x: b.maxx, y: b.maxy }, { x: b.minx, y: b.maxy }]]; })() : []);
+    polys.forEach(poly => { const ce = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(poly.map(p => new THREE.Vector2(p.x, p.y)))), ceilM);
+      ce.rotation.x = Math.PI / 2; ce.position.y = WALL_H; ce.receiveShadow = true; ce.castShadow = false; ce.userData.bounce = '#F1F0EC'; sc.add(ce); T3.ceil.push(ce); }); }
   T3.refl = [];
   if (lit) sc.add(new THREE.HemisphereLight(c3('#C9D3E2'), c3('#3A2E24'), 0.28));
   else { sc.add(new THREE.HemisphereLight(0xffffff, c3('#6A5E52'), 0.95)); const dl = new THREE.DirectionalLight(0xffffff, 0.45); dl.position.set(cx + 3, 7, cz + 5); sc.add(dl); }
@@ -2795,7 +2803,7 @@ function t3obj(sc, o, lit, budget) {
     else if (o.type === 'light') {
       const n0 = sc.children.length; buildLight(sc, g, o, lit, budget);
       const ls = sc.children.slice(n0).filter(l => l.isLight); ls.forEach(l => { l.userData.base = l.intensity; l.userData.oid = o.id; });
-      if (!T3.lightsOf) T3.lightsOf = {}; T3.lightsOf[o.id] = ls;
+      if (!T3.lightsOf) T3.lightsOf = {}; T3.lightsOf[o.id] = ls; (T3.pwOf || (T3.pwOf = {}))[o.id] = lightPower(o);   /* яркость, с которой построен прибор: с ней сравнивается правка */
       g.traverse(m => { const mm = m.material; if (mm) (Array.isArray(mm) ? mm : [mm]).forEach(x => { if (x.userData && x.userData.own && x.emissive && x.userData.ei == null) x.userData.ei = x.emissiveIntensity; }); });
       if (!NO_COLOR.includes(o.kind)) t3lightUpdate(o, true);
     }
@@ -2905,20 +2913,21 @@ function sceneExposure(r, sc, lit) {
   const ek = expoKey(lit); if (T3.expKey === ek && T3.exposure) return T3.exposure;
   const W = 96, H = 54;
   if (!r.userData) r.userData = {};
-  if (!r.userData.expRT) r.userData.expRT = new THREE.WebGLRenderTarget(W, H);
+  if (!r.userData.expRT) { r.userData.expRT = new THREE.WebGLRenderTarget(W, H); r.userData.expRT.texture.encoding = THREE.sRGBEncoding; }   // та же кодировка, что у экрана: замер использует уже скомпилированные шейдеры (иначе первый замер компилирует второй комплект — секунды)
+  const LIN = T3.lin || (T3.lin = Float32Array.from({ length: 256 }, (_, v) => { const c = v / 255; return 255 * (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)); }));
   const rt = r.userData.expRT, buf = new Uint8Array(W * H * 4);
   const b = t3bounds(), c = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2), dist = Math.max(6, Math.hypot(b.maxx - b.minx, b.maxy - b.miny) * 1.15);
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200); cam.position.set(c.x + dist * Math.cos(0.62) * Math.cos(0.9), c.y + dist * Math.sin(0.62), c.z + dist * Math.cos(0.62) * Math.sin(0.9)); cam.lookAt(c);
   setCuts(cam.position); if (T3.helpers) T3.helpers.visible = false;
   const bg = sc.background, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha(), au = r.shadowMap.autoUpdate;
   sc.background = null; r.setClearColor(0x000000, 0);
-  let E = 1;
+  let E = T3.expRaw || 1;   // начинаем с прошлой экспозиции: после мелкой правки света хватает 1–2 замеров вместо 4
   try {
     for (let it = 0; it < 4; it++) {
       if (it === 0) shadowSync(r); r.toneMappingExposure = E; r.setRenderTarget(rt); r.render(sc, cam);
       r.readRenderTargetPixels(rt, 0, 0, W, H, buf);
       let s = 0, n = 0; const hist = new Uint32Array(256);
-      for (let i = 0; i < buf.length; i += 4) { if (buf[i + 3] < 128) continue; const y = 0.2126 * buf[i] + 0.7152 * buf[i + 1] + 0.0722 * buf[i + 2]; s += y / 255; hist[Math.min(255, Math.round(y))]++; n++; }
+      for (let i = 0; i < buf.length; i += 4) { if (buf[i + 3] < 128) continue; const y = 0.2126 * LIN[buf[i]] + 0.7152 * LIN[buf[i + 1]] + 0.0722 * LIN[buf[i + 2]]; /* обратно в линейные значения — калибровка экспозиции прежняя */ s += y / 255; hist[Math.min(255, Math.round(y))]++; n++; }
       if (!n) break;
       let acc = 0, p95 = 255; for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= n * 0.95) { p95 = v; break; } }
       // средняя яркость кадра — к целевой, а самые светлые 5 % — не в «белое» (защита от пересвета)
@@ -2928,7 +2937,7 @@ function sceneExposure(r, sc, lit) {
     }
   } catch (e) { console.error('exposure', e); E = 1.05; }
   // тёмные сцены почти не вытягиваем (одна настольная лампа должна выглядеть темно), автоэкспозиция в основном защищает от пересвета
-  if (E > 1) E = Math.min(1.12, Math.pow(E, 0.25));
+  T3.expRaw = E; if (E > 1) E = Math.min(1.12, Math.pow(E, 0.25));
   r.setRenderTarget(null); sc.background = bg; r.setClearColor(cc, ca);
   T3.exposure = E; T3.expKey = ek; return E;
 }
@@ -2940,7 +2949,7 @@ function renderFrame3(cv, cam, opts) {
   const pc = new THREE.PerspectiveCamera(vf / RAD, ar, 0.05, 100); t3aim(pc, cam);
   const own = T3.byId[cam.id]; if (own) own.visible = false; if (T3.helpers) T3.helpers.visible = false;
   r.toneMappingExposure = sceneExposure(r, sc, lit); if (T3.helpers) T3.helpers.visible = false; shadowSync(r);
-  setCuts(null); (T3.corr || []).forEach(c => c.visible = true);
+  setCuts(null); (T3.corr || []).forEach(c => c.visible = true); (T3.ceil || []).forEach(c => c.visible = true);
   r.render(sc, pc);
   if (own) own.visible = true;
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, H); ctx.drawImage(r.domElement, 0, 0, W, H);
@@ -3046,7 +3055,7 @@ function draw3(quiet) {
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200); const t = V3.tgt;
   cam.position.set(t.x + V3.dist * Math.cos(V3.el) * Math.cos(V3.az), t.y + V3.dist * Math.sin(V3.el), t.z + V3.dist * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
   r.toneMappingExposure = sceneExposure(r, sc, V3.lit); shadowSync(r);
-  setCuts(cam.position); (T3.corr || []).forEach(c => c.visible = false);
+  setCuts(cam.position); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
   r.render(sc, cam);
 }
 
@@ -3862,7 +3871,7 @@ async function export3D() {
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200);
   cam.position.set(t.x + d * Math.cos(V3.el) * Math.cos(V3.az), t.y + d * Math.sin(V3.el), t.z + d * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
   r.setPixelRatio(1); r.setSize(W, H, false); r.toneMappingExposure = sceneExposure(r, sc, V3.lit); shadowSync(r);
-  if (T3.helpers) T3.helpers.visible = false; setCuts(cam.position); (T3.corr || []).forEach(c => c.visible = false);
+  if (T3.helpers) T3.helpers.visible = false; setCuts(cam.position); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
   r.render(sc, cam); const blob = await toBlob(r.domElement);
   V3.dirty = true;   // вернуть обычный кадр окна
   if (prevView !== '3d') setView(prevView);
@@ -4046,12 +4055,18 @@ function renderPip() {
   const cv = el.querySelector('canvas'); if (cv._w !== P.w || cv._h !== ch) { sizeCanvas(cv, P.w, ch); cv.style.width = P.w + 'px'; cv.style.height = ch + 'px'; cv._w = P.w; cv._h = ch; cv._k = ''; }
   schedPipDraw();
 }
-let pipT = 0;
+let pipT = 0, pipRAF = 0;
+function pipDraw() {
+  const P = S.project.pip, el = $('pip'); if (!P || !el || el.hidden) return; const cam = byId(P.cam); if (!cam) return;
+  const cv = el.querySelector('canvas'), k = sceneKeys().full + '|' + JSON.stringify(objs().filter(o => o.type === 'light')) + '|' + P.cam + '|' + cv._w + 'x' + cv._h; if (cv._k === k) return; cv._k = k;   // кадр перерисовывается, только если что-то поменялось
+  try { renderFrame(cv, cam, { lit: true }); } catch (e) { console.error('pip', e); }
+}
+// лёгкая правка (цвет, температура, яркость прибора — сцена не пересобирается) рисуется сразу, на следующем кадре экрана;
+// тяжёлая (пересборка сцены или новый замер экспозиции) — после паузы в правках, чтобы не тормозить перетаскивание
 function schedPipDraw() {
-  if (pipT) return;
-  pipT = setTimeout(() => { pipT = 0; const P = S.project.pip, el = $('pip'); if (!P || !el || el.hidden) return; const cam = byId(P.cam); if (!cam) return;
-    const cv = el.querySelector('canvas'), k = sceneKeys().full + '|' + JSON.stringify(objs().filter(o => o.type === 'light')) + '|' + P.cam + '|' + cv._w + 'x' + cv._h; if (cv._k === k) return; cv._k = k;   // кадр перерисовывается, только если что-то поменялось
-    try { renderFrame(cv, cam, { lit: true }); } catch (e) { console.error('pip', e); } }, 150);
+  const heavy = !window.THREE || !T3.scene || T3.key !== sceneKeys().full + '|true|' + T3.quality || T3.expKey !== expoKey(true);
+  if (!heavy) { if (pipT) return; if (!pipRAF) pipRAF = requestAnimationFrame(() => { pipRAF = 0; pipDraw(); }); return; }
+  clearTimeout(pipT); pipT = setTimeout(() => { pipT = 0; pipDraw(); }, 300);
 }
 function bindPip(el) {
   let D = null;
