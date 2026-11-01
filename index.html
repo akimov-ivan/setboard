@@ -1898,17 +1898,26 @@ function eggCrate(parent, dims, x, y, z, cell, depth) {
   if (R) { const rim = mesh(parent, new THREE.CylinderGeometry(R, R, depth, 40, 1, true), m, x, y, zc, true); rim.rotation.x = Math.PI / 2; }   // обод по краю
 }
 // выгнутая мягкая панель (спинка/сиденье): скруглённые углы и края-«подушка», края загнуты вперёд по дуге радиуса R, кверху расширяется на flare
-// титульный слайд стандартной презентации для экрана телевизора
+// слайд презентации на экране телевизора: только графики и диаграммы, без текста
 function slideTex() {
-  return canvasTex('tvslide', 640, 368, (x, w, h) => {
+  return canvasTex('tvslide2', 640, 368, (x, w, h) => {
     const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#1F3A68'); g.addColorStop(1, '#0F1D36'); x.fillStyle = g; x.fillRect(0, 0, w, h);
-    x.fillStyle = 'rgba(255,255,255,.06)'; x.beginPath(); x.arc(w * 0.88, h * 0.15, 150, 0, 7); x.fill();
-    x.fillStyle = '#F2A93B'; x.fillRect(48, 64, 54, 6);
-    x.fillStyle = '#FFFFFF'; x.font = '600 40px sans-serif'; x.fillText('Презентация проекта', 48, 120); x.font = '400 20px sans-serif'; x.fillStyle = 'rgba(255,255,255,.75)'; x.fillText('Итоги квартала · 2026', 48, 152);
-    const bars = [0.35, 0.5, 0.42, 0.68, 0.82]; bars.forEach((v, i) => { x.fillStyle = i === 4 ? '#F2A93B' : 'rgba(255,255,255,.55)'; x.fillRect(48 + i * 46, 320 - v * 120, 30, v * 120); });
-    x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(48, 322, 220, 2);
-    x.fillStyle = 'rgba(255,255,255,.85)'; x.font = '500 18px sans-serif'; ['Рост выручки  +24%', 'Новые клиенты  128', 'Удовлетворённость  4,8'].forEach((s, i) => { x.fillStyle = '#F2A93B'; x.fillRect(330, 212 + i * 36, 8, 8); x.fillStyle = 'rgba(255,255,255,.85)'; x.fillText(s, 348, 222 + i * 36); });
-    x.fillStyle = 'rgba(255,255,255,.4)'; x.font = '400 13px sans-serif'; x.fillText('01', w - 44, h - 20);
+    const card = (cx, cy, cw, ch) => { x.fillStyle = 'rgba(255,255,255,.07)'; x.beginPath(); x.roundRect ? x.roundRect(cx, cy, cw, ch, 10) : x.rect(cx, cy, cw, ch); x.fill(); };
+    const AC = '#F2A93B', W1 = 'rgba(255,255,255,.75)', W2 = 'rgba(255,255,255,.35)';
+    // столбики
+    card(28, 28, 280, 150); [0.35, 0.5, 0.42, 0.62, 0.55, 0.78, 0.9].forEach((v, i) => { x.fillStyle = i === 6 ? AC : W1; x.fillRect(48 + i * 36, 160 - v * 110, 22, v * 110); }); x.fillStyle = W2; x.fillRect(44, 161, 252, 2);
+    // кольцевая диаграмма
+    card(332, 28, 280, 150); const cx = 410, cy = 103, R = 52; let a0 = -Math.PI / 2;
+    [[0.46, AC], [0.28, W1], [0.16, 'rgba(120,170,230,.9)'], [0.10, W2]].forEach(([f, c]) => { x.strokeStyle = c; x.lineWidth = 20; x.beginPath(); x.arc(cx, cy, R, a0, a0 + f * Math.PI * 2 - 0.04); x.stroke(); a0 += f * Math.PI * 2; });
+    [AC, W1, 'rgba(120,170,230,.9)', W2].forEach((c, i) => { x.fillStyle = c; x.fillRect(500, 62 + i * 22, 12, 12); x.fillStyle = W2; x.fillRect(520, 66 + i * 22, 60 - i * 9, 4); });
+    // линейный график с областью
+    card(28, 196, 584, 144); const pts = [0.2, 0.32, 0.28, 0.45, 0.4, 0.58, 0.52, 0.7, 0.66, 0.85], X = (i) => 52 + i * 60, Y = (v) => 320 - v * 110;
+    x.strokeStyle = 'rgba(255,255,255,.1)'; x.lineWidth = 1; for (let k = 0; k < 4; k++) { x.beginPath(); x.moveTo(48, 320 - k * 36); x.lineTo(596, 320 - k * 36); x.stroke(); }
+    const ag = x.createLinearGradient(0, 210, 0, 320); ag.addColorStop(0, 'rgba(242,169,59,.45)'); ag.addColorStop(1, 'rgba(242,169,59,0)');
+    x.fillStyle = ag; x.beginPath(); x.moveTo(X(0), 320); pts.forEach((v, i) => x.lineTo(X(i), Y(v))); x.lineTo(X(9), 320); x.fill();
+    x.strokeStyle = AC; x.lineWidth = 3; x.beginPath(); pts.forEach((v, i) => i ? x.lineTo(X(i), Y(v)) : x.moveTo(X(i), Y(v))); x.stroke();
+    x.strokeStyle = W1; x.lineWidth = 2; x.setLineDash([6, 5]); x.beginPath(); pts.forEach((v, i) => { const u = v * 0.7 + 0.05; i ? x.lineTo(X(i), Y(u)) : x.moveTo(X(i), Y(u)); }); x.stroke(); x.setLineDash([]);
+    x.fillStyle = AC; x.beginPath(); x.arc(X(9), Y(0.85), 5, 0, 7); x.fill();
   });
 }
 function bentPanel(w, h, t, R, flare, qx, qy, rc) {
@@ -2907,7 +2916,7 @@ function t3bounce(sc) {
   // освещённость точки p с нормалью n от источника l (как в шейдере three r128: затухание по distance/decay, мягкий край конуса, закон косинуса)
   const irr = (l, p, n) => {
     const pos = l.position, v = p.clone().sub(pos), d = v.length(); if (d < 1e-3) return 0; v.divideScalar(d);
-    const att = l.distance > 0 ? Math.pow(Math.max(0, 1 - d / l.distance), l.decay || 1) : (l.decay ? 1 / Math.max(1, d * d) : 1);   // солнце (decay 0) не затухает
+    const att = l.isRectAreaLight ? 1 / Math.max(1, d * d) : l.distance > 0 ? Math.pow(Math.max(0, 1 - d / l.distance), l.decay || 1) : (l.decay ? 1 / Math.max(1, d * d) : 1);   // площадной (Astera) гаснет как 1/d², солнце (decay 0) не затухает
     let sf = 1, I = l.intensity;
     if (l.isSpotLight) { const ax = l.target.position.clone().sub(pos).normalize(); sf = ss(Math.cos(l.angle), Math.cos(l.angle * (1 - l.penumbra)), v.dot(ax)); }
     if (l.isRectAreaLight) { const ax = V(0, 0, -1).applyQuaternion(l.quaternion); sf = Math.max(0, v.dot(ax)); I = l.intensity * l.width * l.height * 1.2; }
