@@ -512,7 +512,7 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 (function () {
 'use strict';
 // ---------- catalogs ----------
-const LENSES = [10, 12, 14, 18, 24, 28, 35, 50, 85, 100, 135];
+const LENSES = [10, 12, 14, 18, 20, 24, 28, 35, 50, 70, 85, 100, 135, 200, 250, 300];
 const ASPECTS = [['2.39', '2.39:1', 2.39], ['1.85', '1.85:1', 1.85], ['1.78', '16:9', 16 / 9], ['1', '1:1', 1], ['0.56', '9:16', 9 / 16]];
 const SENSOR = { S35: 27.99, FF: 36 };
 const HERO_COLORS = ['h1', 'h2', 'h3', 'h4'];
@@ -1111,7 +1111,7 @@ function buildScene(exceptId) {
     if (o.id === exceptId) return;
     if (o.type === 'wall') segFaces(o, 0.05, 0, 3, o.fin || o.wcol ? wallCol(o) : '#8F8A80', out);
     else if (o.type === 'window') { if (!o.floor) segFaces(o, 0.1, 0, WIN_SILL, '#8F8A80', out); segFaces(o, 0.1, winTop(o), WALL_H, '#8F8A80', out); segFaces(o, 0.12, winSill(o), winTop(o), '#BFD6EA', out, true); }
-    else if (o.type === 'door') { segFaces(o, 0.12, 0, 2.05, '#5E4836', out); segFaces(o, 0.1, 2.05, 3, '#8F8A80', out); }
+    else if (o.type === 'door') { segFaces(o, 0.12, 0, 2.05, doorCol(o), out); segFaces(o, 0.1, 2.05, 3, '#8F8A80', out); }
     else if (o.type === 'prop') propFaces(o, out);
     else if (o.type === 'hero') heroFaces(o, out);
     else if (o.type === 'camera') { boxFaces(o, -0.1, -0.15, 0.1, 0.15, o.h - 0.1, o.h + 0.1, '#2A2D33', out); boxFaces(o, -0.02, -0.02, 0.02, 0.02, 0, o.h - 0.1, '#2A2D33', out); }
@@ -1576,7 +1576,7 @@ function marbleTiles(x, w, h, cols, rows) {
 }
 function wallTex(fin) {
   const F = texDim(fin), N = F.px || 512, W = N, H = Math.round(N * F.sy / F.sx / 64) * 64 || N;
-  return canvasTex('wall_' + fin, W, H, (x, w, h) => {
+  return canvasTex('wall2_' + fin, W, H, (x, w, h) => {
     let s = 11; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
     const g = (v, a) => `rgba(${v},${v},${v},${a})`;
     const noise = (n, amp) => { for (let i = 0; i < n; i++) { const v = r() < 0.5 ? 0 : 255; x.fillStyle = g(v, amp * r()); x.fillRect(r() * w, r() * h, 1 + r() * 2, 1 + r() * 2); } };
@@ -1604,7 +1604,7 @@ function wallTex(fin) {
         const qd = (yy * w + xx) * 4, cv = Math.min(255, v * 240); d[qd] = d[qd + 1] = d[qd + 2] = cv; d[qd + 3] = 255;
       }
       x.putImageData(im, 0, 0);
-    } else if (fin === 'paint') { x.fillStyle = '#FCFCFC'; x.fillRect(0, 0, w, h); blot(30, 90, 0.025); noise(3000, 0.05); }
+    } else if (fin === 'paint') { x.fillStyle = '#FCFCFC'; x.fillRect(0, 0, w, h); }   // покраска — ровный сплошной цвет
     else if (fin === 'stone' || fin === 'plaster') {   // фактурные: светлее на выступах, темнее в порах и впадинах
       const H = hmap(fin, w), im = x.createImageData(w, h), d = im.data;
       for (let i = 0; i < w * h; i++) { const v = Math.round(fin === 'plaster' ? 226 + H[i] * 26 + (r() - 0.5) * 5 : 214 + H[i] * 22 + (r() - 0.5) * 6); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = Math.max(0, Math.min(255, v)); d[i * 4 + 3] = 255; }
@@ -1831,6 +1831,8 @@ function viewTex(kind) {
     x.filter = 'blur(1.1px)'; x.drawImage(tmp, 0, 0); x.filter = 'none';   // лёгкий расфокус
   });
 }
+const DOOR_COLORS = [['#6B4E38', 'Дерево'], ['#E8E6E1', 'Белый'], ['#B4B4B2', 'Светло-серый'], ['#8A8A88', 'Серый'], ['#4A4C50', 'Графит'], ['#232427', 'Чёрный'], ['#CDBFA6', 'Бежевый'], ['#3D5778', 'Синий'], ['#3F5A4C', 'Зелёный']];
+const doorCol = (o) => o.dcol || '#6B4E38';
 function buildOpening(sc, o, lit) {
   const sg = segOf(o); const ang = -Math.atan2(sg.uy, sg.ux); const cx = (o.x1 + o.x2) / 2, cy = (o.y1 + o.y2) / 2;
   const g = new THREE.Group(); g.position.set(cx, 0, cy); g.rotation.y = ang; sc.add(g); g.userData.id = o.id; T3.byId[o.id] = g;
@@ -1846,8 +1848,11 @@ function buildOpening(sc, o, lit) {
   }
   if (o.type === 'window') {
     const glass = o.view ? mat('glassv', '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: 0.3, transparent: true, opacity: 0.2, roughness: 0.05, depthWrite: false, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp }) : mat('glass' + (lit ? 1 : 0), '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: lit ? 1.1 : 0.35, transparent: true, opacity: 0.55, roughness: 0.1 });
-    if (o.view) {   // вид из окна: картинка-задник снаружи (без освещения — сама «светится», как дневной пейзаж)
-      const vw = sg.len + 16, bd = mesh(g, new THREE.PlaneGeometry(vw, 8), mat('view4|' + o.view + (lit ? 1 : 0), '#FFFFFF', { map: viewTex(o.view), emissive: c3('#FFFFFF'), emissiveMap: viewTex(o.view), emissiveIntensity: lit ? 0.95 : 0.6, roughness: 1, transparent: true, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp }), 0, 2.5, side * 4, true);   // огромный щит 8 м: края не видны даже с нижней камеры
+    const hw = hostWall(o), wkey = hw || o.id;
+    if (o.view && !T3.vw[wkey]) {   // вид из окна: один общий задник на всю стену (у всех окон этой стены), сам «светится», как дневной пейзаж
+      T3.vw[wkey] = 1; const W = byId(hw), ws = W ? segOf(W) : sg, wl = W ? ws.len : sg.len;
+      const ocx = (o.x1 + o.x2) / 2, ocy = (o.y1 + o.y2) / 2, bmx = W ? (W.x1 + W.x2) / 2 : ocx, bmy = W ? (W.y1 + W.y2) / 2 : ocy, along = (bmx - ocx) * sg.ux + (bmy - ocy) * sg.uy;
+      const vw = wl + 16, bd = mesh(g, new THREE.PlaneGeometry(vw, 8), mat('view4|' + o.view + (lit ? 1 : 0), '#FFFFFF', { map: viewTex(o.view), emissive: c3('#FFFFFF'), emissiveMap: viewTex(o.view), emissiveIntensity: lit ? 0.95 : 0.6, roughness: 1, transparent: true, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp }), along, 2.5, side * 4, true);   // огромный щит 8 м: края не видны даже с нижней камеры
       bd.rotation.y = side > 0 ? Math.PI : 0; bd.receiveShadow = false; bd.renderOrder = 2;   // щит рисуется только сквозь стекло окна (трафарет): поверх стен его не видно ни в 3D-виде, ни с низкой камеры
     }
     const sill = winSill(o), top = winTop(o), WH = top - sill, cy = sill + WH / 2, n = winPanes(sg.len);
@@ -1867,7 +1872,7 @@ function buildOpening(sc, o, lit) {
       sc.add(sp);
     }
   } else {
-    const wood = mat('door', '#6B4E38', { roughness: 0.6 });
+    const wood = mat('door|' + doorCol(o), doorCol(o), { roughness: 0.6 });
     mbox(g, 0.05, 2.05, 0.12, frame, -sg.len / 2, 1.025, 0); mbox(g, 0.05, 2.05, 0.12, frame, sg.len / 2, 1.025, 0); mbox(g, sg.len + 0.1, 0.05, 0.12, frame, 0, 2.05, 0);
     // open leaf along the swing side (plan normal)
     const leaf = new THREE.Group(); leaf.position.set(-sg.len / 2, 0, 0); leaf.rotation.y = -Math.PI / 2 * (o.swing || 1); g.add(leaf);
@@ -1893,6 +1898,19 @@ function eggCrate(parent, dims, x, y, z, cell, depth) {
   if (R) { const rim = mesh(parent, new THREE.CylinderGeometry(R, R, depth, 40, 1, true), m, x, y, zc, true); rim.rotation.x = Math.PI / 2; }   // обод по краю
 }
 // выгнутая мягкая панель (спинка/сиденье): скруглённые углы и края-«подушка», края загнуты вперёд по дуге радиуса R, кверху расширяется на flare
+// титульный слайд стандартной презентации для экрана телевизора
+function slideTex() {
+  return canvasTex('tvslide', 640, 368, (x, w, h) => {
+    const g = x.createLinearGradient(0, 0, w, h); g.addColorStop(0, '#1F3A68'); g.addColorStop(1, '#0F1D36'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.fillStyle = 'rgba(255,255,255,.06)'; x.beginPath(); x.arc(w * 0.88, h * 0.15, 150, 0, 7); x.fill();
+    x.fillStyle = '#F2A93B'; x.fillRect(48, 64, 54, 6);
+    x.fillStyle = '#FFFFFF'; x.font = '600 40px sans-serif'; x.fillText('Презентация проекта', 48, 120); x.font = '400 20px sans-serif'; x.fillStyle = 'rgba(255,255,255,.75)'; x.fillText('Итоги квартала · 2026', 48, 152);
+    const bars = [0.35, 0.5, 0.42, 0.68, 0.82]; bars.forEach((v, i) => { x.fillStyle = i === 4 ? '#F2A93B' : 'rgba(255,255,255,.55)'; x.fillRect(48 + i * 46, 320 - v * 120, 30, v * 120); });
+    x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(48, 322, 220, 2);
+    x.fillStyle = 'rgba(255,255,255,.85)'; x.font = '500 18px sans-serif'; ['Рост выручки  +24%', 'Новые клиенты  128', 'Удовлетворённость  4,8'].forEach((s, i) => { x.fillStyle = '#F2A93B'; x.fillRect(330, 212 + i * 36, 8, 8); x.fillStyle = 'rgba(255,255,255,.85)'; x.fillText(s, 348, 222 + i * 36); });
+    x.fillStyle = 'rgba(255,255,255,.4)'; x.font = '400 13px sans-serif'; x.fillText('01', w - 44, h - 20);
+  });
+}
 function bentPanel(w, h, t, R, flare, qx, qy, rc) {
   const geo = new THREE.BoxGeometry(w, h, t, 28, 16, 1), P = geo.attributes.position, U = geo.attributes.uv, N = geo.attributes.normal;
   for (let i = 0; i < P.count; i++) {
@@ -1926,12 +1944,20 @@ function buildProp(g, o) {
   const fc = FURN_KINDS.includes(k) && furnRow(o);
   if (fc) { wood = light = mat('fw_' + fc[0], fc[2], { roughness: 0.55 }); fabric = mat('ff_' + fc[0], fc[2], { roughness: 0.95 }); cushion = mat('fc_' + fc[0], fc[3], { roughness: 0.95 }); }
   if (k === 'carpet') { const cb = fc && fc[0] !== 'beige' ? fc[2] : null; const m = mat('carpetm' + (cb || ''), '#FFFFFF', { map: carpetTex(cb), roughness: 1 }); mbox(g, w, 0.012, d, m, 0, 0.006, 0); }
-  else if (k === 'trect') {
-    mbox(g, w, 0.04, d, wood, 0, h - 0.02, 0);
-    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => mbox(g, 0.05, h - 0.04, 0.05, wood, sx * (hw - 0.06), (h - 0.04) / 2, sy * (hd - 0.06)));
-  } else if (k === 'tround') {
-    const top = mcyl(g, hw, hw, 0.04, wood, 0, h - 0.02, 0, 40); top.scale.z = d / w;
-    mcyl(g, 0.05, 0.06, h - 0.04, wood, 0, (h - 0.04) / 2, 0, 12); mcyl(g, 0.24, 0.27, 0.03, wood, 0, 0.015, 0, 24);
+  else if (k === 'trect' || k === 'tround') {   // обеденный стол в скандинавском стиле: столешница со скруглённой кромкой, царга, точёные ножки враспор
+    const round = k === 'tround', tt = 0.035, rr = Math.min(hw, hd);
+    if (round) { const top = mcyl(g, hw, hw - 0.006, tt, wood, 0, h - tt / 2, 0, 56); top.scale.z = d / w; const eg = mcyl(g, hw - 0.006, hw - 0.012, 0.006, wood, 0, h - tt - 0.003, 0, 56, true); eg.scale.z = d / w; }
+    else rbox(g, w, tt, d, wood, 0, h - tt / 2, 0, 0.012);
+    const ah = 0.07, ay = h - tt - ah / 2, legM = mat('tleg_' + (fc ? fc[0] : 'w'), fc ? fc[2] : '#7A5A40', { roughness: 0.5 });
+    if (round) { const ap = mcyl(g, rr * 0.55, rr * 0.55, ah, wood, 0, ay, 0, 40, true); ap.scale.z = d / w; }
+    else { const ix = hw - 0.09, iz = hd - 0.09; mbox(g, ix * 2, ah, 0.022, wood, 0, ay, iz, true); mbox(g, ix * 2, ah, 0.022, wood, 0, ay, -iz, true); mbox(g, 0.022, ah, iz * 2, wood, ix, ay, 0, true); mbox(g, 0.022, ah, iz * 2, wood, -ix, ay, 0, true); }
+    const legs = round ? [0, 1, 2, 3].map(i => { const a = Math.PI / 4 + i * Math.PI / 2; return [Math.cos(a), Math.sin(a)]; }) : [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    legs.forEach(([sx, sz]) => {
+      const tx = round ? sx * rr * 0.5 : sx * (hw - 0.1), tz = round ? sz * rr * 0.5 * d / w : sz * (hd - 0.1);
+      const bx = round ? sx * rr * 0.68 : sx * (hw - 0.05), bz = round ? sz * rr * 0.68 * d / w : sz * (hd - 0.05);
+      const a = V(tx, h - tt, tz), b = V(bx, 0, bz), v = new THREE.Vector3().subVectors(a, b), len = v.length();
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.013, len, 14), legM); leg.position.copy(a).add(b).multiplyScalar(0.5); leg.quaternion.setFromUnitVectors(V(0, 1, 0), v.normalize()); leg.castShadow = true; leg.receiveShadow = true; g.add(leg);   // точёная ножка: сужается к полу
+    });
   } else if (k === 'chair') {   // мягкий стул-«ракушка»: гладкое мягкое сиденье и выгнутая спинка (цвет меняется), тонкие чёрные металлические ножки враспор
     const fcol = (fc || ['gray', '', '#8E8E8E'])[2], vel = mat('chairv2|' + fcol, fcol, { roughness: 0.9 }), blk = mat('chairleg', '#16171A', { roughness: 0.45, metalness: 0.6 });
     const sh = 0.47, st = 0.075, sw = w * 0.96, sd = d * 0.86, bt = 0.06;
@@ -1980,7 +2006,7 @@ function buildProp(g, o) {
     const onTable = !o.wall && supportTop(o) > 0.1, base = onTable ? 0 : tvStandH(o) - 0.08, sy = base + 0.08 + h / 2;
     const bez = mat('tvbody', '#111316', { roughness: 0.3, metalness: 0.2 });
     mbox(g, w, h, 0.012, bez, 0, sy, -0.02);
-    mbox(g, w - 0.012, h - 0.012, 0.002, mat('screen', '#07080A', { roughness: 0.04, metalness: 0.6 }), 0, sy, -0.027, true);
+    const scr = mesh(g, new THREE.PlaneGeometry(w - 0.02, h - 0.02), mat('tvslide', '#FFFFFF', { map: slideTex(), emissive: c3('#FFFFFF'), emissiveMap: slideTex(), emissiveIntensity: 0.85, roughness: 0.25 }), 0, sy, -0.0265, true); scr.rotation.y = Math.PI;   // на экране — титульный слайд презентации
     mbox(g, w * 0.78, h * 0.62, 0.03, bez, 0, sy - h * 0.06, 0.0);
     if (o.wall) {   // на стене: плоский кронштейн за экраном, без стойки
       mbox(g, Math.min(w * 0.4, 0.4), Math.min(h * 0.5, 0.3), 0.04, dark, 0, sy, 0.03);
@@ -2666,7 +2692,7 @@ function buildLight(sc, g, o, lit, shadowBudget) {
   else if (k === 'reflector') {
     // круглый отражатель Ø1 м висит вертикально под точкой крепления: стойка держит его сзади за верхний край
     const R1 = 0.5, cy = -R1 + 0.02; head.userData.ay = cy;
-    const f = mesh(head, new THREE.CircleGeometry(R1, 40), mat('refl', '#D9DCE0', { roughness: 0.25, metalness: 0.6, side: THREE.DoubleSide }), 0, cy, -0.02, true); f.rotation.y = Math.PI;
+    const f = mesh(head, new THREE.CircleGeometry(R1, 40), mat('refl', '#D9DCE0', { roughness: 0.25, metalness: 0.6, side: THREE.DoubleSide }), 0, cy, -0.02);   // отражатель загораживает луч: за ним — тень f.rotation.y = Math.PI;
     const rim = mesh(head, new THREE.TorusGeometry(R1, 0.008, 6, 48), black, 0, cy, -0.02, true);            // обод
     mbox(head, 0.05, 0.06, 0.02, black, 0, -0.015, -0.005, true);                                            // зажим за верхний край
     head.userData.custom = true;
@@ -2746,7 +2772,7 @@ const SHADOW_KINDS_OFF = ['sun', 'astera', 'china', 'reflector'];   // у эти
 function shadowPicks(n, hq) {
   const heroes = objs().filter(o => o.type === 'hero');
   const b = t3bounds(), cx = (b.minx + b.maxx) / 2, cy = (b.miny + b.maxy) / 2;
-  const targets = heroes.length ? heroes.map(h => [h.x, h.y, h.pose === 'sit' ? 1.1 : 1.5]) : [[cx, cy, 1.2]];
+  const targets = (heroes.length ? heroes.map(h => [h.x, h.y, h.pose === 'sit' ? 1.1 : 1.5]) : [[cx, cy, 1.2]]).concat(objs().filter(o => o.type === 'light' && o.kind === 'reflector').map(r => [r.x, r.y, (r.h || 2) - 0.5]));   // прибор, светящий в отражатель, получает тень — луч не проходит сквозь него
   const cand = objs().filter(o => o.type === 'light' && !SHADOW_KINDS_OFF.includes(o.kind)).map(o => {
     const L = LIGHTS[o.kind] || LIGHTS.fresnel, prac = PRAC_FIXED.includes(o.kind) || o.kind === 'practical';
     const omni = L.omni && !L.rotIcon;
@@ -2790,7 +2816,7 @@ function t3build(lit) {
   if (T3.scene && T3.key && T3.keyNC === keyNC && objs().some(o => o.type === 'wall')) {   // T3.key = '' — принудительная полная сборка (догрузились модели/текстуры)
     try { if (t3partial(T3.scene, lit, K)) T3.ver = (T3.ver || 0) + 1; T3.key = key; return T3.scene; }   /* тени — только если менялись не одни камеры */ catch (e) { console.error('partial update', e); } }
   if (T3.scene) t3dispose(T3.scene);
-  const sc = new THREE.Scene(); sc.background = c3('#151413'); T3.byId = {}; T3.cut = []; T3.corr = []; T3.lightsOf = {};
+  const sc = new THREE.Scene(); sc.background = c3('#151413'); T3.byId = {}; T3.vw = {}; T3.cut = []; T3.corr = []; T3.lightsOf = {};
   const b = t3bounds(); const cx = (b.minx + b.maxx) / 2, cz = (b.miny + b.maxy) / 2; T3.center = V(cx, 1, cz);
   const pad = b.walls ? 0.1 : 8; const fw = b.maxx - b.minx + pad * 2, fd = b.maxy - b.miny + pad * 2;
   const fgeo = new THREE.PlaneGeometry(fw, fd); fgeo.translate(cx, -cz, 0); floorUV(fgeo, FLOOR_FIN.laminate.tex, true);
@@ -2954,7 +2980,7 @@ function sceneExposure(r, sc, lit) {
       // средняя яркость кадра — к целевой, а самые светлые 5 % — не в «белое» (защита от пересвета)
       const m = Math.max(0.01, s / n), hi = Math.max(0.02, p95 / 255);
       const k = Math.min(0.27 / m, 0.68 / hi); if (Math.abs(k - 1) < 0.04) break;
-      E = Math.max(0.2, Math.min(4, E * Math.pow(k, 1.15)));
+      E = Math.max(0.2, Math.min(1.8, E * Math.pow(k, 1.15)));   // потолок: тусклый далёкий свет не «вытягивается» экспозицией
     }
   } catch (e) { console.error('exposure', e); E = 1.05; }
   // тёмные сцены почти не вытягиваем (одна настольная лампа должна выглядеть темно), автоэкспозиция в основном защищает от пересвета
@@ -3206,6 +3232,8 @@ function renderInspector() {
       const di = doorInfo(o);
       h += `<span class="seg" role="group" aria-label="Открывание"><button data-act="dswing" data-v="in" aria-pressed="${di.inward}">Внутрь</button><button data-act="dswing" data-v="out" aria-pressed="${!di.inward}">Наружу</button></span>`;
       h += `<span class="seg" role="group" aria-label="Петли"><button data-act="dhinge" data-v="l" aria-pressed="${di.left}">Налево</button><button data-act="dhinge" data-v="r" aria-pressed="${!di.left}">Направо</button></span>`;
+      const dc = doorCol(o).toUpperCase();
+      h += `<span class="row" role="group" aria-label="Цвет двери">${DOOR_COLORS.map(c => `<button class="swatch fc" data-act="dcol" data-v="${c[0]}" aria-label="${c[1]}" title="${c[1]}" aria-pressed="${dc === c[0]}" style="background:${c[0]}"></button>`).join('')}${customSwatch('inDCol', dc, !DOOR_COLORS.some(c => c[0] === dc))}</span>`;
     }
   } else if (o.type === 'floor') {   // пол комнаты: отделка и цвет
     const col = floorCol(o).toUpperCase();
@@ -3247,6 +3275,7 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'fc') o.fc = b.dataset.v;
   if (a === 'wcol') o.wcol = b.dataset.v;
   if (a === 'beam') o.beam = +b.dataset.v;
+  if (a === 'dcol') o.dcol = b.dataset.v;
   if (a === 'floorall') { let n = 0; roomFaces(objs().filter(x => x.x1 !== undefined)).filter(f => f.area > 0.05).forEach(f => { let fo = floorOfFace(f); if (fo === o) return; if (!fo) { const [fx, fy] = innerPt(f.poly); fo = { id: uid(), type: 'floor', x: fx, y: fy }; objs().push(fo); } n++; if (o.fin) fo.fin = o.fin; else delete fo.fin; if (o.wcol) fo.wcol = o.wcol; else delete fo.wcol; }); toast(`Пол применён ко всем комнатам (${n + 1})`); }
   if (a === 'wallall') { let n = 0; objs().forEach(w => { if (w.type !== 'wall' || w === o) return; n++; if (o.fin) w.fin = o.fin; else delete w.fin; if (o.wcol) w.wcol = o.wcol; else delete w.wcol; }); toast(`Отделка применена ко всем стенам (${n + 1})`); }
   if (a === 'dswing') { const di = doorInfo(o); if (di.inward !== (b.dataset.v === 'in')) o.swing = -(o.swing || 1); }
@@ -3269,12 +3298,12 @@ function colorEdited(o, t) {
 let editCk = null;
 // свой цвет: значок запоминается вместе с объектом, для которого открыта палитра, и применяется к нему,
 // даже если палитру закрыли щелчком по другому объекту (выделение сменилось раньше, чем пришло change)
-const CUSTOM_COL = ['inWCol', 'inFCol', 'inHCol'];
+const CUSTOM_COL = ['inWCol', 'inFCol', 'inHCol', 'inDCol'];
 let colorPending = null;
 function commitColor() {
   const p = colorPending; colorPending = null; if (!p) return false; const o = byId(p.oid); if (!o) return false;
-  const cur = p.id === 'inWCol' ? o.wcol : p.id === 'inFCol' ? o.fc : o.hcol; if (cur === p.v) return false;
-  checkpoint(); if (p.id === 'inWCol') o.wcol = p.v; else if (p.id === 'inFCol') o.fc = p.v; else o.hcol = p.v;
+  const cur = p.id === 'inWCol' ? o.wcol : p.id === 'inFCol' ? o.fc : p.id === 'inDCol' ? o.dcol : o.hcol; if (cur === p.v) return false;
+  checkpoint(); if (p.id === 'inWCol') o.wcol = p.v; else if (p.id === 'inFCol') o.fc = p.v; else if (p.id === 'inDCol') o.dcol = p.v; else o.hcol = p.v;
   save(); return true;
 }
 $('inspector').addEventListener('change', (e) => {
@@ -3312,7 +3341,7 @@ $('inspector').addEventListener('input', (e) => {
     case 'inShow': o.showLbl = t.checked; break;
     case 'inLock': o.locked = t.checked; break;
     case 'inWH': if (ok && num > 0) o.h = Math.max(0.3, Math.min(winMaxH(o), num)); break;
-    case 'inWView': if (t.value) o.view = t.value; else delete o.view; break;
+    case 'inWView': { const hw = hostWall(o); objs().forEach(w => { if (w.type !== 'window' || (w !== o && (!hw || hostWall(w) !== hw))) return; if (t.value) w.view = t.value; else delete w.view; }); break; }   // у всех окон одной стены — общий вид
     case 'inFloor': o.floor = t.checked; o.h = o.floor ? Math.max(o.h || 1.2, 2.4) : Math.min(o.h || 1.2, 1.2); o.h = Math.min(o.h, winMaxH(o)); renderInspector(); break;
     case 'inStand': o.stand = t.checked; T3.key = ''; V3.dirty = true; break;
     case 'inGrid': o.grid = t.checked; break;
@@ -4078,7 +4107,7 @@ let pipT = 0;
 function schedPipDraw() {
   if (pipT) return;
   pipT = setTimeout(() => { pipT = 0; const P = S.project.pip, el = $('pip'); if (!P || !el || el.hidden) return; const cam = byId(P.cam); if (!cam) return;
-    const cv = el.querySelector('canvas'), k = sceneKeys().full + '|' + P.cam + '|' + cv._w + 'x' + cv._h; if (cv._k === k) return; cv._k = k;   // кадр перерисовывается, только если что-то поменялось
+    const cv = el.querySelector('canvas'), k = sceneKeys().full + '|' + JSON.stringify(objs().filter(o => o.type === 'light')) + '|' + P.cam + '|' + cv._w + 'x' + cv._h; if (cv._k === k) return; cv._k = k;   // кадр перерисовывается, только если что-то поменялось
     try { renderFrame(cv, cam, { lit: true }); } catch (e) { console.error('pip', e); } }, 150);
 }
 function bindPip(el) {
