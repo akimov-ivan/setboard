@@ -210,6 +210,17 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 .inspector .ins-name { padding: 0; }
 .inspector .ins-name input { flex: 1; min-width: 0; }
 .inspector .del { width: 100%; margin-top: 4px; border: 1px solid var(--line2); height: 36px; }
+.inspector > * { flex-shrink: 0; }   /* при прокрутке панели элементы (в т.ч. «Удалить») не сплющиваются */
+.frow { display: contents; }
+.pip { position: absolute; z-index: 5; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; box-shadow: 0 10px 28px var(--shadow); overflow: hidden; touch-action: none; }
+.pip-h { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 4px 0 8px; cursor: move; -webkit-user-select: none; user-select: none; }
+.pip-h select { flex: 0 1 auto; max-width: 62%; min-width: 0; padding: 3px 6px; border-radius: 6px; background: var(--chip); border: none; background: transparent; font: 600 12px var(--font-ui); color: var(--fg); cursor: pointer; }
+.pip-x { width: 26px; height: 26px; flex: none; border: none; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; border-radius: 6px; cursor: pointer; }
+.pip-x:hover { background: var(--chip); color: var(--fg); }
+.pip canvas { display: block; background: #000; cursor: move; touch-action: none; }
+.pip-h .grip { flex: 1; align-self: stretch; }
+.pip-rs { position: absolute; right: 0; bottom: 0; width: 22px; height: 22px; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 55%, rgba(255,255,255,.75) 55%, rgba(255,255,255,.75) 62%, transparent 62%, transparent 72%, rgba(255,255,255,.75) 72%, rgba(255,255,255,.75) 79%, transparent 79%); }
+.chks { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .ins-head { display: flex; align-items: center; gap: 10px; }
 .capb { display: flex; flex-direction: column; gap: 6px; }
 .capb .lab { font-size: 12px; color: var(--muted); }
@@ -336,7 +347,14 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
   #menus .menu > .menu.sub { pointer-events: auto; }
   #insCanvas { width: auto; max-width: 100%; max-height: 22vh; margin: 0 auto; }
   .pwrap .pname { font-size: 14px; }
-  .inspector { top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; max-height: 52%; }
+  .inspector { top: auto; bottom: 8px; left: 8px; right: 8px; width: auto; max-height: 52%; gap: 6px; padding: 10px; }
+  /* компактная панель свойств: Ш/Г/В в один ряд, ползунки в одну строку (подпись — ползунок — значение) */
+  .frow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .frow .fld { padding: 0 6px; gap: 2px; } .frow .stp { display: none; } .frow .fld input[type="number"] { width: 4.5ch; padding: 2px 4px; }
+  .sld { display: grid; grid-template-columns: 88px 1fr auto; align-items: center; column-gap: 8px; }
+  .sld-h { display: contents; } .sld-h > span:first-child { grid-column: 1; } .sld input[type="range"] { grid-column: 2; grid-row: 1; } .sld-h .sld-v { grid-column: 3; grid-row: 1; }
+  .cblock { gap: 2px; padding-top: 6px; }
+  .inspector .fld { height: 34px; }
   .ovl-tr { left: 8px; right: 8px; justify-content: flex-end; flex-wrap: wrap; }
   .ovl .pills { flex-wrap: nowrap; } .ovl .pill { padding: 0 9px; }
   .side, .camlist { position: absolute; z-index: 20; inset: 0 auto 0 0; box-shadow: 8px 0 24px var(--shadow); }
@@ -505,7 +523,7 @@ const customSwatch = (id, hex, on) => `<label class="swatch fc wpick" title="С�
 const F = 'class="f"';
 const LIGHTS = {
   softbox: { name: 'Софтбокс', half: 85, len: 3, icon: `<path d="M4 5h16c0 8-4 13-8 13S4 13 4 5z" ${F}/>` },
-  mat: { name: 'Ковёр', half: 55, len: 2.5, icon: `<rect x="5" y="5" width="14" height="14" rx="1.5" ${F}/>` + [8.5, 12, 15.5].map(y => [8.5, 12, 15.5].map(x => `<circle cx="${x}" cy="${y}" r=".9" class="d"/>`).join('')).join('') },
+  mat: { name: 'Ковёр', half: 70, len: 2.5, icon: `<rect x="5" y="5" width="14" height="14" rx="1.5" ${F}/>` + [8.5, 12, 15.5].map(y => [8.5, 12, 15.5].map(x => `<circle cx="${x}" cy="${y}" r=".9" class="d"/>`).join('')).join('') },
   pot: { name: 'Горшок', half: 60, len: 3.5, icon: `<path d="M4 7h16l-5 7v4H9v-4z" ${F}/>` },
   astera: { name: 'Astera', half: 45, len: 2.5, icon: `<rect x=".5" y="11" width="23" height="2.2" rx="1.1" ${F}/>` },
   spot: { name: 'Spotlight', half: 12, len: 6, icon: `<rect x="6.5" y="15" width="11" height="7" rx="1.5" ${F}/><rect x="9.6" y="8" width="4.8" height="7" ${F}/><rect x="8.6" y="2.5" width="6.8" height="5.5" rx=".8" ${F}/><path d="M6.5 12h3.1M14.4 12h3.1M6.5 10.8v2.4M17.5 10.8v2.4"/>` },
@@ -670,6 +688,14 @@ function cssVar(n) { return getComputedStyle(document.documentElement).getProper
 const plan = $('plan');
 const W2S = (x, y) => [x * S.vp.s + S.vp.ox, y * S.vp.s + S.vp.oy];
 const S2W = (x, y) => [(x - S.vp.ox) / S.vp.s, (y - S.vp.oy) / S.vp.s];
+// соты (grid) у мягких приборов сужают луч до ~40°; у Spotlight — сменная линза 19° или 36°
+const GRID_KINDS = ['softbox', 'mat', 'panel', 'kino'];
+function lightHalf(o) {
+  const L = LIGHTS[o.kind] || LIGHTS.fresnel;
+  if (o.kind === 'spot') return (o.beam === 36 ? 36 : 19) / 2;
+  if (o.grid && GRID_KINDS.includes(o.kind)) return 37;
+  return L.half;
+}
 const LIGHT_REAL = { p_desk: 0.4, p_torch: 0.5, p_floor: 0.45, p_small: 0.25, softbox: 0.9, mat: 0.6, pot: 0.45, astera: 1.0, spot: 0.6, china: 0.72, fresnel: 0.45, practical: 0.4, reflector: 1.0, panel: 0.6, kino: 1.32, sun: 0.6 };
 const _lsz = {};
 // значок вертикальной Astera — вид сверху на трубку на треноге
@@ -858,7 +884,7 @@ function renderPlan() {
       if (L.omni) { beams += grad(id, o.x, o.y, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11) + `<circle cx="${o.x}" cy="${o.y}" r="${R}" fill="url(#${id})" pointer-events="none"/>`; }
       else {
         // луч начинается от передней (светящей) плоскости прибора и имеет её ширину — у софтбокса от рассеивающего полотна
-        const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85, half = Math.min(L.half, 80);
+        const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85, half = Math.min(lightHalf(o), 80);
         const [fx, fy] = dirOf(o.rot), cx = o.x + fx * fo, cy = o.y + fy * fo, [lx, ly] = dirOf(o.rot - 90), [ax, ay] = dirOf(o.rot - half), [bx, by] = dirOf(o.rot + half);
         const p1 = [cx + lx * hw, cy + ly * hw], p2 = [cx - lx * hw, cy - ly * hw];
         beams += grad(id, cx, cy, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11);
@@ -1026,7 +1052,7 @@ function renderPlan() {
   });
   $('zVal').textContent = Math.round(s / 90 * 100) + '%';
   $('planEmpty').hidden = objs().length > 0 || !!S.wallDraw || !!S.placing;
-  positionPreview();
+  positionPreview(); renderPip();
 }
 // дверь: куда открывается (внутрь/наружу помещения) и с какой стороны петли (если смотреть изнутри)
 function inPoly(x, y, poly) { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) c = !c; } return c; }
@@ -1147,7 +1173,7 @@ function lightAt(P, N, lit) {
     const v = [o.x - P[0], o.y - P[1], o.h - P[2]]; const dist = Math.hypot(v[0], v[1], v[2]) || 0.01; const u = [v[0] / dist, v[1] / dist, v[2] / dist];
     const lam = Math.max(0, N[0] * u[0] + N[1] * u[1] + N[2] * u[2]);
     let cone = 1;
-    if (!L.omni) { const [dx, dy] = dirOf(o.rot); const dl = Math.hypot(dx, dy, 0.3); const D = [dx / dl, dy / dl, -0.3 / dl]; const ca = -(u[0] * D[0] + u[1] * D[1] + u[2] * D[2]); const c1 = Math.cos(Math.min(85, L.half + 18) * RAD), c2 = Math.cos(Math.min(80, L.half) * RAD); cone = Math.max(0, Math.min(1, (ca - c1) / (c2 - c1 || 1))); }
+    if (!L.omni) { const [dx, dy] = dirOf(o.rot); const dl = Math.hypot(dx, dy, 0.3); const D = [dx / dl, dy / dl, -0.3 / dl]; const ca = -(u[0] * D[0] + u[1] * D[1] + u[2] * D[2]); const c1 = Math.cos(Math.min(85, lightHalf(o) + 18) * RAD), c2 = Math.cos(Math.min(80, lightHalf(o)) * RAD); cone = Math.max(0, Math.min(1, (ca - c1) / (c2 - c1 || 1))); }
     const fall = 1 / (1 + (dist * dist) / (L.len * L.len * 0.45));
     const k = I * lam * cone * fall * 1.5; r += c[0] * k; g += c[1] * k; b += c[2] * k;
   });
@@ -1703,6 +1729,108 @@ function buildWalls(sc) {
     if (t < sg.len) piece(t, sg.len, 0, WALL_H);
   });
 }
+// виды из окна (рисуются процедурно и слегка размываются — как будто вне фокуса): улица (1-й этаж), город (высокий этаж), закат, парк.
+// Щит 8 м по высоте (от −1,5 до 6,5 м), горизонт на уровне глаз ≈ 1,5 м → 62,5 % сверху
+function viewTex(kind) {
+  return canvasTex('view4-' + kind, 1024, 512, (x, w, h) => {
+    let s = 41; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+    const HZ = h * 0.625;
+    const lg = (y0, y1, stops) => { const g = x.createLinearGradient(0, y0, 0, y1); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; };
+    const rect = (c, a, b, cw, ch) => { x.fillStyle = c; x.fillRect(a, b, cw, ch); };
+    const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16), f = (v) => Math.max(0, Math.min(255, Math.round(v * k))); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; };
+    const sky = (y1, top, mid, low) => { x.fillStyle = lg(0, y1, [[0, top], [0.6, mid], [1, low]]); x.fillRect(0, 0, w, y1); };
+    const clouds = (n, y0, y1, col) => { for (let k = 0; k < n; k++) { const cx = r() * w, cy = y0 + r() * (y1 - y0), cw = 120 + r() * 260, chh = 14 + r() * 26;   // вытянутые мягкие облака из множества полупрозрачных пятен
+      for (let q = 0; q < 34; q++) { const px = cx + (r() - 0.5) * cw, py = cy + (r() - 0.5) * chh * (1 - Math.abs(px - cx) / cw), pr = chh * (0.5 + r() * 0.9); const g = x.createRadialGradient(px, py - pr * 0.2, 0, px, py, pr);
+        g.addColorStop(0, col); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(px - pr, py - pr, pr * 2, pr * 2); } } };
+    const windows = (bx, by, bw, bh, fh, ww, wh, glass, frame, lit) => {   // окна по этажам: рама, стекло с отражением неба, иногда светятся
+      for (let fy = by + fh * 0.25; fy + wh < by + bh - 4; fy += fh) for (let fx = bx + ww * 0.6; fx + ww < bx + bw - 3; fx += ww * 2) {
+        rect(frame, fx - 1.5, fy - 1.5, ww + 3, wh + 3); x.fillStyle = r() < lit ? lg(fy, fy + wh, [[0, '#F6D9A0'], [1, '#D9A860']]) : lg(fy, fy + wh, [[0, glass[0]], [1, glass[1]]]); x.fillRect(fx, fy, ww, wh);
+        rect('rgba(255,255,255,.18)', fx, fy, ww * 0.35, wh); rect(frame, fx + ww / 2 - 0.7, fy, 1.4, wh); } };
+    const tree = (cx, base, rr, greens, trunk) => {   // крона из сотен мелких «листовых» пятен: снизу темнее, сверху-слева светлее, с просветами
+      x.fillStyle = trunk || '#4A3B2C'; x.beginPath(); x.moveTo(cx - rr * 0.08, base); x.lineTo(cx - rr * 0.035, base - rr * 1.2); x.lineTo(cx + rr * 0.035, base - rr * 1.2); x.lineTo(cx + rr * 0.08, base); x.fill();
+      const cy = base - rr * 1.45, n = Math.round(90 + rr * 2);
+      for (let k = 0; k < n; k++) { const a = r() * 6.283, d = Math.sqrt(r()) * rr * 0.85, px = cx + Math.cos(a) * d * 1.05, py = cy + Math.sin(a) * d * 0.8, pr = rr * (0.07 + r() * 0.12);
+        const lt = 0.72 + 0.5 * ((cy - py) / rr * 0.5 + (cx - px) / rr * 0.25 + 0.5) + (r() - 0.5) * 0.2; x.fillStyle = shade(greens[Math.floor(r() * greens.length)], Math.max(0.5, lt)); x.beginPath(); x.ellipse(px, py, pr, pr * 0.8, r() * 3, 0, 7); x.fill(); } };
+    const car = (cx, by, cw, col) => { const ch = cw * 0.32; x.fillStyle = col; x.beginPath(); x.moveTo(cx, by - ch * 0.35); x.lineTo(cx + cw * 0.18, by - ch * 0.4); x.lineTo(cx + cw * 0.3, by - ch); x.lineTo(cx + cw * 0.72, by - ch); x.lineTo(cx + cw * 0.86, by - ch * 0.42); x.lineTo(cx + cw, by - ch * 0.35); x.lineTo(cx + cw, by - ch * 0.08); x.lineTo(cx, by - ch * 0.08); x.fill();
+      x.fillStyle = 'rgba(40,52,64,.85)'; x.beginPath(); x.moveTo(cx + cw * 0.32, by - ch * 0.92); x.lineTo(cx + cw * 0.7, by - ch * 0.92); x.lineTo(cx + cw * 0.8, by - ch * 0.45); x.lineTo(cx + cw * 0.24, by - ch * 0.45); x.fill();
+      [0.22, 0.78].forEach(f => { x.fillStyle = '#16171A'; x.beginPath(); x.arc(cx + cw * f, by - ch * 0.08, ch * 0.24, 0, 7); x.fill(); }); };
+    const glowWin = (bx, by, bw, bh, fh, ww, wh, p, dark) => {   // окна вечером: часть тёплых светящихся, остальные тёмные
+      for (let fy = by + fh * 0.3; fy + wh < by + bh - 2; fy += fh) for (let fx = bx + ww * 0.7; fx + ww < bx + bw - 2; fx += ww * 2.1) {
+        if (r() < p) { const g = x.createRadialGradient(fx + ww / 2, fy + wh / 2, 0, fx + ww / 2, fy + wh / 2, ww * 1.4); g.addColorStop(0, 'rgba(255,200,120,.35)'); g.addColorStop(1, 'rgba(255,200,120,0)'); x.fillStyle = g; x.fillRect(fx - ww, fy - wh, ww * 3, wh * 3);
+          x.fillStyle = lg(fy, fy + wh, [[0, '#FFE2A8'], [1, '#E9A85A']]); } else x.fillStyle = dark; x.fillRect(fx, fy, ww, wh); } };
+    const leafy = (cx, base, rr, cols, trunk, tw, hgt) => {   // дерево с высоким тонким стволом и рыхлой кроной
+      x.fillStyle = trunk; x.beginPath(); x.moveTo(cx - tw, base); x.quadraticCurveTo(cx - tw * 0.6 + (r() - 0.5) * tw * 3, base - hgt * 0.5, cx - tw * 0.35, base - hgt); x.lineTo(cx + tw * 0.35, base - hgt); x.quadraticCurveTo(cx + tw * 0.6 + (r() - 0.5) * tw * 3, base - hgt * 0.5, cx + tw, base); x.fill();
+      for (let k = 0; k < 4; k++) { x.strokeStyle = trunk; x.lineWidth = tw * 0.5; x.beginPath(); x.moveTo(cx, base - hgt * (0.6 + r() * 0.3)); x.lineTo(cx + (r() - 0.5) * rr * 1.6, base - hgt - rr * (0.2 + r() * 0.6)); x.stroke(); }
+      const cy = base - hgt - rr * 0.35, n = Math.round(160 + rr * 3);
+      for (let k = 0; k < n; k++) { const a = r() * 6.283, d = Math.sqrt(r()) * rr, px = cx + Math.cos(a) * d * 1.15, py = cy + Math.sin(a) * d * 0.75, pr = rr * (0.04 + r() * 0.09);
+        const lt = 0.7 + 0.55 * ((cy - py) / rr * 0.5 + 0.5) + (r() - 0.5) * 0.25; x.fillStyle = shade(cols[Math.floor(r() * cols.length)], Math.max(0.45, lt)); x.beginPath(); x.ellipse(px, py, pr, pr * 0.75, r() * 3, 0, 7); x.fill(); } };
+    if (kind === 'street') {   // улица с первого этажа: современные кирпичные дома, пасмурно, переход-«зебра», осенние деревья
+      x.fillStyle = lg(0, HZ, [[0, '#E9EBEC'], [1, '#D9DCDD']]); x.fillRect(0, 0, w, HZ + 10);
+      const brick = (bx, top, bw, bot, col) => { x.fillStyle = col; x.fillRect(bx, top, bw, bot - top);
+        for (let by = top; by < bot; by += 3) rect(r() < 0.5 ? 'rgba(0,0,0,.08)' : 'rgba(255,230,210,.05)', bx, by, bw, 1);   // кладка
+        for (let fy = top + 12; fy < bot - 70; fy += 34) for (let fx = bx + 10; fx < bx + bw - 26; fx += 34) { rect('#2A2B2E', fx - 2, fy - 2, 22, 26); x.fillStyle = lg(fy, fy + 22, [[0, '#C9CED2'], [1, '#6E757B']]); x.fillRect(fx, fy, 18, 22); rect('rgba(240,238,232,.7)', fx, fy, 7, 22); rect('#2A2B2E', fx + 8, fy, 2, 22); } };
+      brick(-10, h * 0.0, 330, HZ + 30, '#5E3F2E'); rect('#26272A', -10, HZ - 40, 330, 75);   // дом слева: кирпич, тёмный первый этаж
+      x.fillStyle = 'rgba(255,190,90,.75)'; x.fillRect(230, HZ - 20, 30, 50);   // тёплый вход
+      brick(420, h * 0.33, 230, HZ + 10, '#6A4A38'); rect('#2E2F33', 420, HZ - 12, 230, 26);   // дальний дом в просвете
+      for (let fy = h * 0.33 + 6; fy < HZ - 16; fy += 18) rect('rgba(30,30,32,.35)', 420, fy, 230, 1.5);
+      rect('#2B2C30', 330, HZ - 10, 400, 8); x.fillStyle = 'rgba(80,95,70,.8)'; x.fillRect(330, HZ - 24, 400, 14);   // мост-переход с зеленью
+      brick(720, -10, 320, HZ + 30, '#4E3426'); rect('#1F2023', 720, HZ - 70, 320, 105);   // дом справа: кирпич, стеклянный первый этаж
+      for (let fx = 735; fx < 1030; fx += 46) { x.fillStyle = lg(HZ - 64, HZ + 30, [[0, 'rgba(120,130,135,.6)'], [1, 'rgba(40,44,48,.7)']]); x.fillRect(fx, HZ - 64, 40, 92); }
+      x.fillStyle = 'rgba(230,150,60,.55)'; for (let k = 0; k < 18; k++) { x.beginPath(); x.arc(860 + r() * 140, HZ - 40 + r() * 50, 3 + r() * 4, 0, 7); x.fill(); }   // осенний декор в витрине
+      [[120, HZ + 34, 70], [300, HZ + 20, 58], [30, HZ + 40, 50]].forEach(([cx, b, rr]) => leafy(cx, b, rr, ['#B79A45', '#C9A64E', '#8E7A3A', '#A88C3E', '#D4B866'], '#4A3E30', rr * 0.07, rr * 1.3));
+      x.fillStyle = lg(HZ + 25, h * 0.86, [[0, '#7E8083'], [1, '#606265']]); x.fillRect(0, HZ + 25, w, h * 0.86 - HZ - 25);   // асфальт
+      for (let k = 0; k < 4000; k++) rect(r() < 0.5 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.08)', r() * w, HZ + 25 + r() * (h * 0.86 - HZ - 25), 2, 1);
+      for (let k = 0; k < 13; k++) { const zx = 150 + k * 58; x.fillStyle = '#ECECEA'; x.beginPath(); x.moveTo(zx, HZ + 62); x.lineTo(zx + 38, HZ + 62); x.lineTo(zx + 30, HZ + 104); x.lineTo(zx - 14, HZ + 104); x.fill(); }   // «зебра»
+      x.fillStyle = lg(h * 0.86, h, [[0, '#4C4D50'], [1, '#3C3D40']]); x.fillRect(0, h * 0.86, w, h * 0.14);   // плитка тротуара у окна
+      for (let ty = h * 0.86; ty < h; ty += 10) rect('rgba(0,0,0,.25)', 0, ty, w, 1); for (let tx = 0; tx < w; tx += 22) rect('rgba(0,0,0,.2)', tx, h * 0.86, 1, h * 0.14);
+      for (let k = 0; k < 160; k++) { x.fillStyle = ['#C9862F', '#B5702A', '#D9A040', '#8E5A22'][Math.floor(r() * 4)]; x.beginPath(); x.ellipse(r() * w, HZ + 30 + r() * (h - HZ - 30), 3 + r() * 3, 1.5 + r() * 1.5, r() * 3, 0, 7); x.fill(); }   // опавшие листья
+    } else if (kind === 'city') {   // город с высокого этажа в синий час: проспект с огнями машин, высотки со шпилями, светящиеся окна
+      x.fillStyle = lg(0, HZ, [[0, '#4F6E99'], [0.6, '#7E95B6'], [1, '#B4BFCC']]); x.fillRect(0, 0, w, HZ + 10);
+      for (let k = 0; k < 70; k++) { const bw = 14 + r() * 40, bh = 10 + r() * 50, bx = r() * w; rect(`rgba(${110 + r() * 20},${125 + r() * 20},${145 + r() * 20},.9)`, bx, HZ - bh, bw, bh + 12); }   // дальний город в дымке
+      const spire = (cx, base, bw, bh) => { x.fillStyle = lg(base - bh, base, [[0, '#C8CCD2'], [1, '#9AA0A8']]);
+        x.fillRect(cx - bw / 2, base - bh * 0.55, bw, bh * 0.55); x.fillRect(cx - bw * 0.34, base - bh * 0.75, bw * 0.68, bh * 0.2); x.fillRect(cx - bw * 0.2, base - bh * 0.88, bw * 0.4, bh * 0.13);
+        x.beginPath(); x.moveTo(cx - bw * 0.06, base - bh * 0.88); x.lineTo(cx, base - bh); x.lineTo(cx + bw * 0.06, base - bh * 0.88); x.fill(); glowWin(cx - bw / 2, base - bh * 0.55, bw, bh * 0.55, 7, 3, 4, 0.25, 'rgba(70,80,96,.6)'); };
+      spire(240, HZ + 40, 110, 300); spire(330, HZ - 10, 60, 190); spire(470, HZ - 20, 40, 130);   // высотки со шпилями
+      [[520, 90, 70], [640, 120, 100], [600, 60, 40], [880, 70, 60]].forEach(([bx, bw, bh]) => { rect('#8592A3', bx, HZ - bh, bw, bh + 20); glowWin(bx, HZ - bh, bw, bh, 9, 4, 5, 0.3, 'rgba(60,70,86,.7)'); });
+      x.fillStyle = lg(HZ, h, [[0, '#5A6474'], [1, '#3C4350']]); x.fillRect(0, HZ, w, h - HZ);   // кварталы внизу
+      x.fillStyle = '#3A3E46'; x.beginPath(); x.moveTo(0, h * 0.73); x.lineTo(210, HZ + 10); x.lineTo(260, HZ + 10); x.lineTo(120, h); x.lineTo(0, h); x.fill();   // проспект уходит вдаль
+      for (let k = 0; k < 260; k++) { const u = r(), px = 230 - u * 230 + (r() - 0.5) * 40 * u, py = HZ + 12 + u * (h - HZ) * 0.55, red = r() < 0.5; x.fillStyle = red ? 'rgba(255,90,70,.85)' : 'rgba(255,240,200,.9)'; x.fillRect(px, py, 2 + u * 5, 1 + u * 2); }   // фары и стоп-сигналы
+      rect('#CFC7B8', 300, HZ - 10, 420, h - HZ + 10); x.fillStyle = lg(HZ - 10, h, [[0, '#D8CFBE'], [1, '#B8AE9C']]); x.fillRect(300, HZ - 10, 420, h - HZ + 10);   // дом на переднем плане
+      rect('#9E9585', 300, HZ - 14, 420, 6); glowWin(300, HZ - 6, 420, h - HZ + 6, 34, 14, 22, 0.55, '#3A3F48');
+      for (let k = 0; k < 9; k++) { const gx = 310 + k * 46; const g = x.createRadialGradient(gx, HZ - 4, 0, gx, HZ - 4, 30); g.addColorStop(0, 'rgba(255,220,160,.55)'); g.addColorStop(1, 'rgba(255,220,160,0)'); x.fillStyle = g; x.fillRect(gx - 30, HZ - 34, 60, 60); }   // подсветка фасада
+      rect('#8C939E', 720, HZ + 20, 300, h); glowWin(720, HZ + 20, 300, h, 30, 12, 18, 0.35, '#3D434D');
+      leafy(60, h + 10, 60, ['#3F5F3A', '#4E6E42', '#37543A'], '#2E2A26', 4, 30); leafy(430, h + 20, 45, ['#3F5F3A', '#4E6E42'], '#2E2A26', 3, 20);
+    } else if (kind === 'sunset') {   // закат с высокого этажа: огненная полоса над горизонтом, лилово-синее небо с тёмными облаками, силуэт города
+      x.fillStyle = lg(0, HZ + 5, [[0, '#3A4772'], [0.35, '#6A5C86'], [0.62, '#C8506A'], [0.8, '#F2602E'], [0.92, '#FF9A3A'], [1, '#FFC66A']]); x.fillRect(0, 0, w, HZ + 10);
+      for (let k = 0; k < 14; k++) { const cy = 20 + r() * HZ * 0.5, cw = 160 + r() * 320, cx0 = r() * w; for (let q = 0; q < 60; q++) { const px = cx0 + (r() - 0.5) * cw, py = cy + (r() - 0.5) * 10 * (1 - Math.abs(px - cx0) / cw), pr = 8 + r() * 16; const g = x.createRadialGradient(px, py, 0, px, py, pr); g.addColorStop(0, 'rgba(52,46,74,.35)'); g.addColorStop(1, 'rgba(52,46,74,0)'); x.fillStyle = g; x.fillRect(px - pr, py - pr, pr * 2, pr * 2); } }   // тёмные облака
+      for (let k = 0; k < 16; k++) { const cy = HZ * 0.62 + r() * HZ * 0.3, cw = 140 + r() * 300, cx0 = r() * w; x.fillStyle = `rgba(${200 + r() * 55},${60 + r() * 50},${40 + r() * 30},.55)`; x.beginPath(); x.ellipse(cx0, cy, cw / 2, 3 + r() * 6, 0, 0, 7); x.fill(); }   // огненные прожилки облаков
+      for (let k = 0; k < 90; k++) { const bw = 6 + r() * 26, bh = 4 + r() * 40, bx = r() * w; rect('#3B2E45', bx, HZ - bh, bw, bh + 4); }   // дальние силуэты
+      [[150, 18, 70], [560, 22, 60], [610, 16, 80], [760, 20, 55]].forEach(([bx, bw, bh]) => rect('#2F2538', bx, HZ - bh, bw, bh + 4));
+      x.fillStyle = lg(HZ, h, [[0, '#3D3346'], [1, '#262030']]); x.fillRect(0, HZ, w, h - HZ);
+      let bx = -10; while (bx < w) { const bw = 50 + r() * 110, bh = 20 + r() * 110, top = HZ + 40 - bh * 0.3; x.fillStyle = lg(top, h, [[0, '#6E6276'], [1, '#43394D']]); x.fillRect(bx, top, bw, h - top);
+        rect('rgba(255,150,90,.35)', bx, top, 3, h - top); glowWin(bx, top + 4, bw, h - top, 12, 5, 6, 0.3, 'rgba(50,42,60,.85)'); bx += bw + 6 + r() * 20; }   // дома внизу: отсвет заката на гранях
+    } else {   // парк: высокие стройные деревья, яркий газон, дорожка; мягкий рассеянный свет без солнца
+      x.fillStyle = lg(0, HZ, [[0, '#DDE6DA'], [1, '#EEF1E6']]); x.fillRect(0, 0, w, HZ + 10);
+      for (let k = 0; k < 60; k++) { const cx = r() * w, rr = 20 + r() * 30; x.fillStyle = `rgba(${150 + r() * 30},${180 + r() * 20},${140 + r() * 20},.6)`; x.beginPath(); x.ellipse(cx, HZ - 40 - r() * 60, rr, rr * 0.9, 0, 0, 7); x.fill(); }   // дальние кроны в дымке
+      x.fillStyle = lg(HZ - 10, h, [[0, '#8DB64A'], [0.5, '#79A63A'], [1, '#5E8C2C']]); x.fillRect(0, HZ - 10, w, h - HZ + 10);
+      rect('#9A9A92', 0, HZ + 6, w, 9); rect('#B4B3AA', 0, HZ + 6, w, 3);   // дорожка поперёк
+      for (let k = 0; k < 9000; k++) rect(r() < 0.5 ? 'rgba(220,240,120,.12)' : 'rgba(20,60,10,.12)', r() * w, HZ + r() * (h - HZ), 1.5, 2 + r() * 2);   // трава
+      const trees = [[140, 0.55, 45], [380, 0.5, 40], [560, 0.55, 48], [760, 0.5, 42], [60, 1.15, 120], [300, 1.0, 105], [470, 1.25, 130], [690, 1.05, 115], [930, 1.2, 125]];   // дальний ряд меньше, ближний — крупные кроны, смыкающиеся сверху
+      trees.forEach(([cx, sc, rr]) => leafy(cx + (r() - 0.5) * 20, HZ + 20 + sc * 50, rr, ['#3D6B26', '#4F8030', '#62953A', '#2F5A22', '#76A845'], '#4A4034', 3 + sc * 4, 130 + sc * 110));
+      for (let k = 0; k < 10; k++) { x.fillStyle = 'rgba(30,60,20,.18)'; x.beginPath(); x.ellipse(r() * w, HZ + 60 + r() * (h - HZ - 70), 60 + r() * 60, 8, 0, 0, 7); x.fill(); }   // мягкие тени под кронами
+    }
+    // реализм: мелкая фактура поверхностей, неравномерная освещённость крупными пятнами, воздушная перспектива к горизонту, лёгкое виньетирование
+    { const im = x.getImageData(0, 0, w, h), d = im.data, n = (u, v) => { const a = Math.sin(u * 12.9898 + v * 78.233) * 43758.5453; return a - Math.floor(a); };
+      const big = (u, v) => 0.5 + 0.25 * Math.sin(u * 0.013 + 1.3) * Math.sin(v * 0.021 + 0.4) + 0.25 * Math.sin(u * 0.007 - v * 0.009 + 2.1);
+      const tint = kind === 'sunset' ? [255, 170, 120] : kind === 'city' ? [150, 170, 200] : [215, 225, 235];
+      for (let yy = 0; yy < h; yy++) { const fog = Math.max(0, 1 - Math.abs(yy - HZ) / (h * 0.22)) * (kind === 'street' ? 0.08 : 0.16);
+        for (let xx = 0; xx < w; xx++) { const q = (yy * w + xx) * 4, gr = (n(xx, yy) - 0.5) * 14, lt = 0.9 + 0.18 * big(xx, yy), vg = 1 - 0.18 * Math.pow(Math.hypot(xx / w - 0.5, yy / h - 0.5) * 1.6, 2);
+          for (let c = 0; c < 3; c++) d[q + c] = Math.max(0, Math.min(255, (d[q + c] * lt * vg + gr) * (1 - fog) + tint[c] * fog)); } }
+      x.putImageData(im, 0, 0); }
+    const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; tmp.getContext('2d').drawImage(x.canvas, 0, 0);
+    x.filter = 'blur(1.1px)'; x.drawImage(tmp, 0, 0); x.filter = 'none';   // лёгкий расфокус
+  });
+}
 function buildOpening(sc, o, lit) {
   const sg = segOf(o); const ang = -Math.atan2(sg.uy, sg.ux); const cx = (o.x1 + o.x2) / 2, cy = (o.y1 + o.y2) / 2;
   const g = new THREE.Group(); g.position.set(cx, 0, cy); g.rotation.y = ang; sc.add(g); g.userData.id = o.id; T3.byId[o.id] = g;
@@ -1717,9 +1845,13 @@ function buildOpening(sc, o, lit) {
     mbox(corr, W, 0.02, D, cw, 0, WALL_H, side * D / 2, true);
   }
   if (o.type === 'window') {
-    const glass = mat('glass' + (lit ? 1 : 0), '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: lit ? 1.1 : 0.35, transparent: true, opacity: 0.55, roughness: 0.1 });
+    const glass = o.view ? mat('glassv', '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: 0.3, transparent: true, opacity: 0.2, roughness: 0.05, depthWrite: false, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp }) : mat('glass' + (lit ? 1 : 0), '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: lit ? 1.1 : 0.35, transparent: true, opacity: 0.55, roughness: 0.1 });
+    if (o.view) {   // вид из окна: картинка-задник снаружи (без освещения — сама «светится», как дневной пейзаж)
+      const vw = sg.len + 16, bd = mesh(g, new THREE.PlaneGeometry(vw, 8), mat('view4|' + o.view + (lit ? 1 : 0), '#FFFFFF', { map: viewTex(o.view), emissive: c3('#FFFFFF'), emissiveMap: viewTex(o.view), emissiveIntensity: lit ? 0.95 : 0.6, roughness: 1, transparent: true, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp }), 0, 2.5, side * 4, true);   // огромный щит 8 м: края не видны даже с нижней камеры
+      bd.rotation.y = side > 0 ? Math.PI : 0; bd.receiveShadow = false; bd.renderOrder = 2;   // щит рисуется только сквозь стекло окна (трафарет): поверх стен его не видно ни в 3D-виде, ни с низкой камеры
+    }
     const sill = winSill(o), top = winTop(o), WH = top - sill, cy = sill + WH / 2, n = winPanes(sg.len);
-    mbox(g, sg.len, WH, 0.01, glass, 0, cy, 0, true);
+    const gm = mbox(g, sg.len, WH, 0.01, glass, 0, cy, 0, true); if (o.view) gm.renderOrder = 1;
     if (o.floor) mbox(g, sg.len, 0.04, 0.1, frame, 0, 0.02, 0);                   // нижняя рама у пола
     else mbox(g, sg.len + 0.04, 0.05, 0.16, frame, 0, WIN_SILL, 0);                  // подоконник
     mbox(g, sg.len, 0.04, 0.1, frame, 0, top, 0);                                   // верх рамы
@@ -1727,7 +1859,7 @@ function buildOpening(sc, o, lit) {
     for (let i = 1; i < n; i++) mbox(g, 0.04, WH, 0.1, frame, -sg.len / 2 + i * sg.len / n, cy, 0);   // вертикальные перегородки
     if (lit) {
       // дневной свет из окна: широкий мягкий прожектор снаружи, направленный внутрь комнаты
-      const day = kelvin3(6500); const ix = -onx, iz = -onz;
+      const day = kelvin3(o.view === 'sunset' ? 3200 : 6500); const ix = -onx, iz = -onz;   // на закате свет из окна тёплый
       const sunny = objs().some(q => q.type === 'light' && q.kind === 'sun');   // без солнца — пасмурно: свет окна вчетверо слабее
       const sp = new THREE.SpotLight(day, (0.9 + sg.len * 0.35) * (sunny ? 1 : 0.25), 9, 62 * RAD, 1, 1.2);
       sp.position.set(cx + onx * 2.2, Math.min(WALL_H + 0.2, winTop(o) + 0.2), cy + onz * 2.2); sp.target.position.set(cx + ix * 2.2, 0.2, cy + iz * 2.2); sc.add(sp.target);
@@ -1751,6 +1883,15 @@ const furnOf = (o) => o.fc || FURN_DEF[o.kind];
 const lighten = (hex, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.substr(i, 2), 16) + (255 - parseInt(hex.substr(i, 2), 16)) * k).toString(16).padStart(2, '0')).join('').toUpperCase();
 const furnRow = (o) => { const f = furnOf(o); return f && f[0] === '#' ? [f, 'Свой', f, lighten(f, 0.12)] : FURN.find(x => x[0] === f); };   // свой цвет мебели — hex в o.fc
 const FURN_KINDS = ['ochair', 'stool', 'tcoffee', 'bed', 'carpet', 'trect', 'tround', 'chair', 'armchair', 'sofa', 'shelf', 'cabinet', 'wardrobe'];
+// соты (тканевый grid «яичная решётка»): квадратные ячейки из тонких чёрных перегородок глубиной depth перед светящейся поверхностью.
+// w×h — прямоугольник, или r — круг (у софтбокса); cell — шаг ячейки (м)
+function eggCrate(parent, dims, x, y, z, cell, depth) {
+  const m = mat('eggcrate', '#151619', { roughness: 0.95, side: THREE.DoubleSide }), th = 0.0035, zc = z - depth / 2;
+  const R = dims.r, W = R ? R * 2 : dims.w, H = R ? R * 2 : dims.h, nx = Math.max(1, Math.round(W / cell)), ny = Math.max(1, Math.round(H / cell));
+  for (let i = 0; i <= nx; i++) { const px = -W / 2 + i * W / nx; let len = H; if (R) { len = 2 * Math.sqrt(Math.max(0, R * R - px * px)); if (len < 0.01) continue; } mbox(parent, th, len, depth, m, x + px, y, zc, true); }
+  for (let j = 0; j <= ny; j++) { const py = -H / 2 + j * H / ny; let len = W; if (R) { len = 2 * Math.sqrt(Math.max(0, R * R - py * py)); if (len < 0.01) continue; } mbox(parent, len, th, depth, m, x, y + py, zc, true); }
+  if (R) { const rim = mesh(parent, new THREE.CylinderGeometry(R, R, depth, 40, 1, true), m, x, y, zc, true); rim.rotation.x = Math.PI / 2; }   // обод по краю
+}
 // выгнутая мягкая панель (спинка/сиденье): скруглённые углы и края-«подушка», края загнуты вперёд по дуге радиуса R, кверху расширяется на flare
 function bentPanel(w, h, t, R, flare, qx, qy, rc) {
   const geo = new THREE.BoxGeometry(w, h, t, 28, 16, 1), P = geo.attributes.position, U = geo.attributes.uv, N = geo.attributes.normal;
@@ -2546,6 +2687,11 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     mesh(head, new THREE.CylinderGeometry(0.12, 0.22, 0.22, 28, 1, true), ownMat({ color: col, emissive: col, emissiveIntensity: lit ? 0.35 + 0.6 * I : 0.15, roughness: 0.9, side: THREE.DoubleSide }), 0, 0, 0, true);
     msph(head, 0.045, emi, 0, -0.04, 0, true);
   }
+  if (o.grid && GRID_KINDS.includes(k)) {   // соты перед светящейся поверхностью
+    if (k === 'softbox') { const fr = head.children.find(c => c.geometry && c.geometry.type === 'CircleGeometry' && c.geometry.parameters.radius > 0.4); if (fr) eggCrate(head, { r: 0.45 }, fr.position.x, fr.position.y, fr.position.z - 0.004, 0.06, 0.035); }
+    else if (k === 'kino') eggCrate(head, { w: 1.24, h: 0.28 }, 0, 0, -0.052, 0.045, 0.03);
+    else { const W = k === 'mat' ? 0.6 : 0.62, H = k === 'mat' ? 0.6 : 0.3; eggCrate(head, { w: W - 0.02, h: H - 0.02 }, 0, 0, -0.008, 0.042, 0.03); }
+  }
   if (stand) {
     // сдвигаем корпус вперёд так, чтобы его задняя часть оказалась в точке поворота на верху стойки
     let back = 0; const bb = new THREE.Box3();
@@ -2583,8 +2729,10 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     const c = head.localToWorld(V(0, ay, -0.03)), n = head.localToWorld(V(0, ay, -1)).sub(head.localToWorld(V(0, ay, 0))).normalize();
     T3.refl.push({ c, n, r: 0.5 });
   } else {
-    const ang = Math.min(L.half + 12, k === 'softbox' ? 88 : 85) * RAD;   // софтбокс светит почти полусферой
-    const sp = new THREE.SpotLight(col, 2.6 * I, L.len * 3.2, ang, k === 'softbox' ? 0.85 : 0.7, 1.3);   // у софтбокса яркость плавно спадает к краям
+    const hf = lightHalf(o), grid = o.grid && GRID_KINDS.includes(k);
+    // софтбокс светит почти полусферой; Spotlight — жёсткое сфокусированное пятно с резким краем; соты — узкий луч с мягким краем
+    const ang = (k === 'spot' ? hf * 1.12 : grid ? hf + 8 : Math.min(hf + 12, k === 'softbox' ? 88 : 85)) * RAD;
+    const sp = new THREE.SpotLight(col, (k === 'spot' ? 3.2 : 2.6) * I, L.len * 3.2, ang, k === 'spot' ? 0.1 : grid ? 0.35 : k === 'softbox' ? 0.85 : 0.7, 1.3);
     // источник — прямо перед светящейся поверхностью прибора, направлен вдоль его оси
     g.updateWorldMatrix(true, true); const fz = (head.userData.front || -0.2) - 0.06;
     const ay = head.userData.ay || 0; sp.position.copy(head.localToWorld(V(0, ay, fz))); sp.target.position.copy(head.localToWorld(V(0, ay, fz - 3))); sc.add(sp.target);
@@ -2609,7 +2757,7 @@ function shadowPicks(n, hq) {
     targets.forEach(([x, y, z]) => {
       const vx = x - o.x, vy = y - o.y, d2 = vx * vx + vy * vy + (z - lz) * (z - lz), dh = Math.hypot(vx, vy) || 1e-3;
       let cone = 1;
-      if (!omni) { const ang = Math.acos(Math.max(-1, Math.min(1, (vx * dx + vy * dy) / dh))) / RAD, half = Math.min(L.half || 45, 80) + 12; cone = ang <= half ? 1 : Math.max(0, 1 - (ang - half) / 35); }
+      if (!omni) { const ang = Math.acos(Math.max(-1, Math.min(1, (vx * dx + vy * dy) / dh))) / RAD, half = Math.min(lightHalf(o) || 45, 80) + 12; cone = ang <= half ? 1 : Math.max(0, 1 - (ang - half) / 35); }
       s += cone / (0.5 + d2);
     });
     return { id: o.id, score: base * (s + 0.02) };
@@ -2963,7 +3111,7 @@ function capBlock(o) {
   const lock = `<label class="chk"><input type="checkbox" id="inLock" ${o.locked ? 'checked' : ''}> Закрепить</label>`;
   if (NO_LBL.includes(o.type)) return `<div class="capb">${lock}</div>`;   // у стен, окон и дверей подписи нет — только «Закрепить»
   const val = o.type === 'camera' ? capOf(o) : (o.name || ''), ph = o.type === 'camera' ? (o.letter || 'Подпись') : o.type === 'hero' ? 'Имя героя' : 'Подпись';
-  return `<div class="capb"><span class="lab">Подпись</span><textarea id="inCap" rows="${Math.max(1, val.split('\n').length)}" aria-label="Подпись" placeholder="${esc(ph)}">${esc(val)}</textarea><label class="chk"><input type="checkbox" id="inShow" ${lblShown(o) ? 'checked' : ''}> Показать подпись</label>${lock}</div>`;
+  return `<div class="capb"><textarea id="inCap" rows="${Math.max(1, val.split('\n').length)}" aria-label="Подпись" placeholder="${esc(ph)}">${esc(val)}</textarea><div class="chks"><label class="chk"><input type="checkbox" id="inShow" ${lblShown(o) ? 'checked' : ''}> Показать подпись</label>${lock}</div></div>`;
 }
 // блок цвета прибора: CCT / HSI и яркость — ползунок + поле с числом
 function slider(id, label, min, max, step, val, unit, track) {
@@ -3031,12 +3179,14 @@ function renderInspector() {
       if (!picks.has(o.id)) h += `<span class="hint" style="font-family:var(--font-ui)">В 3D без тени: тени получают приборы, сильнее всего освещающие героев (не больше ${hq ? 7 : 3})</span>`; }
     if (tiltable(o)) h += tiltBlock(o);
     if (!NO_COLOR.includes(o.kind)) h += colorBlock(o);
-    const L = LIGHTS[o.kind] || {}; if (!(L.omni || L.prac || o.kind === 'sun' || o.kind === 'astera')) h += `<label class="chk solo"><input type="checkbox" id="inStand" ${o.stand !== false ? 'checked' : ''}> C-stand</label>`;
+    if (o.kind === 'spot') h += `<span class="seg" role="group" aria-label="Угол луча"><button data-act="beam" data-v="19" aria-pressed="${o.beam !== 36}">19°</button><button data-act="beam" data-v="36" aria-pressed="${o.beam === 36}">36°</button></span>`;
+    if (GRID_KINDS.includes(o.kind)) h += `<label class="chk solo"><input type="checkbox" id="inGrid" ${o.grid ? 'checked' : ''}> Соты</label>`;
+    const L = LIGHTS[o.kind] || {}; if (!(L.omni || L.prac || o.kind === 'sun' || o.kind === 'astera')) h += `<label class="chk solo"><input type="checkbox" id="inStand" ${o.stand !== false ? 'checked' : ''}> Показать C-stand</label>`;
   } else if (o.type === 'prop') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
-    h += field('Ш', `<input type="number" id="inW" step="0.05" min="0.05" max="20" value="${o.w}"> м`);
+    h += '<div class="frow">' + field('Ш', `<input type="number" id="inW" step="0.05" min="0.05" max="20" value="${o.w}"> м`);
     h += field('Г', `<input type="number" id="inD" step="0.05" min="0.02" max="20" value="${o.d}"> м`);
-    h += field('В', `<input type="number" id="inHH" step="0.05" min="0.01" max="5" value="${o.h}"> м`);
+    h += field('В', `<input type="number" id="inHH" step="0.05" min="0.01" max="5" value="${o.h}"> м`) + '</div>';
     if (o.kind === 'tv' && (o.wall || supportTop(o) <= 0.1)) h += field(o.wall ? 'Высота' : 'Стойка', `<input type="number" id="inTvH" step="0.05" min="0.3" max="1.8" value="${tvStandH(o)}"> м`);   // высота нижнего края экрана от пола
     if (FURN_KINDS.includes(o.kind)) h += `<span class="vsep"></span><span class="row" role="group" aria-label="Цвет мебели">${FURN.map(f => `<button class="swatch fc" data-act="fc" data-v="${f[0]}" aria-label="${f[1]}" title="${f[1]}" aria-pressed="${furnOf(o) === f[0]}" style="background:${f[2]}"></button>`).join('')}${customSwatch('inFCol', (furnRow(o) || FURN[0])[2], (furnOf(o) || '')[0] === '#')}</span>`;
   } else if (o.x1 !== undefined) {
@@ -3051,6 +3201,7 @@ function renderInspector() {
       if (others.length) h += same ? `<button class="btn wall-all done" disabled>✓ Все стены с этой отделкой</button>` : `<button class="btn wall-all" data-act="wallall">Применить ко всем стенам</button>`;
     }
     if (o.type === 'window') h += field('Высота', `<input type="number" id="inWH" step="0.05" min="0.3" max="${fx(winMaxH(o), 2).replace(',', '.')}" value="${o.h || 1.2}"> м`) + `<label class="chk solo"><input type="checkbox" id="inFloor" ${o.floor ? 'checked' : ''}> Окно в пол</label>`;
+    if (o.type === 'window') h += field('Вид из окна', `<select id="inWView">${[['', 'Нет'], ['street', 'Улица'], ['city', 'Город'], ['sunset', 'Закат'], ['park', 'Парк']].map(([v, n]) => `<option value="${v}" ${(o.view || '') === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`);
     if (o.type === 'door') {
       const di = doorInfo(o);
       h += `<span class="seg" role="group" aria-label="Открывание"><button data-act="dswing" data-v="in" aria-pressed="${di.inward}">Внутрь</button><button data-act="dswing" data-v="out" aria-pressed="${!di.inward}">Наружу</button></span>`;
@@ -3069,7 +3220,7 @@ function renderInspector() {
   } else if (o.type === 'stroke') {
     h += `<span class="ins-name">Рисунок</span>`;
   }
-  h += o.type === 'floor' ? `<button class="del" data-act="del" title="Вернуть пол по умолчанию">Сбросить пол</button>` : `<button class="del" data-act="del" title="Delete">Удалить</button>`;
+  if (o.type !== 'floor') h += `<button class="del" data-act="del" title="Delete">Удалить</button>`;
   el.innerHTML = h; el.hidden = false;
   // крупные кнопки −/+ вместо мелких стрелок браузера
   el.querySelectorAll('input[type="number"]:not(.nostp)').forEach(inp => {
@@ -3095,6 +3246,7 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'color') { o.color = +b.dataset.v; delete o.hcol; }
   if (a === 'fc') o.fc = b.dataset.v;
   if (a === 'wcol') o.wcol = b.dataset.v;
+  if (a === 'beam') o.beam = +b.dataset.v;
   if (a === 'floorall') { let n = 0; roomFaces(objs().filter(x => x.x1 !== undefined)).filter(f => f.area > 0.05).forEach(f => { let fo = floorOfFace(f); if (fo === o) return; if (!fo) { const [fx, fy] = innerPt(f.poly); fo = { id: uid(), type: 'floor', x: fx, y: fy }; objs().push(fo); } n++; if (o.fin) fo.fin = o.fin; else delete fo.fin; if (o.wcol) fo.wcol = o.wcol; else delete fo.wcol; }); toast(`Пол применён ко всем комнатам (${n + 1})`); }
   if (a === 'wallall') { let n = 0; objs().forEach(w => { if (w.type !== 'wall' || w === o) return; n++; if (o.fin) w.fin = o.fin; else delete w.fin; if (o.wcol) w.wcol = o.wcol; else delete w.wcol; }); toast(`Отделка применена ко всем стенам (${n + 1})`); }
   if (a === 'dswing') { const di = doorInfo(o); if (di.inward !== (b.dataset.v === 'in')) o.swing = -(o.swing || 1); }
@@ -3160,8 +3312,10 @@ $('inspector').addEventListener('input', (e) => {
     case 'inShow': o.showLbl = t.checked; break;
     case 'inLock': o.locked = t.checked; break;
     case 'inWH': if (ok && num > 0) o.h = Math.max(0.3, Math.min(winMaxH(o), num)); break;
+    case 'inWView': if (t.value) o.view = t.value; else delete o.view; break;
     case 'inFloor': o.floor = t.checked; o.h = o.floor ? Math.max(o.h || 1.2, 2.4) : Math.min(o.h || 1.2, 1.2); o.h = Math.min(o.h, winMaxH(o)); renderInspector(); break;
     case 'inStand': o.stand = t.checked; T3.key = ''; V3.dirty = true; break;
+    case 'inGrid': o.grid = t.checked; break;
     case 'inALen': if (ok && num > 0) { o.alen = Math.max(0.3, Math.min(2.5, num)); o.h = asteraH(o); } break;
     case 'inHoriz': o.horiz = t.checked; o.h = asteraH(o); break;
     case 'inLen': if (ok && num > 0) { const sg = segOf(o); const [cx, cy] = centerOf(o); o.x1 = cx - sg.ux * num / 2; o.y1 = cy - sg.uy * num / 2; o.x2 = cx + sg.ux * num / 2; o.y2 = cy + sg.uy * num / 2; } break;
@@ -3238,7 +3392,8 @@ function renderMenus() {
       ${it('add-prac', 'Practical', ICO(LIGHTS.practical.icon, 22, 'var(--light)'))}
       ${it('add-prop', 'Реквизит', ICO(PROPS.cabinet.icon, 22, 'var(--prop)'))}
       ${it('add-room', 'Комната', ICO('<path d="M10 3H3v18h18V3h-5"/><path d="M10 3a6 6 0 0 1 6 6"/>', 22, 'var(--prop)'))}
-      <button class="mi" role="menuitem" data-add="note">${ICO('<path d="M5 4h14v11l-5 5H5zM14 20v-5h5"/>', 22, 'var(--prop)')}Заметка</button>`;
+      <button class="mi" role="menuitem" data-add="note">${ICO('<path d="M5 4h14v11l-5 5H5zM14 20v-5h5"/>', 22, 'var(--prop)')}Заметка</button>
+      <button class="mi" role="menuitem" data-add="pip">${ICO('<rect x="3" y="5" width="18" height="14" rx="2" class="f"/><rect x="11" y="11" width="8" height="6" rx="1" class="d"/>', 22, 'var(--cam)')}Вид с камеры</button>`;
     if (S.pop === 'add-cam') h += `<div class="menu sub row" role="menu" aria-label="Тип камеры" style="top:30px">${['S35', 'FF'].map(k => `<button class="tile" role="menuitem" data-add="camera" data-v="${k}">${ICO(CAM_ICON(k), 36, 'var(--cam)')}${k === 'FF' ? 'Full Frame' : 'S35'}</button>`).join('')}</div>`;
     if (S.pop === 'add-hero') h += `<div class="menu sub row" role="menu" aria-label="Цвет героя" style="top:72px">${HERO_COLORS.map((c, i) => `<button class="tile sq" role="menuitem" data-add="hero" data-v="${i}" aria-label="Герой, цвет ${i + 1}">${ICO(HERO_ICON, 34, `var(--${c})`)}</button>`).join('')}</div>`;
     if (S.pop === 'add-light') h += `<div class="menu sub grid6" role="menu" aria-label="Тип прибора" style="top:114px">${Object.keys(LIGHTS).filter(k => !LIGHTS[k].prac).map(k => `<button class="tile" role="menuitem" data-add="light" data-v="${k}">${ICO(LIGHTS[k].icon, 36, 'var(--light)')}${LIGHTS[k].name}</button>`).join('')}</div>`;
@@ -3256,6 +3411,11 @@ $('menus').addEventListener('click', (e) => {
   const mm = e.target.closest('[data-m]'); if (mm) { S.pop = null; renderMenus(); menuAction(mm.dataset.m); }
 });
 function addObject(type, v) {
+  if (type === 'pip') {   // окно «Вид с камеры» поверх схемы
+    S.pop = null; if (!cams().length) { toast('Сначала добавьте камеру'); renderMenus(); return; }
+    if (!S.project.pip) S.project.pip = { cam: (byId(S.activeCam) || cams()[0]).id, w: matchMedia('(max-width: 700px)').matches ? 200 : 320 };
+    if (S.view !== 'plan') setView('plan'); renderAll(true); save(); return;
+  }
   if (S.wallDraw) endWallDraw(); if (S.placing) endPlacing(false);
   if (type === 'wall') { S.pop = null; if (S.view !== 'plan') setView('plan'); S.sel = null; S.wallDraw = { pts: [], cur: null }; plan.classList.add('placing'); renderAll(true); toast(matchMedia('(pointer: coarse)').matches ? 'Касаниями задайте углы стен · нажмите на первую точку, чтобы замкнуть' : 'Кликами задайте точки стен · Esc или двойной клик — завершить'); return; }
   checkpoint(); S.pop = null;
@@ -3894,6 +4054,46 @@ $('cvDesc').addEventListener('input', (e) => { const c = byId(S.activeCam); if (
 [['ovThirds', 'thirds'], ['ovSafe', 'safe'], ['ovLit', 'lit']].forEach(([id, k]) => $(id).onclick = () => { S.ov[k] = !S.ov[k]; renderCams(); });
 
 // ---------- render all ----------
+// ---------- окно «Вид с камеры» на схеме: перетаскивается за шапку, растягивается за уголок, обновляется при изменениях сцены ----------
+function renderPip() {
+  let el = $('pip'); const P = S.project.pip;
+  if (!P || S.view !== 'plan' || !cams().length) { if (el) el.hidden = true; return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'pip'; el.className = 'pip';
+    el.innerHTML = `<div class="pip-h" title="Перетащите, чтобы переместить"><select id="pipCam" aria-label="Камера"></select><span class="grip"></span><button class="pip-x" type="button" aria-label="Закрыть" title="Закрыть">×</button></div><canvas aria-label="Вид с камеры"></canvas><div class="pip-rs" title="Потяните, чтобы изменить размер"></div>`;
+    $('stagewrap').appendChild(el); bindPip(el);
+  }
+  el.hidden = false;
+  const cs = cams(); if (!byId(P.cam) || byId(P.cam).type !== 'camera') P.cam = cs[0].id;
+  const sel = el.querySelector('select'), opts = cs.map(c => `<option value="${c.id}">${esc(camName(c))}</option>`).join(''); if (sel._o !== opts) { sel.innerHTML = opts; sel._o = opts; } sel.value = P.cam;
+  const wr = $('stagewrap').getBoundingClientRect(), cam = byId(P.cam), ar = aspectOf(cam);
+  P.w = Math.round(Math.max(150, Math.min(P.w || 320, wr.width - 16))); const ch = Math.round(P.w / ar);
+  if (P.x == null) P.x = 16; if (P.y == null) P.y = matchMedia('(max-width: 700px)').matches ? 60 : 16;   // по умолчанию — слева сверху, чтобы не закрывать панель свойств
+  P.x = Math.max(8, Math.min(P.x, wr.width - P.w - 8)); P.y = Math.max(8, Math.min(P.y, wr.height - ch - 40));
+  el.style.left = P.x + 'px'; el.style.top = P.y + 'px'; el.style.width = P.w + 'px';
+  const cv = el.querySelector('canvas'); if (cv._w !== P.w || cv._h !== ch) { sizeCanvas(cv, P.w, ch); cv.style.width = P.w + 'px'; cv.style.height = ch + 'px'; cv._w = P.w; cv._h = ch; cv._k = ''; }
+  schedPipDraw();
+}
+let pipT = 0;
+function schedPipDraw() {
+  if (pipT) return;
+  pipT = setTimeout(() => { pipT = 0; const P = S.project.pip, el = $('pip'); if (!P || !el || el.hidden) return; const cam = byId(P.cam); if (!cam) return;
+    const cv = el.querySelector('canvas'), k = sceneKeys().full + '|' + P.cam + '|' + cv._w + 'x' + cv._h; if (cv._k === k) return; cv._k = k;   // кадр перерисовывается, только если что-то поменялось
+    try { renderFrame(cv, cam, { lit: true }); } catch (e) { console.error('pip', e); } }, 150);
+}
+function bindPip(el) {
+  let D = null;
+  const start = (e, mode) => { const P = S.project.pip; if (!P) return; e.preventDefault(); e.stopPropagation(); el.setPointerCapture(e.pointerId); D = { mode, id: e.pointerId, sx: e.clientX, sy: e.clientY, x: P.x, y: P.y, w: P.w }; };
+  el.querySelector('.pip-h').addEventListener('pointerdown', (e) => { if (e.target.closest('select, button')) return; start(e, 'move'); });
+  el.querySelector('canvas').addEventListener('pointerdown', (e) => start(e, 'move'));   // перетаскивать можно и за саму картинку
+  el.querySelector('.pip-rs').addEventListener('pointerdown', (e) => start(e, 'size'));
+  el.addEventListener('pointermove', (e) => { if (!D || e.pointerId !== D.id) return; const P = S.project.pip; const dx = e.clientX - D.sx, dy = e.clientY - D.sy;
+    if (D.mode === 'move') { P.x = D.x + dx; P.y = D.y + dy; } else P.w = D.w + dx; renderPip(); });
+  const end = (e) => { if (!D || e.pointerId !== D.id) return; D = null; save(); };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.querySelector('select').addEventListener('change', (e) => { S.project.pip.cam = e.target.value; save(); renderPip(); });
+  el.querySelector('.pip-x').addEventListener('click', () => { delete S.project.pip; save(); renderPip(); });
+}
 function renderAll(full) {
   S.rev = (S.rev || 0) + 1;
   { const loading = has3() && HUMAN.state === 'loading' && objs().some(o => o.type === 'hero');   // плашка загрузки героев в 3D и «Камерах»
@@ -3909,6 +4109,7 @@ function renderAll(full) {
   if (S.view === 'plan') { renderPlan(); if (full) renderInspector(); }
   else if (S.view === '3d') { $('preview').hidden = true; $('inspector').hidden = true; start3d(); }
   else { $('preview').hidden = true; $('inspector').hidden = true; renderCams(); }
+  if (S.view !== 'plan') renderPip();
   schedPrewarm();
 }
 let rzT = 0;
