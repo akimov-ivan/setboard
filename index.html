@@ -403,7 +403,7 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
       <span>Setboard</span>
     </div>
     <span class="psep" aria-hidden="true"></span>
-    <label class="pwrap" title="Название проекта — нажмите, чтобы изменить"><span class="plab">Проект</span><span class="pfield"><input id="pname" class="pname" aria-label="Название проекта" value="Тёплый вечер"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></span></label>
+    <label class="pwrap" title="Название проекта — нажмите, чтобы изменить"><span class="plab">Проект</span><span class="pfield"><input id="pname" class="pname" aria-label="Название проекта" value=""><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></span></label>
     <nav class="tabs" role="tablist" aria-label="Режимы">
       <button class="tab" role="tab" id="tab-plan" aria-selected="true">Схема</button>
       <button class="tab" role="tab" id="tab-3d" aria-selected="false">3D-вид</button>
@@ -583,40 +583,12 @@ const ICO = (body, size, color) => `<svg width="${size}" height="${size}" viewBo
 // ---------- state ----------
 let uidN = 1;
 const uid = () => 'o' + Date.now().toString(36) + (uidN++);
-function sampleProject() {
-  const W = (x1, y1, x2, y2, type) => ({ id: uid(), type: type || 'wall', x1, y1, x2, y2 });
-  const L = (kind, name, x, y, rot, h, cct, power) => ({ id: uid(), type: 'light', kind, name, x, y, rot, h, cct, power });
-  return {
-    v: 1, name: 'Тёплый вечер',
-    objects: [
-      W(0, 0, 7.4, 0), W(7.4, 0, 7.4, 4.7), W(7.4, 4.7, 0, 4.7), W(0, 4.7, 0, 0),
-      W(2.9, 0, 4.5, 0, 'window'), W(0, 4.1, 0, 3.4, 'door'),
-      { id: uid(), type: 'prop', kind: 'carpet', name: 'Ковёр', x: 3.7, y: 2.4, rot: 0, w: 2.6, d: 1.8, h: 0.01 },
-      { id: uid(), type: 'prop', kind: 'trect', name: 'Стол', x: 3.7, y: 2.4, rot: 0, w: 1.3, d: 0.8, h: 0.75 },
-      { id: uid(), type: 'prop', kind: 'chair', name: 'Стул Анны', x: 2.78, y: 2.4, rot: 270, w: 0.45, d: 0.5, h: 0.9 },
-      { id: uid(), type: 'prop', kind: 'chair', name: 'Стул Михаила', x: 4.62, y: 2.4, rot: 90, w: 0.45, d: 0.5, h: 0.9 },
-      { id: uid(), type: 'prop', kind: 'cabinet', name: 'Гарнитур', x: 6.0, y: 0.32, rot: 0, w: 2.2, d: 0.6, h: 0.9 },
-      { id: uid(), type: 'prop', kind: 'wardrobe', name: 'Холодильник', x: 6.95, y: 4.3, rot: 180, w: 0.6, d: 0.64, h: 1.85 },
-      { id: uid(), type: 'prop', kind: 'plant', name: 'Цветок', x: 0.4, y: 0.4, rot: 0, w: 0.45, d: 0.45, h: 1.1 },
-      { id: uid(), type: 'hero', name: 'Анна', sex: 'f', x: 2.75, y: 2.4, rot: 90, color: 0, pose: 'sit' },
-      { id: uid(), type: 'hero', name: 'Михаил', sex: 'm', x: 4.65, y: 2.4, rot: 270, color: 1, pose: 'sit' },
-      { id: uid(), type: 'camera', letter: 'A', name: 'Камера A', x: 3.7, y: 4.25, rot: 0, sensor: 'S35', lens: 28, h: 1.4, tilt: -6, aspect: '2.39' },
-      { id: uid(), type: 'camera', letter: 'B', name: 'Камера B', x: 6.3, y: 2.75, rot: 276, sensor: 'S35', lens: 85, h: 1.3, tilt: -3, aspect: '2.39' },
-      { id: uid(), type: 'camera', letter: 'C', name: 'Камера C', x: 1.3, y: 3.95, rot: 62, sensor: 'S35', lens: 50, h: 1.2, tilt: 0, aspect: '2.39' },
-      L('softbox', 'Key', 6.1, 0.95, 245, 2.2, 4300, 70),
-      L('mat', 'Fill', 2.6, 4.3, 355, 1.6, 3200, 30),
-      L('panel', 'Контровой', 6.6, 2.3, 264, 2.4, 4300, 45),
-      L('fresnel', 'HMI в окно', 3.7, -0.6, 180, 3.0, 5600, 100),
-      L('practical', 'Абажур', 3.7, 2.4, 0, 1.9, 2700, 60)
-    ]
-  };
-}
 const S = {
   project: null, sel: null, view: 'plan', pop: null, list: false, draw: false,
   layers: { cones: false, light: false, grid: true },
   ov: { thirds: false, safe: false, lit: true },
   vp: { s: 90, ox: 60, oy: 60 }, fitted: false,
-  activeCam: null, history: [], future: [], theme: 'dark'
+  activeCam: null, history: [], future: [], theme: 'light'
 };
 const store = {
   get(k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
@@ -633,8 +605,6 @@ function projWrite(id, p) {
   const a = projIndex().filter(x => x.id !== id); a.unshift({ id, name: p.name || 'Без названия', updated: Date.now(), count: (p.objects || []).length }); projSaveIndex(a);
 }
 function projRead(id) { try { const p = JSON.parse(store.get('setboard-proj-' + id) || 'null'); return p && Array.isArray(p.objects) ? p : null; } catch (e) { return null; } }
-// при первом заходе: true — открыть пример «Тёплый вечер», false — пустой «Новый проект» (версия для сайта)
-const FIRST_RUN_SAMPLE = false;
 function load() {
   let cur = store.get('setboard-current'), p = cur && projRead(cur);
   if (p) { S.pid = cur; return p; }
@@ -642,7 +612,7 @@ function load() {
   // первый запуск или перенос старого единственного проекта
   const raw = store.get('setboard-project-v1'); p = null;
   if (raw) { try { const q = JSON.parse(raw); if (q && Array.isArray(q.objects)) p = q; } catch (e) { } }
-  p = p || (FIRST_RUN_SAMPLE ? sampleProject() : { v: 1, name: 'Новый проект', objects: [] }); S.pid = newPid(); store.set('setboard-current', S.pid); projWrite(S.pid, p); return p;
+  p = p || { v: 1, name: 'Новый проект', objects: [] }; /* первый заход — пустой проект */ S.pid = newPid(); store.set('setboard-current', S.pid); projWrite(S.pid, p); return p;
 }
 function switchProject(id, p) {   // p — новый проект (создать) или null — открыть сохранённый
   if (S.pid) projWrite(S.pid, S.project);
@@ -682,7 +652,6 @@ const aspectOf = (c) => (ASPECTS.find(a => a[0] === c.aspect) || ASPECTS[0])[2];
 const segOf = (o) => { const dx = o.x2 - o.x1, dy = o.y2 - o.y1, len = Math.hypot(dx, dy) || 0.001; return { dx, dy, len, ux: dx / len, uy: dy / len, nx: -dy / len, ny: dx / len }; };
 function centerOf(o) { return o.x1 !== undefined ? [(o.x1 + o.x2) / 2, (o.y1 + o.y2) / 2] : o.type === 'stroke' ? (o.pts[0] || [0, 0]) : [o.x, o.y]; }
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
-function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
 // ---------- plan rendering ----------
 const plan = $('plan');
@@ -1417,17 +1386,6 @@ function canvasTex(key, w, h, draw, repeat) {
   T3.tex[key] = t; return t;
 }
 let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-function floorTex() {
-  return canvasTex('floor-grey', 512, 512, (g, w, h) => {
-    seed = 11; const rows = 6, rh = h / rows;
-    for (let i = 0; i < rows; i++) {
-      let x = -Math.floor(rnd() * 200);
-      while (x < w) { const len = 260 + Math.floor(rnd() * 200); g.fillStyle = `hsl(${30 + rnd() * 10}, ${3 + rnd() * 4}%, ${44 + rnd() * 9}%)`; g.fillRect(x, i * rh, len, rh); g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(x, i * rh, 1.5, rh); x += len; }
-      g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(0, i * rh, w, 1.5);
-    }
-    for (let n = 0; n < 1800; n++) { g.fillStyle = rnd() < 0.5 ? `rgba(0,0,0,${rnd() * 0.06})` : `rgba(255,255,255,${rnd() * 0.05})`; g.fillRect(rnd() * w, rnd() * h, 40 + rnd() * 90, 1); }
-  }, true);
-}
 const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16); const f = (v) => Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k)); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; };
 function carpetTex(base) {
   base = base || '#CBB894';
@@ -1934,17 +1892,6 @@ function bentPanel(w, h, t, R, flare, qx, qy, rc) {
   }
   geo.computeVertexNormals(); return geo;
 }
-// стёжка: квадраты-подушечки с мягкими швами (светлая «маска», цвет — от материала)
-function quiltTex() {
-  return canvasTex('quilt', 256, 256, (x, w, h) => {
-    const im = x.createImageData(w, h), d = im.data;
-    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
-      const u = xx / w, v = yy / h, e = Math.min(u, 1 - u, v, 1 - v), pillow = Math.min(1, e / 0.2), c = 0.84 + 0.16 * Math.sqrt(pillow) - (e < 0.012 ? 0.14 : 0) + (Math.random() - 0.5) * 0.05;   // мягкие швы, лёгкий ворс
-      const q = (yy * w + xx) * 4, val = Math.max(0, Math.min(255, c * 250)); d[q] = d[q + 1] = d[q + 2] = val; d[q + 3] = 255;
-    }
-    x.putImageData(im, 0, 0);
-  }, true);
-}
 function buildProp(g, o) {
   const w = o.w, d = o.d, h = o.h, hw = w / 2, hd = d / 2, k = o.kind;
   let wood = mat('wood', '#7A5A40', { roughness: 0.55 }), light = mat('lwood', '#B89770', { roughness: 0.6 });
@@ -2151,18 +2098,6 @@ function posedClone(obj, clip, frac) {
   const c = THREE.SkeletonUtils.clone(obj);
   if (clip) { const mx = new THREE.AnimationMixer(c); mx.clipAction(clip).play(); mx.setTime(clip.duration * frac); }
   c.updateMatrixWorld(true); return c;
-}
-function smoothNormals(geo) {
-  const pos = geo.attributes.position; if (!pos) return;
-  if (!geo.attributes.normal) geo.computeVertexNormals();
-  const nor = geo.attributes.normal; const n = pos.count; const map = new Map(); const idx = new Int32Array(n); const acc = [];
-  for (let i = 0; i < n; i++) {
-    const key = Math.round(pos.getX(i) * 1e4) + ',' + Math.round(pos.getY(i) * 1e4) + ',' + Math.round(pos.getZ(i) * 1e4);
-    let k = map.get(key); if (k === undefined) { k = acc.length; map.set(key, k); acc.push(0, 0, 0); k = acc.length / 3 - 1; }
-    idx[i] = k; acc[k * 3] += nor.getX(i); acc[k * 3 + 1] += nor.getY(i); acc[k * 3 + 2] += nor.getZ(i);
-  }
-  for (let i = 0; i < n; i++) { const k = idx[i] * 3; const l = Math.hypot(acc[k], acc[k + 1], acc[k + 2]) || 1; nor.setXYZ(i, acc[k] / l, acc[k + 1] / l, acc[k + 2] / l); }
-  nor.needsUpdate = true;
 }
 const TEXL = {};
 function texLoad(url, color) {
@@ -3293,7 +3228,7 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'ltilt') { if (b.dataset.v === 'auto') delete o.ltilt; else o.ltilt = +b.dataset.v; }
   if (a === 'lmode') { o.mode = b.dataset.v; if (o.mode === 'hsi') { if (o.hue == null) o.hue = 200; if (o.sat == null) o.sat = 100; } if (window.THREE && T3.scene) t3lightUpdate(o); }
   if (a === 'horiz') { o.horiz = b.dataset.v === 'h'; o.h = asteraH(o); }
-  if (a === 'sex') o.sex = b.dataset.v;
+
   renderAll(true); save();
 });
 // правка цвета/яркости: синхронизируем ползунок и число, обновляем 3D на месте, схему — один раз за кадр
@@ -3572,7 +3507,6 @@ function menuAction(a) {
   if (a === 'projects') projectsDialog();
   if (a === 'keys') keysDialog();
   if (a === 'lockroom') { const R = objs().filter(o => o.x1 !== undefined), on = R.some(o => !o.locked); checkpoint(); R.forEach(o => o.locked = on); renderAll(true); save(); toast(on ? 'Стены, окна и двери закреплены' : 'Стены, окна и двери откреплены'); }
-  if (a === 'sample') dialog(`<h2>Пример сцены</h2><p>Загрузить пример «Тёплый вечер»: кухня, два героя, три камеры и пять приборов. Текущая схема будет заменена, действие можно отменить.</p><div class="acts"><button class="btn" data-close>Отмена</button><button class="btn primary" id="dS">Загрузить</button></div>`, (d, close) => d.querySelector('#dS').onclick = () => { checkpoint(); S.project = sampleProject(); S.sel = null; close(); recenter(); renderAll(true); save(); });
   if (a === 'open') $('fileIn').click();
   if (a === 'savefile') saveProjectFile();
   if (a === 'copy' || a === 'share') {
