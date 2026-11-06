@@ -775,11 +775,14 @@ select option { background: var(--surface); color: var(--fg); }
 #camView .stage { padding: 0; }
 .camview .frame { max-width: 100%; max-height: 100%; }
 
+/* подсказка строится прямо на сетке: текст с ореолом, кнопки — пилюлями */
+.wallhint .wh-text { color: var(--fg); font-weight: 600; font-size: 13px; letter-spacing: 0; text-shadow: 0 0 3px var(--canvas), 0 0 3px var(--canvas), 0 0 6px var(--canvas), 0 0 10px var(--canvas); }
+
 /* подсказка режима построения стен */
 .wallhint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 14; display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px 8px 14px; background: var(--surface); border: 1px solid var(--hair); border-radius: 14px; box-shadow: var(--card-shadow); white-space: nowrap; }
-.wallhint .wh-text { font-size: 12.5px; color: var(--muted); }
-.wallhint .btn { height: 32px; border-radius: 9px; font-size: 12.5px; }
+  padding: 0; background: none; border: 0; box-shadow: none; white-space: nowrap; }
+.wallhint .btn { height: 32px; border-radius: 9px; font-size: 12.5px; padding: 0 12px; }
+.wallhint .btn.ghost { background: var(--surface); border: 1px solid var(--hair); box-shadow: var(--card-shadow); }
 
 /* ---------- единая система скруглений и отступов ---------- */
 :root { --r-card: 16px; --r-btn: 12px; --r-in: 10px; }
@@ -819,9 +822,9 @@ select option { background: var(--surface); color: var(--fg); }
   #menus .menu.grid6 .tile svg { width: 28px; height: 28px; }
   #menus .menu { padding: 6px 10px 12px; }
   /* подсказка стен: на телефоне — полосой над нижней панелью */
-  .wallhint { left: 8px; right: 8px; bottom: calc(68px + env(safe-area-inset-bottom)); transform: none; flex-wrap: wrap; gap: 6px; padding: 8px; z-index: 16; }
-  .wallhint .wh-text { flex: 1 1 100%; white-space: normal; font-size: 11.5px; }
-  .wallhint .btn { flex: 1 1 0; min-width: 0; height: 34px; padding: 0 8px; font-size: 12px; }
+  .wallhint { left: 8px; right: 8px; bottom: calc(94px + env(safe-area-inset-bottom)); transform: none; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 0 2px; z-index: 16; }
+  .wallhint .wh-text { flex: 1 1 100%; white-space: normal; text-align: center; font-size: 12px; }
+  .wallhint .btn { flex: 0 0 auto; min-width: 0; height: 34px; padding: 0 14px; font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -898,7 +901,7 @@ select option { background: var(--surface); color: var(--fg); }
       </aside>
       <div class="main">
         <div class="framebox">
-          <div class="camempty" id="camEmpty" hidden><p>На схеме нет камер.</p><p>Добавьте камеру на «Схеме» через «+» → «Камера».</p><button class="btn primary" id="toPlanBtn">Перейти к схеме</button></div>
+          <div class="camempty" id="camEmpty" hidden><p>На схеме нет камер.</p><button class="btn primary" id="toPlanBtn">Перейти к схеме</button></div>
           <div class="stage" id="stage">
             <div class="frame" id="frame">
               <canvas id="mainCanvas"></canvas>
@@ -923,6 +926,7 @@ select option { background: var(--surface); color: var(--fg); }
       <span class="wh-text" id="whText">Коснитесь схемы, чтобы поставить первую точку</span>
       <button class="btn ghost" id="whUndo">Убрать точку</button>
       <button class="btn ghost" id="wdSingle" aria-pressed="false" hidden>Перегородка</button>
+      <button class="btn ghost" id="whCancel" hidden>Отмена</button>
       <button class="btn primary" id="whDone">Готово</button>
     </div>
 
@@ -4918,6 +4922,7 @@ function save() { S.rev = (S.rev || 0) + 1; clearTimeout(saveT); saveT = setTime
 function checkpoint() { S.rev = (S.rev || 0) + 1; S.history.push(JSON.stringify(S.project)); if (S.history.length > 100) S.history.shift(); S.future = []; }
 function undo() {
   const W = S.wallDraw;
+  if (W && W.pend) { W.pend = null; renderAll(true); return; }   /* сначала убираем предварительную точку */
   if (W && W.pts.length) {   /* пока строим стены, шаг назад убирает последнюю точку и последнюю стену */
     if (W.ids && W.ids.length) {
       const id = W.ids.pop();
@@ -5212,7 +5217,7 @@ function renderPlan() {
   geo += beams + cones;
   list.filter(o => !isRoom(o)).forEach(drawObj);
   if (S.wallDraw) {   // построение стен по точкам: точки цепочки + «резинка» до курсора
-    const W = S.wallDraw, P = W.pts, c = W.cur;
+    const W = S.wallDraw, P = W.pts, c = W.pend || W.cur;   /* на таче — предварительная точка, на мыши — курсор */
     if (P.length && c) geo += `<line x1="${P[P.length - 1][0]}" y1="${P[P.length - 1][1]}" x2="${c[0]}" y2="${c[1]}" stroke="var(--fg)" stroke-opacity=".75" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
     if (P.length && c) { const a = P[P.length - 1], L = Math.hypot(c[0] - a[0], c[1] - a[1]); if (L > 0.01) { const nx = -(c[1] - a[1]) / L, ny = (c[0] - a[0]) / L, mx = (a[0] + c[0]) / 2 + nx * 16 / s, my = (a[1] + c[1]) / 2 + ny * 16 / s; geo += `<text x="${mx}" y="${my}" font-size="${13 / s}" text-anchor="middle" dominant-baseline="middle" fill="var(--fg)" stroke="var(--bg)" stroke-width="${3 / s}" paint-order="stroke" pointer-events="none" style="font-weight:600">${fx(L, 2)} м</text>`; } }
     P.forEach((p, i) => { geo += `<circle cx="${p[0]}" cy="${p[1]}" r="${(i === 0 && P.length > 2 ? 7 : 4) / s}" fill="${i === 0 && P.length > 2 ? 'var(--accent)' : 'var(--fg)'}" pointer-events="none"/>`; });
@@ -5327,11 +5332,21 @@ function renderPlan() {
     for (const at of h.attributes) if (at.name.startsWith('data-')) c.setAttribute(at.name, at.value);
     c.setAttribute('class', 'handle'); c.style.cursor = getComputedStyle(h).cursor; h.after(c);
   });
-  { const b = $('wdSingle'); if (b) { b.hidden = !S.wallDraw; if (S.wallDraw) { b.setAttribute('aria-pressed', !!S.wallDraw.single); b.textContent = S.wallDraw.single ? 'Перегородка ✓' : 'Перегородка'; } } }
   { const wh = $('wallHint'); if (wh) {
       wh.hidden = !S.wallDraw || !matchMedia('(pointer: coarse)').matches;   /* мышь — без нижней панели, там Esc и двойной клик */
-      if (S.wallDraw) { const n = S.wallDraw.pts.length, tx = $('whText'), coarse = matchMedia('(pointer: coarse)').matches;
-        if (tx) tx.textContent = coarse ? (n ? 'Точек: ' + n : 'Коснитесь схемы — точка стены') : (n ? 'Точек: ' + n + ' · клик — продолжить, Esc — завершить' : 'Кликните по схеме, чтобы поставить первую точку'); }
+      if (S.wallDraw) { const W = S.wallDraw, n = W.pts.length, tx = $('whText'), coarse = matchMedia('(pointer: coarse)').matches;
+        if (tx) tx.textContent = coarse
+          ? (n === 0 ? 'Коснитесь схемы — первая точка стены'
+            : W.pend ? 'Чтобы создать стену, нажмите в конечную точку ещё раз'
+            : 'Выберите предварительную точку конца стены')
+          : (n ? 'Точек: ' + n + ' · клик — продолжить, Esc — завершить' : 'Кликните по схеме, чтобы поставить первую точку');
+        /* обычные стены — только подсказка; у перегородки — «Отмена» и «Готово» */
+        const part = !!W.single, u = $('whUndo'), c = $('whCancel'), s = $('wdSingle'), d = $('whDone');
+        if (u) u.hidden = true;                      /* «Убрать точку» больше не нужна */
+        if (s) s.hidden = true;                      /* «Перегородка» не нужна */
+        if (c) c.hidden = !part;
+        if (d) d.hidden = !part;
+        wh.classList.toggle('bare', !part); }
     } }
   $('planEmpty').hidden = objs().length > 0 || !!S.wallDraw || !!S.placing;
   positionPreview(); renderPip();
@@ -8372,11 +8387,32 @@ function endWallDraw() {
   if (W.made) save(); else if (W.ck) S.history.pop();
   renderAll(true);
 }
-let wallTap = null;   /* точка ставится на отпускании: пинч двумя пальцами не оставляет лишних точек */
+let wallTap = null;   /* тап ставит точку только при отпускании и без сдвига: пинч и панорама точек не оставляют */
+const WALL_TAP_MS = 800, WALL_MOVE = 8, WALL_SAME = 0.3;
+function wallConfirm(W, p) {   /* подтверждённая стена: от последней точки цепочки до p */
+  const P = W.pts, a = P[P.length - 1];
+  if (Math.hypot(p[0] - a[0], p[1] - a[1]) < 0.01) return false;
+  const wall = { id: uid(), type: 'wall', x1: a[0], y1: a[1], x2: p[0], y2: p[1] };
+  objs().push(wall); (W.ids = W.ids || []).push(wall.id); W.made = (W.made || 0) + 1;
+  P.push([p[0], p[1]]); W.pend = null; W.pendS = null;
+  const f = P[0], closed = P.length > 3 && Math.hypot(p[0] - f[0], p[1] - f[1]) < WALL_SAME;
+  if (closed) { endWallDraw(); return true; }   /* вернулись в первую точку — контур готов */
+  renderAll(true); return true;
+}
+function cancelWallDraw() {   /* «Отмена» у перегородки: убрать последний отрезок и выйти */
+  const W = S.wallDraw; if (!W) return;
+  if (W.ids && W.ids.length) { const id = W.ids.pop(); S.project.objects = objs().filter(o => o.id !== id); W.pts.pop(); }
+  endWallDraw();
+}
 plan.addEventListener('pointermove', (e) => {
   const W = S.wallDraw; if (!W) return;
-  const pp = ptr(e); W.cur = wallSnap(S2W(pp[0], pp[1]));
-  if (wallTap && e.pointerId === wallTap.id && Math.hypot(e.clientX - wallTap.x, e.clientY - wallTap.y) > 8) wallTap.moved = true;
+  const pp = ptr(e);
+  if (e.pointerType !== 'touch') W.cur = wallSnap(S2W(pp[0], pp[1]));   /* мышь: резинка за курсором */
+  if (wallTap && e.pointerId === wallTap.id) {
+    const dx = e.clientX - wallTap.x, dy = e.clientY - wallTap.y;
+    if (!wallTap.moved && Math.hypot(dx, dy) > WALL_MOVE) { wallTap.moved = true; if (wallTap.touch) plan.classList.add('panning'); }
+    if (wallTap.moved) { S.vp.ox = wallTap.ox + dx; S.vp.oy = wallTap.oy + dy; }   /* тянем схему, точка не ставится */
+  }
   renderPlanSoon();
 }, true);
 plan.addEventListener('pointerdown', (e) => {
@@ -8384,28 +8420,40 @@ plan.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch' && TOUCH.size > 1) { wallTap = null; return; }   /* второй палец — жест панорамы/зума */
   e.stopImmediatePropagation(); e.preventDefault();
   if (e.button === 2) { endWallDraw(); return; }
-  wallTap = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+  wallTap = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: S.vp.ox, oy: S.vp.oy, t: performance.now(), touch: e.pointerType === 'touch', moved: false };
 }, true);
 plan.addEventListener('pointerup', (e) => {
   const W = S.wallDraw; if (!W || !wallTap || e.pointerId !== wallTap.id) return;
-  const tap = wallTap; wallTap = null;
-  if (tap.moved || GEST) return;   /* тянули или пинчили — это не точка */
+  const tap = wallTap; wallTap = null; plan.classList.remove('panning');
+  if (tap.moved || GEST) return;                               /* тянули схему или пинчили — точки нет */
+  if (tap.touch && performance.now() - tap.t > WALL_TAP_MS) return;   /* долгое удержание — тоже не тап */
   e.stopImmediatePropagation(); e.preventDefault();
   const pp = ptr(e); const p = wallSnap(S2W(pp[0], pp[1])); const P = W.pts;
-  if (!P.length) { checkpoint(); W.ck = true; P.push(p); renderPlan(); return; }
-  const l = P[P.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) < 0.01) { if (W.single && P.length > 1) endWallDraw(); return; }   /* перегородка: повторный клик в последнюю точку — конец */
-  const wall = { id: uid(), type: 'wall', x1: l[0], y1: l[1], x2: p[0], y2: p[1] };
-  objs().push(wall); (W.ids = W.ids || []).push(wall.id); W.made = (W.made || 0) + 1;
-  const f = P[0]; P.push(p);
-  if (P.length > 3 && Math.hypot(p[0] - f[0], p[1] - f[1]) < 0.01) { endWallDraw(); return; }   // контур замкнут
-  renderAll(true);
+  if (!P.length) { checkpoint(); W.ck = true; P.push([p[0], p[1]]); renderAll(true); return; }
+  if (tap.touch) {
+    /* тач: тап задаёт предварительную точку, повторный тап в неё же — создаёт стену */
+    if (W.pend) {
+      /* повторный тап «в ту же точку» считаем по экрану: при шаге сетки 0,5 м точки могут разъехаться */
+      const near = (W.pendS && Math.hypot(e.clientX - W.pendS[0], e.clientY - W.pendS[1]) < 28) || Math.hypot(p[0] - W.pend[0], p[1] - W.pend[1]) < WALL_SAME;
+      if (near) { W.pendS = null; wallConfirm(W, W.pend); }
+      else { W.pend = p; W.pendS = [e.clientX, e.clientY]; renderAll(true); }
+      return;
+    }
+    const l = P[P.length - 1];
+    if (Math.hypot(p[0] - l[0], p[1] - l[1]) < 0.01) { if (W.single && P.length > 1) endWallDraw(); return; }
+    W.pend = p; W.pendS = [e.clientX, e.clientY]; renderAll(true); return;
+  }
+  /* мышь: как раньше — клик сразу создаёт стену */
+  const l = P[P.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) < 0.01) { if (W.single && P.length > 1) endWallDraw(); return; }
+  wallConfirm(W, p);
 }, true);
-plan.addEventListener('pointercancel', (e) => { if (wallTap && e.pointerId === wallTap.id) wallTap = null; }, true);
+plan.addEventListener('pointercancel', (e) => { if (wallTap && e.pointerId === wallTap.id) { wallTap = null; plan.classList.remove('panning'); } }, true);
 { const b = $('wdSingle'); if (b) b.addEventListener('click', () => { if (S.wallDraw) { S.wallDraw.single = !S.wallDraw.single; renderPlan(); } }); }
-{ const u = $('whUndo'), d = $('whDone');
-  if (u) u.addEventListener('click', () => undo());          /* шаг назад: убрать последнюю точку */
-  if (d) d.addEventListener('click', () => endWallDraw()); }
-plan.addEventListener('dblclick', (e) => { if (S.wallDraw) { e.stopImmediatePropagation(); endWallDraw(); } }, true);
+{ const u = $('whUndo'), d = $('whDone'), c = $('whCancel');
+  if (u) u.addEventListener('click', () => undo());          /* убрать предварительную или последнюю точку */
+  if (d) d.addEventListener('click', () => endWallDraw());
+  if (c) c.addEventListener('click', () => cancelWallDraw()); /* перегородка: отменить отрезок и выйти */ }
+plan.addEventListener('dblclick', (e) => { if (S.wallDraw && !matchMedia('(pointer: coarse)').matches) { e.stopImmediatePropagation(); endWallDraw(); } }, true);   /* на таче подтверждение — повторный тап, двойной тап не завершает */
 plan.addEventListener('pointerdown', (e) => {
   if (e.button !== undefined && e.button !== 0) return;
   if (S.pop) { S.pop = null; renderMenus(); }
@@ -8741,7 +8789,7 @@ function setView(v) {
   document.body.dataset.view = v;
   if (v === 'cams' && !S.activeCam) { const so = byId(S.sel); S.activeCam = so && so.type === 'camera' ? so.id : (cams()[0] || {}).id || null; }
   renderAll(true);
-  if (v === 'plan' && !S.fitted) requestAnimationFrame(() => { fit(); renderPlan(); });   // схема была скрыта при открытии проекта
+  if (v === 'plan' && !S.fitted && !S.wallDraw) requestAnimationFrame(() => { fit(); renderPlan(); });   // схема была скрыта при открытии проекта
 }
 const THUMB = {}; let THUMB_T = 0, THUMB_G = 0, CAMQ = 0, CAMD = 0;
 function renderCams() {
@@ -8856,7 +8904,7 @@ function renderAll(full) {
   schedPrewarm();
 }
 let rzT = 0;
-new ResizeObserver(() => { cancelAnimationFrame(rzT); rzT = requestAnimationFrame(() => { if (!S.fitted && S.view === 'plan') fit(); S.view === 'plan' ? renderPlan() : S.view === '3d' ? (V3.dirty = true) : renderCams(); }); }).observe(document.querySelector('.body'));
+new ResizeObserver(() => { cancelAnimationFrame(rzT); rzT = requestAnimationFrame(() => { if (!S.fitted && S.view === 'plan' && !S.wallDraw) fit();   /* не подгоняем вид, пока строим стены */ S.view === 'plan' ? renderPlan() : S.view === '3d' ? (V3.dirty = true) : renderCams(); }); }).observe(document.querySelector('.body'));
 applyTheme();
 try { humansLoad(); } catch (e) { }
 requestAnimationFrame(() => { fit(); renderAll(true); });
