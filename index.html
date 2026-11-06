@@ -775,6 +775,12 @@ select option { background: var(--surface); color: var(--fg); }
 #camView .stage { padding: 0; }
 .camview .frame { max-width: 100%; max-height: 100%; }
 
+/* подсказка режима построения стен */
+.wallhint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 14; display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px 8px 14px; background: var(--surface); border: 1px solid var(--hair); border-radius: 14px; box-shadow: var(--card-shadow); white-space: nowrap; }
+.wallhint .wh-text { font-size: 12.5px; color: var(--muted); }
+.wallhint .btn { height: 32px; border-radius: 9px; font-size: 12.5px; }
+
 /* ---------- единая система скруглений и отступов ---------- */
 :root { --r-card: 16px; --r-btn: 12px; --r-in: 10px; }
 
@@ -812,6 +818,10 @@ select option { background: var(--surface); color: var(--fg); }
   #menus .menu.grid6 .tile { width: auto; min-height: 62px; padding: 6px 2px 4px; font-size: 10.5px; gap: 3px; }
   #menus .menu.grid6 .tile svg { width: 28px; height: 28px; }
   #menus .menu { padding: 6px 10px 12px; }
+  /* подсказка стен: на телефоне — полосой над нижней панелью */
+  .wallhint { left: 8px; right: 8px; bottom: calc(68px + env(safe-area-inset-bottom)); transform: none; flex-wrap: wrap; gap: 6px; padding: 8px; z-index: 16; }
+  .wallhint .wh-text { flex: 1 1 100%; white-space: normal; font-size: 11.5px; }
+  .wallhint .btn { flex: 1 1 0; min-width: 0; height: 34px; padding: 0 8px; font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -904,10 +914,16 @@ select option { background: var(--surface); color: var(--fg); }
       <button class="rtool plan-only" id="lyCones" aria-pressed="false" title="Углы обзора" aria-label="Углы обзора"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="13.2" y="7.2" width="8.2" height="9.6" rx="2" fill="currentColor" fill-opacity=".22"/><path d="M8.6 8.4L13.2 12l-4.6 3.6z" fill="currentColor" fill-opacity=".22"/><path d="M5.8 7.4L2.4 5M5.6 12H1.4M5.8 16.6L2.4 19"/></svg></button>
       <button class="rtool plan-only" id="lyLight" aria-pressed="false" title="Лучи света" aria-label="Лучи света"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.4 5A9.9 6.8 0 0 1 10.4 18.8Z" fill="currentColor" fill-opacity=".22"/><path d="M7.2 7.8L3.8 5.4M7 12H2.8M7.2 16.2L3.8 18.6"/></svg></button>
       <button class="rtool plan-only" id="helpBtn" title="Подсказки (?)" aria-label="Подсказки"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.3-2.5 3.8"/><circle cx="12" cy="16.9" r=".95" fill="currentColor" stroke="none"/></svg></button>
-      <button class="rtool plan-only" id="wdSingle" aria-pressed="false" hidden title="Перегородка" aria-label="Перегородка"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.8" y="8.8" width="16.4" height="6.4" rx="1.8"/><path d="M3.8 12h16.4"/></svg></button>
-      <button class="rtool d3-only" id="v3Lit" aria-pressed="true" title="Освещение" aria-label="Освещение"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.4 3.2h5.2a4.7 4.7 0 0 1 1.4 9v2.4H8v-2.4a4.7 4.7 0 0 1 1.4-9z"/><path d="M9.2 17.4h5.6M10 20.4h4"/><path d="M12 6.2v4.6"/></svg></button>
+<button class="rtool d3-only" id="v3Lit" aria-pressed="true" title="Освещение" aria-label="Освещение"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.4 3.2h5.2a4.7 4.7 0 0 1 1.4 9v2.4H8v-2.4a4.7 4.7 0 0 1 1.4-9z"/><path d="M9.2 17.4h5.6M10 20.4h4"/><path d="M12 6.2v4.6"/></svg></button>
       <button class="rtool plan-only" id="zFit" title="Показать всё" aria-label="Показать всё"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 9V3.8H9M15 3.8h5.2V9M20.2 15v5.2H15M9 20.2H3.8V15"/></svg></button>
       <button class="rtool d3-only" id="v3Home" title="Исходный вид" aria-label="Исходный вид"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 9V3.8H9M15 3.8h5.2V9M20.2 15v5.2H15M9 20.2H3.8V15"/></svg></button>
+    </div>
+
+    <div class="wallhint" id="wallHint" hidden>
+      <span class="wh-text" id="whText">Коснитесь схемы, чтобы поставить первую точку</span>
+      <button class="btn ghost" id="whUndo">Убрать точку</button>
+      <button class="btn ghost" id="wdSingle" aria-pressed="false" hidden>Перегородка</button>
+      <button class="btn primary" id="whDone">Готово</button>
     </div>
 
     <span class="cellhint plan-only">1 клетка = 1 × 1 м</span>
@@ -4882,15 +4898,38 @@ function load() {
 function switchProject(id, p) {   // p — новый проект (создать) или null — открыть сохранённый
   if (S.pid) projWrite(S.pid, S.project);
   if (p) { id = newPid(); projWrite(id, p); } else { p = projRead(id); if (!p) { toast('Проект не найден'); return; } }
-  S.pid = id; store.set('setboard-current', id); S.project = p; S.history = []; S.future = []; S.activeCam = null; recenter(); renderAll(true);
+  if (S.wallDraw) endWallDraw();                     /* не тащим точки стен в другой проект */
+  if (S.placing) endPlacing(false);
+  if (S.ruler) setRuler(false);
+  if (S.draw) { S.draw = false; const b = $('drawBtn'); if (b) b.setAttribute('aria-pressed', false); plan.classList.remove('draw'); }
+  if (S.pop) { S.pop = null; renderMenus(); }
+  S.sel = null; S.multi = new Set();
+  S.pid = id; store.set('setboard-current', id); S.project = p; S.history = []; S.future = []; S.activeCam = null;
+  if (p.pip) delete p.pip;                       /* окно «Вид с камеры» в новом проекте не открываем */
+  if (S.view !== 'plan') setView('plan');          /* всегда открываем вкладку «Схема» */
+  recenter(); renderAll(true);                   /* recenter = общий вид (fit) */
 }
 S.project = load();
+if (S.project.pip) delete S.project.pip;   /* «Вид с камеры» не восстанавливаем при запуске */
 S.theme = store.get('setboard-theme') === 'dark' ? 'dark' : 'light';   // по умолчанию — светлая тема
 let saveT = 0;
 function save() { S.rev = (S.rev || 0) + 1; clearTimeout(saveT); saveT = setTimeout(() => { if (S.pid) projWrite(S.pid, S.project);
     const st = $('statSaved'); if (st) { const d = new Date(); st.textContent = 'сохранено ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); } }, 300); }
 function checkpoint() { S.rev = (S.rev || 0) + 1; S.history.push(JSON.stringify(S.project)); if (S.history.length > 100) S.history.shift(); S.future = []; }
-function undo() { if (!S.history.length) return; S.future.push(JSON.stringify(S.project)); S.project = JSON.parse(S.history.pop()); fixSel(); renderAll(true); save(); }
+function undo() {
+  const W = S.wallDraw;
+  if (W && W.pts.length) {   /* пока строим стены, шаг назад убирает последнюю точку и последнюю стену */
+    if (W.ids && W.ids.length) {
+      const id = W.ids.pop();
+      S.project.objects = objs().filter(o => o.id !== id);
+      W.made = Math.max(0, (W.made || 1) - 1);
+    }
+    W.pts.pop();
+    if (!W.pts.length) { endWallDraw(); return; }
+    renderAll(true); return;
+  }
+  if (!S.history.length) return; S.future.push(JSON.stringify(S.project)); S.project = JSON.parse(S.history.pop()); fixSel(); renderAll(true); save();
+}
 function redo() { if (!S.future.length) return; S.history.push(JSON.stringify(S.project)); S.project = JSON.parse(S.future.pop()); fixSel(); renderAll(true); save(); }
 function fixSel() { if (S.sel && !byId(S.sel)) S.sel = null; if (S.activeCam && !byId(S.activeCam)) S.activeCam = null; }
 const objs = () => S.project.objects;
@@ -5289,6 +5328,11 @@ function renderPlan() {
     c.setAttribute('class', 'handle'); c.style.cursor = getComputedStyle(h).cursor; h.after(c);
   });
   { const b = $('wdSingle'); if (b) { b.hidden = !S.wallDraw; if (S.wallDraw) { b.setAttribute('aria-pressed', !!S.wallDraw.single); b.textContent = S.wallDraw.single ? 'Перегородка ✓' : 'Перегородка'; } } }
+  { const wh = $('wallHint'); if (wh) {
+      wh.hidden = !S.wallDraw || !matchMedia('(pointer: coarse)').matches;   /* мышь — без нижней панели, там Esc и двойной клик */
+      if (S.wallDraw) { const n = S.wallDraw.pts.length, tx = $('whText'), coarse = matchMedia('(pointer: coarse)').matches;
+        if (tx) tx.textContent = coarse ? (n ? 'Точек: ' + n : 'Коснитесь схемы — точка стены') : (n ? 'Точек: ' + n + ' · клик — продолжить, Esc — завершить' : 'Кликните по схеме, чтобы поставить первую точку'); }
+    } }
   $('planEmpty').hidden = objs().length > 0 || !!S.wallDraw || !!S.placing;
   positionPreview(); renderPip();
 }
@@ -8062,7 +8106,7 @@ function addObject(type, v) {
     if (S.view !== 'plan') setView('plan'); renderAll(true); save(); return;
   }
   if (S.wallDraw) endWallDraw(); if (S.placing) endPlacing(false);
-  if (type === 'wall') { S.pop = null; if (S.view !== 'plan') setView('plan'); S.sel = null; S.wallDraw = { pts: [], cur: null, single: roomFaces(objs().filter(x => x.x1 !== undefined)).some(f => f.area > 0.05) };   /* комната уже есть — по умолчанию перегородка: стена кончается на второй точке */ plan.classList.add('placing'); renderAll(true); toast(S.wallDraw.single ? 'Перегородка: кликайте точки, повторный клик в последнюю точку (или Esc) — завершить. Кнопка внизу слева включает обычные стены' : matchMedia('(pointer: coarse)').matches ? 'Касаниями задайте углы стен · нажмите на первую точку, чтобы замкнуть' : 'Кликами задайте точки стен · Esc или двойной клик — завершить'); return; }
+  if (type === 'wall') { S.pop = null; if (S.view !== 'plan') setView('plan'); S.sel = null; S.wallDraw = { pts: [], cur: null, single: roomFaces(objs().filter(x => x.x1 !== undefined)).some(f => f.area > 0.05) };   /* комната уже есть — по умолчанию перегородка: стена кончается на второй точке */ plan.classList.add('placing'); renderAll(true); if (!matchMedia('(pointer: coarse)').matches) toast(S.wallDraw.single ? 'Перегородка: клик — точка, повторный клик в последнюю точку или Esc — завершить' : 'Клик — точка · Esc или двойной клик — завершить');  return; }
   checkpoint(); S.pop = null;
   const r = plan.getBoundingClientRect(); let [cx, cy] = S2W(r.width / 2, r.height / 2); cx = snap(cx); cy = snap(cy);
   let o;
@@ -8324,23 +8368,43 @@ function wallSnap(w) {
   return best ? [best[0], best[1]] : [snap(w[0], WALL_STEP), snap(w[1], WALL_STEP)];
 }
 function endWallDraw() {
-  const W = S.wallDraw; if (!W) return; S.wallDraw = null; plan.classList.remove('placing');
+  const W = S.wallDraw; if (!W) return; S.wallDraw = null; wallTap = null; plan.classList.remove('placing');
   if (W.made) save(); else if (W.ck) S.history.pop();
   renderAll(true);
 }
-plan.addEventListener('pointermove', (e) => { if (!S.wallDraw) return; const pp = ptr(e); S.wallDraw.cur = wallSnap(S2W(pp[0], pp[1])); renderPlanSoon(); }, true);
+let wallTap = null;   /* точка ставится на отпускании: пинч двумя пальцами не оставляет лишних точек */
+plan.addEventListener('pointermove', (e) => {
+  const W = S.wallDraw; if (!W) return;
+  const pp = ptr(e); W.cur = wallSnap(S2W(pp[0], pp[1]));
+  if (wallTap && e.pointerId === wallTap.id && Math.hypot(e.clientX - wallTap.x, e.clientY - wallTap.y) > 8) wallTap.moved = true;
+  renderPlanSoon();
+}, true);
 plan.addEventListener('pointerdown', (e) => {
-  const W = S.wallDraw; if (!W) return; e.stopImmediatePropagation(); e.preventDefault();
+  const W = S.wallDraw; if (!W) return;
+  if (e.pointerType === 'touch' && TOUCH.size > 1) { wallTap = null; return; }   /* второй палец — жест панорамы/зума */
+  e.stopImmediatePropagation(); e.preventDefault();
   if (e.button === 2) { endWallDraw(); return; }
+  wallTap = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+}, true);
+plan.addEventListener('pointerup', (e) => {
+  const W = S.wallDraw; if (!W || !wallTap || e.pointerId !== wallTap.id) return;
+  const tap = wallTap; wallTap = null;
+  if (tap.moved || GEST) return;   /* тянули или пинчили — это не точка */
+  e.stopImmediatePropagation(); e.preventDefault();
   const pp = ptr(e); const p = wallSnap(S2W(pp[0], pp[1])); const P = W.pts;
   if (!P.length) { checkpoint(); W.ck = true; P.push(p); renderPlan(); return; }
   const l = P[P.length - 1]; if (Math.hypot(p[0] - l[0], p[1] - l[1]) < 0.01) { if (W.single && P.length > 1) endWallDraw(); return; }   /* перегородка: повторный клик в последнюю точку — конец */
-  objs().push({ id: uid(), type: 'wall', x1: l[0], y1: l[1], x2: p[0], y2: p[1] }); W.made = (W.made || 0) + 1;
+  const wall = { id: uid(), type: 'wall', x1: l[0], y1: l[1], x2: p[0], y2: p[1] };
+  objs().push(wall); (W.ids = W.ids || []).push(wall.id); W.made = (W.made || 0) + 1;
   const f = P[0]; P.push(p);
   if (P.length > 3 && Math.hypot(p[0] - f[0], p[1] - f[1]) < 0.01) { endWallDraw(); return; }   // контур замкнут
   renderAll(true);
 }, true);
+plan.addEventListener('pointercancel', (e) => { if (wallTap && e.pointerId === wallTap.id) wallTap = null; }, true);
 { const b = $('wdSingle'); if (b) b.addEventListener('click', () => { if (S.wallDraw) { S.wallDraw.single = !S.wallDraw.single; renderPlan(); } }); }
+{ const u = $('whUndo'), d = $('whDone');
+  if (u) u.addEventListener('click', () => undo());          /* шаг назад: убрать последнюю точку */
+  if (d) d.addEventListener('click', () => endWallDraw()); }
 plan.addEventListener('dblclick', (e) => { if (S.wallDraw) { e.stopImmediatePropagation(); endWallDraw(); } }, true);
 plan.addEventListener('pointerdown', (e) => {
   if (e.button !== undefined && e.button !== 0) return;
