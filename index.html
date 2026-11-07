@@ -508,7 +508,7 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
   .tools .sep { display: none; } .tools .tool.list { margin-top: 0; }
   #helpBtn, .h-desk, .h-touch { display: none; }
   .tool { width: 56px; height: 48px; }
-  .menu-scrim { display: block; position: fixed; z-index: 39; inset: 0; padding: 0; border: none; background: rgba(5,8,12,.46); backdrop-filter: blur(2px); cursor: default; }
+  .menu-scrim { display: block; position: fixed; z-index: 39; inset: 0; padding: 0; border: none; background: rgba(5,8,12,.5); cursor: default; }   /* без backdrop-filter: на телефоне он тормозит открытие меню */
   #menus .menu { left: 8px !important; right: 8px; top: auto !important; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); position: fixed; box-sizing: border-box; width: auto; max-width: none; max-height: min(62dvh, 540px); overflow-y: auto; overscroll-behavior: contain; padding: 8px; border-radius: 12px; }
   #menus .menu .sub { position: fixed; left: 8px !important; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); top: auto !important; }
   #menus .menu:has(> .menu.sub) { background: transparent; border-color: transparent; box-shadow: none; pointer-events: none; }
@@ -703,7 +703,16 @@ body[data-view="cams"] .ctrlcard { display: none !important; }
 
 /* телефон: рельс — нижней панелью, карточки по краям */
 @media (max-width: 700px) {
-  .top { height: 52px; padding: 0 8px; gap: 6px; }
+  .top { height: 58px; padding: 0 6px; gap: 4px; }
+  .mbtn { height: 44px; padding: 0 8px; border-radius: 11px; }
+  .mbtn svg { width: 24px; height: 24px; opacity: .85; }
+  .iconbtn { width: 44px; height: 44px; border-radius: 11px; }
+  .iconbtn svg { width: 22px; height: 22px; }
+  .tab { height: 40px; min-width: 44px; padding: 0 10px; }
+  .tab svg { width: 20px; height: 20px; }
+  #themeBtn { width: 44px; height: 44px; border-radius: 11px; }
+  #themeBtn svg { width: 22px; height: 22px; }
+  .top .btn.primary { width: 46px; height: 40px; }
   .brand .bname, .mbtn span { display: none; }
   .pname { width: 11ch; }
   .tab { padding: 0 9px; }
@@ -718,26 +727,28 @@ body[data-view="cams"] .ctrlcard { display: none !important; }
   body[data-view="3d"] .tools #addBtn, body[data-view="cams"] .tools #addBtn,
   body[data-view="3d"] .tools #drawBtn, body[data-view="cams"] .tools #drawBtn,
   body[data-view="3d"] .tools #rulerBtn, body[data-view="cams"] .tools #rulerBtn { display: none !important; }
-  #menuBtn { order: 0; width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 10px; background: transparent; color: var(--muted); }
+  #menuBtn { order: 0; width: 46px; height: 46px; padding: 0; justify-content: center; border-radius: 12px; background: transparent; color: var(--muted); }
   #menuBtn:hover { background: var(--chip-bg); color: var(--fg); }
-  #undoBtn, #redoBtn { order: 2; width: 40px; height: 40px; border-radius: 10px; }
+  #undoBtn, #redoBtn { order: 2; width: 46px; height: 46px; border-radius: 12px; }
+  #undoBtn:disabled, #redoBtn:disabled { opacity: .45; }
   #redoBtn { order: 3; }
-  #addBtn { order: 1; width: 40px; height: 40px; border-radius: 10px; background: transparent; color: var(--muted); box-shadow: none; }
+  #addBtn { order: 1; width: 46px; height: 46px; border-radius: 12px; background: transparent; color: var(--muted); box-shadow: none; }
+  #addBtn svg { width: 28px; height: 28px; }
   #addBtn:hover { background: var(--chip-bg); color: var(--fg); }
   #addBtn svg { width: 26px; height: 26px; }
   #drawBtn { order: 4; margin-left: auto; }
   #rulerBtn { order: 5; }
-  .rtool { width: 38px; height: 44px; }
-  .rtool svg { width: 24px; height: 24px; }
+  .rtool { width: 46px; height: 46px; }
+  .rtool svg { width: 26px; height: 26px; }
   .rtool.add { margin-top: 0; }
   .rsep { display: none; }
   .layerbar { left: 8px; right: auto; top: 8px; bottom: auto; padding: 3px; }
   .lchip { height: 30px; padding: 0 9px; font-size: 12px; }
-  .ctrlcard { right: 8px; bottom: calc(68px + env(safe-area-inset-bottom)); gap: 6px; }
+  .ctrlcard { right: 8px; bottom: calc(78px + env(safe-area-inset-bottom)); gap: 6px; }
   .ctrlcard .rtool { width: 42px; height: 42px; border-radius: 12px; }
   #helpBtn { display: grid; }   /* на телефоне подсказки были скрыты старым правилом */
   .saved { display: none; }     /* время сохранения не помещается в узкую шапку */
-  .cellhint { left: 12px; bottom: calc(68px + env(safe-area-inset-bottom)); font-size: 11px; }
+  .cellhint { left: 12px; bottom: calc(78px + env(safe-area-inset-bottom)); font-size: 11px; }
   .inspector { top: auto; bottom: calc(70px + env(safe-area-inset-bottom)); max-height: min(62dvh, 560px); }
   .camview { flex-direction: column; padding: 8px; gap: 8px; }
   .camview .camshelf { flex: 0 0 auto; }
@@ -808,7 +819,7 @@ select option { background: var(--surface); color: var(--fg); }
   .tools .type { display: none; }
   .tools .rsep { display: none; }
 
-  #menus .menu { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  #menus .menu { bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
   #menus .menu { scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior: contain; }
   #menus .menu::-webkit-scrollbar { display: none; }
   /* подменю на телефоне: плитки плотнее, цвета героев — в строку */
@@ -821,8 +832,15 @@ select option { background: var(--surface); color: var(--fg); }
   #menus .menu.grid6 .tile { width: auto; min-height: 62px; padding: 6px 2px 4px; font-size: 10.5px; gap: 3px; }
   #menus .menu.grid6 .tile svg { width: 28px; height: 28px; }
   #menus .menu { padding: 6px 10px 12px; }
+  /* касания: без задержки и подсветки, панели не выделяются */
+  .rtool, .btn, .tab, .mbtn, .iconbtn, .mi, .tile, .lchip { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .tools, .top { user-select: none; }
+  /* телефон: никакого размытия под панелями — только плотный фон, иначе кадры проваливаются */
+  .layerbar, .ovl .pill, .ovl-bl .hint, #v3wrap .ovl-tr .pill { backdrop-filter: none !important; background: var(--surface); }
+  .menu-scrim { backdrop-filter: none !important; }
+  #menus .menu { backdrop-filter: none !important; }
   /* подсказка стен: на телефоне — полосой над нижней панелью */
-  .wallhint { left: 8px; right: 8px; bottom: calc(94px + env(safe-area-inset-bottom)); transform: none; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 0 2px; z-index: 16; }
+  .wallhint { left: 8px; right: 8px; bottom: calc(104px + env(safe-area-inset-bottom)); transform: none; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 0 2px; z-index: 16; }
   .wallhint .wh-text { flex: 1 1 100%; white-space: normal; text-align: center; font-size: 12px; }
   .wallhint .btn { flex: 0 0 auto; min-width: 0; height: 34px; padding: 0 14px; font-size: 12px; }
 }
@@ -6198,7 +6216,7 @@ function buildWalls(sc) {
 // виды из окна (рисуются процедурно и слегка размываются — как будто вне фокуса): улица (1-й этаж), город (высокий этаж), закат, парк.
 // Щит 8 м по высоте (от −1,5 до 6,5 м), горизонт на уровне глаз ≈ 1,5 м → 62,5 % сверху
 function viewTex(kind) {
-  return canvasTex('view4-' + kind, 1024, 512, (x, w, h) => {
+  return canvasTex('view5-' + kind, 1024, 512, (x, w, h) => {
     let s = 41; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
     const HZ = h * 0.625;
     const lg = (y0, y1, stops) => { const g = x.createLinearGradient(0, y0, 0, y1); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; };
@@ -6214,9 +6232,9 @@ function viewTex(kind) {
         rect('rgba(255,255,255,.18)', fx, fy, ww * 0.35, wh); rect(frame, fx + ww / 2 - 0.7, fy, 1.4, wh); } };
     const tree = (cx, base, rr, greens, trunk) => {   // крона из сотен мелких «листовых» пятен: снизу темнее, сверху-слева светлее, с просветами
       x.fillStyle = trunk || '#4A3B2C'; x.beginPath(); x.moveTo(cx - rr * 0.08, base); x.lineTo(cx - rr * 0.035, base - rr * 1.2); x.lineTo(cx + rr * 0.035, base - rr * 1.2); x.lineTo(cx + rr * 0.08, base); x.fill();
-      const cy = base - rr * 1.45, n = Math.round(90 + rr * 2);
+      const cy = base - rr * 1.45, n = Math.round(900 + rr * 14);   /* много мелких листьев вместо крупных пятен */
       for (let k = 0; k < n; k++) { const a = r() * 6.283, d = Math.sqrt(r()) * rr * 0.85, px = cx + Math.cos(a) * d * 1.05, py = cy + Math.sin(a) * d * 0.8, pr = rr * (0.07 + r() * 0.12);
-        const lt = 0.72 + 0.5 * ((cy - py) / rr * 0.5 + (cx - px) / rr * 0.25 + 0.5) + (r() - 0.5) * 0.2; x.fillStyle = shade(greens[Math.floor(r() * greens.length)], Math.max(0.5, lt)); x.beginPath(); x.ellipse(px, py, pr, pr * 0.8, r() * 3, 0, 7); x.fill(); } };
+        const lt = 0.72 + 0.5 * ((cy - py) / rr * 0.5 + (cx - px) / rr * 0.25 + 0.5) + (r() - 0.5) * 0.2; x.fillStyle = shade(greens[Math.floor(r() * greens.length)], Math.max(0.5, lt)); x.beginPath(); x.ellipse(px, py, pr * 0.34, pr * 0.26, r() * 3, 0, 7); x.fill(); } };
     const car = (cx, by, cw, col) => { const ch = cw * 0.32; x.fillStyle = col; x.beginPath(); x.moveTo(cx, by - ch * 0.35); x.lineTo(cx + cw * 0.18, by - ch * 0.4); x.lineTo(cx + cw * 0.3, by - ch); x.lineTo(cx + cw * 0.72, by - ch); x.lineTo(cx + cw * 0.86, by - ch * 0.42); x.lineTo(cx + cw, by - ch * 0.35); x.lineTo(cx + cw, by - ch * 0.08); x.lineTo(cx, by - ch * 0.08); x.fill();
       x.fillStyle = 'rgba(40,52,64,.85)'; x.beginPath(); x.moveTo(cx + cw * 0.32, by - ch * 0.92); x.lineTo(cx + cw * 0.7, by - ch * 0.92); x.lineTo(cx + cw * 0.8, by - ch * 0.45); x.lineTo(cx + cw * 0.24, by - ch * 0.45); x.fill();
       [0.22, 0.78].forEach(f => { x.fillStyle = '#16171A'; x.beginPath(); x.arc(cx + cw * f, by - ch * 0.08, ch * 0.24, 0, 7); x.fill(); }); };
@@ -6227,9 +6245,9 @@ function viewTex(kind) {
     const leafy = (cx, base, rr, cols, trunk, tw, hgt) => {   // дерево с высоким тонким стволом и рыхлой кроной
       x.fillStyle = trunk; x.beginPath(); x.moveTo(cx - tw, base); x.quadraticCurveTo(cx - tw * 0.6 + (r() - 0.5) * tw * 3, base - hgt * 0.5, cx - tw * 0.35, base - hgt); x.lineTo(cx + tw * 0.35, base - hgt); x.quadraticCurveTo(cx + tw * 0.6 + (r() - 0.5) * tw * 3, base - hgt * 0.5, cx + tw, base); x.fill();
       for (let k = 0; k < 4; k++) { x.strokeStyle = trunk; x.lineWidth = tw * 0.5; x.beginPath(); x.moveTo(cx, base - hgt * (0.6 + r() * 0.3)); x.lineTo(cx + (r() - 0.5) * rr * 1.6, base - hgt - rr * (0.2 + r() * 0.6)); x.stroke(); }
-      const cy = base - hgt - rr * 0.35, n = Math.round(160 + rr * 3);
+      const cy = base - hgt - rr * 0.35, n = Math.round(1500 + rr * 22);
       for (let k = 0; k < n; k++) { const a = r() * 6.283, d = Math.sqrt(r()) * rr, px = cx + Math.cos(a) * d * 1.15, py = cy + Math.sin(a) * d * 0.75, pr = rr * (0.04 + r() * 0.09);
-        const lt = 0.7 + 0.55 * ((cy - py) / rr * 0.5 + 0.5) + (r() - 0.5) * 0.25; x.fillStyle = shade(cols[Math.floor(r() * cols.length)], Math.max(0.45, lt)); x.beginPath(); x.ellipse(px, py, pr, pr * 0.75, r() * 3, 0, 7); x.fill(); } };
+        const lt = 0.7 + 0.55 * ((cy - py) / rr * 0.5 + 0.5) + (r() - 0.5) * 0.25; x.fillStyle = shade(cols[Math.floor(r() * cols.length)], Math.max(0.45, lt)); x.beginPath(); x.ellipse(px, py, pr * 0.34, pr * 0.26, r() * 3, 0, 7); x.fill(); } };
     if (kind === 'street') {   // улица с первого этажа: современные кирпичные дома, пасмурно, переход-«зебра», осенние деревья
       x.fillStyle = lg(0, HZ, [[0, '#E9EBEC'], [1, '#D9DCDD']]); x.fillRect(0, 0, w, HZ + 10);
       const brick = (bx, top, bw, bot, col) => { x.fillStyle = col; x.fillRect(bx, top, bw, bot - top);
@@ -6285,16 +6303,47 @@ function viewTex(kind) {
       trees.forEach(([cx, sc, rr]) => leafy(cx + (r() - 0.5) * 20, HZ + 20 + sc * 50, rr, ['#3D6B26', '#4F8030', '#62953A', '#2F5A22', '#76A845'], '#4A4034', 3 + sc * 4, 130 + sc * 110));
       for (let k = 0; k < 10; k++) { x.fillStyle = 'rgba(30,60,20,.18)'; x.beginPath(); x.ellipse(r() * w, HZ + 60 + r() * (h - HZ - 70), 60 + r() * 60, 8, 0, 0, 7); x.fill(); }   // мягкие тени под кронами
     }
-    // реализм: мелкая фактура поверхностей, неравномерная освещённость крупными пятнами, воздушная перспектива к горизонту, лёгкое виньетирование
-    { const im = x.getImageData(0, 0, w, h), d = im.data, n = (u, v) => { const a = Math.sin(u * 12.9898 + v * 78.233) * 43758.5453; return a - Math.floor(a); };
-      const big = (u, v) => 0.5 + 0.25 * Math.sin(u * 0.013 + 1.3) * Math.sin(v * 0.021 + 0.4) + 0.25 * Math.sin(u * 0.007 - v * 0.009 + 2.1);
-      const tint = kind === 'sunset' ? [255, 170, 120] : kind === 'city' ? [150, 170, 200] : [215, 225, 235];
-      for (let yy = 0; yy < h; yy++) { const fog = Math.max(0, 1 - Math.abs(yy - HZ) / (h * 0.22)) * (kind === 'street' ? 0.08 : 0.16);
-        for (let xx = 0; xx < w; xx++) { const q = (yy * w + xx) * 4, gr = (n(xx, yy) - 0.5) * 14, lt = 0.9 + 0.18 * big(xx, yy), vg = 1 - 0.18 * Math.pow(Math.hypot(xx / w - 0.5, yy / h - 0.5) * 1.6, 2);
-          for (let c = 0; c < 3; c++) d[q + c] = Math.max(0, Math.min(255, (d[q + c] * lt * vg + gr) * (1 - fog) + tint[c] * fog)); } }
-      x.putImageData(im, 0, 0); }
-    const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; tmp.getContext('2d').drawImage(x.canvas, 0, 0);
-    x.filter = 'blur(1.1px)'; x.drawImage(tmp, 0, 0); x.filter = 'none';   // лёгкий расфокус
+    /* --- фотообработка: глубина резкости, свечение, грейд, зерно, виньетка --- */
+    {
+      const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; const tc = tmp.getContext('2d');
+      tc.drawImage(x.canvas, 0, 0);
+
+      /* дальний план мягче: размытая копия с градиентной маской сверху */
+      const soft = document.createElement('canvas'); soft.width = w; soft.height = h; const sc = soft.getContext('2d');
+      sc.filter = 'blur(1.6px)'; sc.drawImage(tmp, 0, 0); sc.filter = 'none';
+      sc.globalCompositeOperation = 'destination-in';
+      const mask = sc.createLinearGradient(0, 0, 0, h);
+      mask.addColorStop(0, 'rgba(0,0,0,.95)'); mask.addColorStop(0.62, 'rgba(0,0,0,.55)'); mask.addColorStop(0.9, 'rgba(0,0,0,0)');
+      sc.fillStyle = mask; sc.fillRect(0, 0, w, h);
+      x.drawImage(soft, 0, 0);
+
+      /* блик от ярких участков */
+      x.save(); x.globalCompositeOperation = 'screen'; x.globalAlpha = 0.2; x.filter = 'blur(22px)'; x.drawImage(tmp, 0, 0); x.restore();
+
+      /* цветовой грейд и лёгкая десатурация */
+      x.save(); x.globalCompositeOperation = 'soft-light'; x.globalAlpha = 0.22;
+      const grade = kind === 'sunset' ? ['#FF9A5A', '#241E36'] : kind === 'city' ? ['#7FA0D0', '#0C1420'] : kind === 'street' ? ['#FFE9CC', '#2A2C30'] : ['#FFF3CC', '#1B2A18'];
+      const gg = x.createLinearGradient(0, 0, 0, h); gg.addColorStop(0, grade[0]); gg.addColorStop(1, grade[1]);
+      x.fillStyle = gg; x.fillRect(0, 0, w, h); x.restore();
+
+      const im = x.getImageData(0, 0, w, h), d = im.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+        for (let c = 0; c < 3; c++) d[i + c] = lum + (d[i + c] - lum) * 0.96;   /* чуть меньше цвета — ближе к фото */
+      }
+      for (let yy = 0, q = 0; yy < h; yy++) {
+        const vg = 1 - 0.2 * Math.pow(Math.hypot(0.55, (yy / h - 0.5) * 1.15), 2);
+        for (let xx = 0; xx < w; xx++, q += 4) {
+          const gr = (Math.random() - 0.5) * 7;
+          d[q] = Math.max(0, Math.min(255, d[q] * vg + gr));
+          d[q + 1] = Math.max(0, Math.min(255, d[q + 1] * vg + gr));
+          d[q + 2] = Math.max(0, Math.min(255, d[q + 2] * vg + gr * 1.2));
+        }
+      }
+      x.putImageData(im, 0, 0);
+
+      x.save(); x.filter = 'blur(1.1px)'; x.drawImage(x.canvas, 0, 0); x.restore();   /* за стеклом всё чуть не в фокусе */
+    }
   });
 }
 const DOOR_COLORS = [['#6B4E38', 'Дерево'], ['#E8E6E1', 'Белый'], ['#B4B4B2', 'Светло-серый'], ['#8A8A88', 'Серый'], ['#4A4C50', 'Графит'], ['#232427', 'Чёрный'], ['#CDBFA6', 'Бежевый'], ['#3D5778', 'Синий'], ['#3F5A4C', 'Зелёный']];
