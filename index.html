@@ -749,7 +749,7 @@ body[data-view="cams"] .ctrlcard { display: none !important; }
   .lchip { height: 30px; padding: 0 9px; font-size: 12px; }
   .ctrlcard { right: 8px; bottom: calc(78px + env(safe-area-inset-bottom)); gap: 6px; }
   .ctrlcard .rtool { width: 42px; height: 42px; border-radius: 12px; }
-  #helpBtn { display: grid; }   /* на телефоне подсказки были скрыты старым правилом */
+  #helpBtn { display: none; }
   .saved { display: none; }     /* время сохранения не помещается в узкую шапку */
   .cellhint { left: 12px; bottom: calc(78px + env(safe-area-inset-bottom)); font-size: 11px; }
   .inspector { top: auto; bottom: calc(70px + env(safe-area-inset-bottom)); max-height: min(62dvh, 560px); }
@@ -5691,16 +5691,23 @@ function cachedMesh(p, key, make, m, x, y, z, ns) { if (!GEO.has(key)) GEO.set(k
 const mbox = (p, w, h, d, m, x, y, z, ns) => cachedMesh(p, 'box|' + geoKey([w, h, d]), () => new THREE.BoxGeometry(w, h, d), m, x, y, z, ns);
 // скруглённый блок: прямоугольник со скруглёнными углами, выдавленный с фаской-скруглением по всем рёбрам
 const RBOX = {};
-function roundBoxGeo(w, h, d, r) {
-  r = Math.max(0.002, Math.min(r, w / 2 - 0.002, h / 2 - 0.002, d / 2 - 0.002)); const key = [w, h, d, r].map(v => v.toFixed(3)).join('|');
+function roundBoxGeo(w, h, d, r, soft) {
+  r = Math.max(0.002, Math.min(r, w / 2 - 0.002, h / 2 - 0.002, d / 2 - 0.002)); const key = [w, h, d, r, soft ? 1 : 0].map(v => v.toFixed(3)).join('|');
   if (RBOX[key]) return RBOX[key];
   const iw = w - 2 * r, ih = h - 2 * r, cr = Math.min(iw, ih) * 0.12, s = new THREE.Shape();
   s.moveTo(-iw / 2 + cr, -ih / 2); s.lineTo(iw / 2 - cr, -ih / 2); s.quadraticCurveTo(iw / 2, -ih / 2, iw / 2, -ih / 2 + cr); s.lineTo(iw / 2, ih / 2 - cr); s.quadraticCurveTo(iw / 2, ih / 2, iw / 2 - cr, ih / 2);
   s.lineTo(-iw / 2 + cr, ih / 2); s.quadraticCurveTo(-iw / 2, ih / 2, -iw / 2, ih / 2 - cr); s.lineTo(-iw / 2, -ih / 2 + cr); s.quadraticCurveTo(-iw / 2, -ih / 2, -iw / 2 + cr, -ih / 2);
-  const g = new THREE.ExtrudeGeometry(s, { depth: Math.max(0.001, d - 2 * r), bevelEnabled: true, bevelSize: r, bevelThickness: r, bevelSegments: 5, curveSegments: 6 });
-  g.center(); g.computeVertexNormals(); RBOX[key] = g; return g;
+  const g = new THREE.ExtrudeGeometry(s, { depth: Math.max(0.001, d - 2 * r), bevelEnabled: true, bevelSize: r, bevelThickness: r, bevelSegments: soft ? 12 : 5, curveSegments: soft ? 12 : 6 });
+  g.center(); g.computeVertexNormals();
+  if (soft) {
+    const p = g.attributes.position, n = g.attributes.normal, acc = new Map();
+    for (let i = 0; i < p.count; i++) { const k = [p.getX(i), p.getY(i), p.getZ(i)].map(v => v.toFixed(5)).join(','); const a = acc.get(k) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); acc.set(k, a); }
+    for (let i = 0; i < p.count; i++) { const k = [p.getX(i), p.getY(i), p.getZ(i)].map(v => v.toFixed(5)).join(','), a = acc.get(k), l = Math.hypot(...a) || 1; n.setXYZ(i, a[0] / l, a[1] / l, a[2] / l); }
+    n.needsUpdate = true;
+  }
+  RBOX[key] = g; return g;
 }
-const rbox = (p, w, h, d, m, x, y, z, r, ns) => { const me = mesh(p, roundBoxGeo(w, h, d, r), m, x, y, z, ns); me.userData.shared = true; return me; };   // общая геометрия — не удалять при перестройке сцены
+const rbox = (p, w, h, d, m, x, y, z, r, ns) => { const me = mesh(p, roundBoxGeo(w, h, d, r, !!(m && m.userData.upholstery)), m, x, y, z, ns); me.userData.shared = true; return me; };   // общая геометрия — не удалять при перестройке сцены
 // геометрия фикуса: 3 древесных стебля из грунта с крупными овальными глянцевыми листьями (сгиб по жилке, лёгкий изгиб вниз)
 function ficusGeo(H, R, y0, base) {
   const key = 'ficus' + [H, R, y0, base].map(v => v.toFixed(2)).join('_'); if (RBOX[key]) return RBOX[key];
@@ -6005,7 +6012,7 @@ const WALL_FIN = {
 const WALL_COLORS = [['#E8E6E1', 'Белый'], ['#D8D6D2', 'Молочный'], ['#C6C7C3', 'Светло-серый'], ['#A4A4A4', 'Серый'], ['#8A8A88', 'Бетонный'], ['#4A4C50', 'Графит'], ['#232427', 'Чёрный'], ['#CDBFA6', 'Бежевый'], ['#C2A27C', 'Дерево'], ['#94695A', 'Кирпич'], ['#7A7C55', 'Оливковый'], ['#3F5A4C', 'Зелёный'], ['#3D5778', 'Синий']];
 // отделка пола (по комнатам): своя текстура-«маска», размер повтора в метрах, шероховатость
 const FLOOR_FIN = {
-  laminate: { name: 'Ламинат', tex: 'laminate', col: '#D8D6D2', rough: 0.7 },   // второй цвет в линейке — «Молочный»
+  laminate: { name: 'Ламинат', tex: 'laminate', col: '#E9D6B4', rough: 0.7 },   // второй цвет в линейке — «Молочный»
   wood: { name: 'Дерево (доска)', tex: 'wood', col: '#C2A27C', rough: 0.75 },
   herringbone: { name: 'Паркет «ёлочка»', tex: 'herringbone', col: '#C2A27C', rough: 0.6 },
   porcelain: { name: 'Керамогранит', tex: 'porcelain', col: '#D8D6D2', rough: 0.3 },
@@ -6031,7 +6038,10 @@ function finishTex(key, path, srgb, repeat) {
 function floorMat(o) {
   const fin = floorFin(o), F = FLOOR_FIN[fin], T = WALL_FIN[F.tex] || FLOOR_TEX[F.tex], col = floorCol(o);
   const opt = Object.assign({ roughness: F.rough, map: wallTex(F.tex) }, T.bump ? { bumpMap: wallBump(F.tex), bumpScale: T.bump } : {});
-  if (fin === 'laminate') { opt.normalMap = finishTex('laminate-normal', 'models/finishes/laminate-normal.webp', false, true); opt.normalMap.repeat.set(1.6, 1.6); opt.normalScale = new THREE.Vector2(0.35, 0.35); }
+  if (fin === 'laminate') {
+    opt.roughnessMap = finishTex('laminate-roughness', 'models/finishes/laminate-roughness.webp', false, true); opt.roughnessMap.repeat.set(1.6, 1.6);
+    opt.bumpMap = wallTex('laminate'); opt.bumpScale = 0.003;
+  }
   return mat('floor|' + fin + '|' + col, col, opt);
 }
 const texDim = (tex) => WALL_FIN[tex] || FLOOR_TEX[tex];
@@ -6211,7 +6221,12 @@ function wallBump(fin) {
 }
 function wallMat(o) {
   const fin = wallFin(o), F = WALL_FIN[fin], col = wallCol(o);
-  return mat('wall|' + fin + '|' + col, col, Object.assign({ roughness: F.rough, map: wallTex(fin) }, F.bump ? { bumpMap: wallBump(fin), bumpScale: F.bump } : {}));
+  const opt = Object.assign({ roughness: F.rough, map: wallTex(fin) }, F.bump ? { bumpMap: wallBump(fin), bumpScale: F.bump } : {});
+  if (fin === 'laminate') {
+    opt.roughnessMap = finishTex('laminate-roughness', 'models/finishes/laminate-roughness.webp', false, true); opt.roughnessMap.repeat.set(1.6, 1.6);
+    opt.bumpMap = wallTex('laminate'); opt.bumpScale = 0.003;
+  }
+  return mat('wall|' + fin + '|' + col, col, opt);
 }
 // UV в метрах: рисунок одного масштаба на кусках любой длины и непрерывный по стене (над дверью, под окном)
 function wallUV(me, tc, yc, sx, sy) {
@@ -6269,138 +6284,163 @@ function buildWalls(sc) {
     if (t < sg.len) piece(t, sg.len, 0, H);
   });
 }
-// виды из окна (рисуются процедурно и слегка размываются — как будто вне фокуса): улица (1-й этаж), город (высокий этаж), закат, парк.
-// Щит 8 м по высоте (от −1,5 до 6,5 м), горизонт на уровне глаз ≈ 1,5 м → 62,5 % сверху
+function drawWindowScene(x, w, h, kind) {
+  let seed = 937;
+  const rnd = () => { seed = seed * 16807 % 2147483647; return seed / 2147483647; };
+  const C = (v, a, b) => Math.max(a, Math.min(b, v));
+  const rect = (px, py, rw, rh, col) => { x.fillStyle = col; x.fillRect(px, py, rw, rh); };
+  const poly = (pts, col, stroke, lw) => { x.beginPath(); pts.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); if (col) { x.fillStyle = col; x.fill(); } if (stroke) { x.strokeStyle = stroke; x.lineWidth = lw || 1; x.stroke(); } };
+  const line = (pts, col, lw) => { x.beginPath(); pts.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.strokeStyle = col; x.lineWidth = lw || 1; x.stroke(); };
+  const ell = (cx, cy, rx, ry, col, rot) => { x.beginPath(); x.ellipse(cx, cy, rx, ry, rot || 0, 0, Math.PI * 2); x.fillStyle = col; x.fill(); };
+  const circle = (cx, cy, r, col) => ell(cx, cy, r, r, col);
+  const gradient = (y0, y1, stops, horizontal) => { const g = horizontal ? x.createLinearGradient(y0, 0, y1, 0) : x.createLinearGradient(0, y0, 0, y1); stops.forEach(([p, c]) => g.addColorStop(p, c)); return g; };
+  const glow = (cx, cy, r, inner, outer) => { const g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, inner); g.addColorStop(1, outer); x.fillStyle = g; x.fillRect(cx - r, cy - r, r * 2, r * 2); };
+  const cloud = (cx, cy, sx, col, shade) => {
+    x.save(); x.filter = 'blur(3px)';
+    for (let i = 0; i < 18; i++) { const px = cx + (rnd() - 0.5) * sx, py = cy + (rnd() - 0.5) * sx * 0.15, rx = sx * (0.12 + rnd() * 0.18), ry = rx * (0.25 + rnd() * 0.2); ell(px, py, rx, ry, i % 4 ? col : shade); }
+    x.restore();
+  };
+  const windowPane = (px, py, ww, hh, lit, cool) => {
+    rect(px - 1, py - 1, ww + 2, hh + 2, 'rgba(8,14,20,.65)');
+    rect(px, py, ww, hh, lit ? (rnd() < 0.5 ? '#FFD99A' : '#FFEBC0') : (cool ? '#4D6679' : '#263B4B'));
+    rect(px + 1, py + 1, ww * 0.3, hh - 2, lit ? 'rgba(255,255,255,.18)' : 'rgba(210,235,245,.16)');
+    line([[px + ww / 2, py], [px + ww / 2, py + hh]], 'rgba(10,18,24,.45)', 0.7);
+  };
+  const building = (bx, by, bw, bh, base, lit, detail) => {
+    rect(bx, by, bw, bh, base);
+    rect(bx, by, Math.max(2, bw * 0.025), bh, 'rgba(255,255,255,.09)');
+    rect(bx + bw * 0.94, by, bw * 0.06, bh, 'rgba(0,0,0,.16)');
+    rect(bx - 1, by - 4, bw + 2, 5, 'rgba(220,225,226,.28)');
+    const cols = Math.max(2, Math.floor(bw / 18)), rows = Math.max(2, Math.floor(bh / 25)), ww = Math.max(3, bw / cols * 0.4), hh = Math.max(5, bh / rows * 0.42);
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const px = bx + (i + 0.5) * bw / cols - ww / 2, py = by + 12 + j * (bh - 16) / rows;
+      windowPane(px, py, ww, hh, rnd() < lit, true);
+      if (detail && rnd() < 0.12) rect(px - 1, py + hh + 2, ww + 3, 2, 'rgba(10,15,20,.35)');
+    }
+    if (detail) {
+      for (let y = by + 10; y < by + bh; y += 14) rect(bx, y, bw, 0.55, 'rgba(0,0,0,.08)');
+      if (rnd() < 0.7) { rect(bx + bw * 0.18, by - 8, bw * 0.25, 8, '#343C43'); line([[bx + bw * 0.78, by - 4], [bx + bw * 0.78, by - 22]], '#343C43', 2); }
+    }
+  };
+  const car = (cx, cy, s, col, flip) => {
+    x.save(); x.translate(cx, cy); if (flip) x.scale(-1, 1); x.scale(s, s);
+    ell(0, 4, 48, 10, 'rgba(0,0,0,.28)');
+    poly([[-44, 0], [-36, -14], [-17, -20], [13, -20], [33, -10], [45, -5], [47, 5], [-43, 5]], col, 'rgba(0,0,0,.45)', 1);
+    poly([[-22, -17], [-12, -29], [12, -29], [29, -12]], col);
+    poly([[-15, -26], [-8, -20], [0, -20], [0, -27]], '#9DB7C6');
+    poly([[3, -27], [3, -20], [24, -13], [12, -27]], '#7694A7');
+    line([[-34, -6], [36, -6]], 'rgba(255,255,255,.28)', 1.3);
+    rect(32, -5, 10, 4, '#FFF0C4'); rect(-42, -4, 7, 4, '#D74B3F');
+    circle(-27, 5, 9, '#111417'); circle(28, 5, 9, '#111417'); circle(-27, 5, 4, '#7F898F'); circle(28, 5, 4, '#7F898F');
+    x.restore();
+  };
+  const tree = (cx, base, height, radius, palette, detail) => {
+    const top = base - height;
+    ell(cx + radius * 0.15, base + 2, radius * 0.65, radius * 0.14, 'rgba(16,27,16,.2)');
+    poly([[cx - radius * 0.07, base], [cx - radius * 0.035, top + height * 0.38], [cx + radius * 0.035, top + height * 0.38], [cx + radius * 0.075, base]], '#59452F');
+    line([[cx, top + height * 0.56], [cx - radius * 0.4, top + height * 0.28]], '#665039', Math.max(1, radius * 0.035));
+    line([[cx, top + height * 0.51], [cx + radius * 0.42, top + height * 0.23]], '#665039', Math.max(1, radius * 0.03));
+    const n = detail || 280;
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()), px = cx + Math.cos(a) * radius * d, py = top + radius * 0.38 + Math.sin(a) * radius * d * 0.72;
+      const light = C(0.55 + (cx - px) / radius * 0.18 + (top - py) / radius * 0.2 + rnd() * 0.28, 0, palette.length - 1);
+      const col = palette[Math.floor(light)];
+      x.save(); x.translate(px, py); x.rotate(rnd() * Math.PI); const rw = radius * (0.025 + rnd() * 0.035); x.fillStyle = col; x.beginPath(); x.ellipse(0, 0, rw * 1.5, rw * 0.65, 0, 0, Math.PI * 2); x.fill(); x.restore();
+    }
+  };
+  const lamp = (cx, base, s, on) => {
+    line([[cx, base], [cx, base - 74 * s]], '#283137', 2.2 * s);
+    line([[cx - 5 * s, base], [cx + 5 * s, base]], '#283137', 3 * s);
+    line([[cx, base - 70 * s], [cx + 12 * s, base - 76 * s]], '#283137', 2 * s);
+    if (on) glow(cx + 13 * s, base - 75 * s, 21 * s, 'rgba(255,213,140,.35)', 'rgba(255,205,120,0)');
+    ell(cx + 13 * s, base - 74 * s, 5 * s, 3 * s, on ? '#FFE3A7' : '#B9C7CD');
+  };
+  const bench = (cx, cy, s) => {
+    x.save(); x.translate(cx, cy); x.scale(s, s);
+    for (let i = 0; i < 4; i++) rect(-34, -18 + i * 6, 68, 4, i % 2 ? '#8C603A' : '#A57649');
+    for (let i = 0; i < 3; i++) poly([[-34, -23 - i * 7], [34, -23 - i * 7], [34, -19 - i * 7], [-34, -19 - i * 7]], '#986B42');
+    line([[-26, 7], [-29, 24]], '#293236', 3); line([[26, 7], [29, 24]], '#293236', 3);
+    x.restore();
+  };
+  const finish = (top, bottom, bloom) => {
+    x.save(); x.globalCompositeOperation = 'soft-light'; x.globalAlpha = 0.22; x.fillStyle = gradient(0, h, [[0, top], [1, bottom]]); x.fillRect(0, 0, w, h); x.restore();
+    if (bloom) { x.save(); x.globalCompositeOperation = 'screen'; x.globalAlpha = bloom; x.filter = 'blur(14px)'; x.drawImage(x.canvas, 0, 0); x.restore(); }
+    const im = x.getImageData(0, 0, w, h), d = im.data;
+    for (let i = 0; i < d.length; i += 4) { const n = (rnd() - 0.5) * 3.2; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+    x.putImageData(im, 0, 0);
+    const vg = x.createRadialGradient(w / 2, h * 0.45, h * 0.25, w / 2, h * 0.45, w * 0.72); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(8,13,20,.18)'); x.fillStyle = vg; x.fillRect(0, 0, w, h);
+  };
+
+  if (kind === 'street') {
+    x.fillStyle = gradient(0, 290, [[0, '#78A9D0'], [0.55, '#C4DBE7'], [1, '#F1E4D0']]); x.fillRect(0, 0, w, 300);
+    cloud(220, 75, 230, 'rgba(255,255,255,.72)', 'rgba(184,202,211,.28)'); cloud(760, 112, 290, 'rgba(255,248,234,.65)', 'rgba(183,198,205,.25)');
+    for (let i = 0; i < 18; i++) { const bw = 30 + rnd() * 55, bh = 40 + rnd() * 90; building(i * 60 - 20, 280 - bh, bw, bh, '#899A9F', 0.03, false); }
+    const facades = [[-20, 105, 190, 215, '#8A6250'], [165, 85, 180, 235, '#B5A38C'], [340, 130, 150, 190, '#7F8B8B'], [485, 75, 200, 245, '#9B7358'], [680, 115, 160, 205, '#B9AA93'], [835, 70, 210, 250, '#6D7B82']];
+    facades.forEach(([bx, by, bw, bh, col]) => {
+      building(bx, by, bw, bh, col, 0.04, true); rect(bx + 8, by + bh - 40, bw - 16, 38, '#27373D');
+      for (let k = 0; k < 4; k++) windowPane(bx + 18 + k * (bw - 38) / 4, by + bh - 32, 18, 24, true, false);
+    });
+    rect(177, 272, 148, 17, '#315C55'); x.fillStyle = '#F3E6C7'; x.font = '600 13px sans-serif'; x.fillText('COFFEE  •  BAKERY', 185, 285);
+    rect(713, 273, 115, 17, '#7E3F36'); x.fillStyle = '#F6E9D7'; x.fillText('BOOKS & PRINT', 720, 286);
+    rect(0, 318, w, 38, '#B9B5AA'); rect(0, 349, w, 5, '#D8D2C4');
+    x.fillStyle = gradient(354, 458, [[0, '#586166'], [1, '#3B4449']]); x.fillRect(0, 354, w, 104);
+    for (let i = 0; i < 20; i++) rect(i * 57, 402, 32, 3, 'rgba(235,227,198,.7)');
+    rect(0, 458, w, h - 458, '#AAA79D'); rect(0, 458, w, 6, '#D4CEC0');
+    for (let i = 0; i < 7; i++) tree(80 + i * 150, 337, 93, 34, ['#2C4D32', '#496B38', '#73854A', '#A09A55'], 210);
+    car(275, 395, 0.8, '#354E67'); car(760, 434, 1.0, '#9A3F35', true); car(520, 390, 0.7, '#D3C9B8');
+    lamp(155, 348, 0.85, false); lamp(575, 350, 0.85, false); lamp(915, 350, 0.85, false);
+    for (let i = 0; i < 10; i++) { const px = 60 + rnd() * 900, py = 321 + rnd() * 20, s = 0.55 + rnd() * 0.35; circle(px, py - 9 * s, 2.5 * s, '#B99175'); line([[px, py - 6 * s], [px, py + 5 * s]], '#293844', 3 * s); line([[px, py + 5 * s], [px - 3 * s, py + 13 * s]], '#293844', 1.5 * s); line([[px, py + 5 * s], [px + 3 * s, py + 13 * s]], '#293844', 1.5 * s); }
+    finish('#FFF2D7', '#31434F', 0.06);
+  } else if (kind === 'city') {
+    x.fillStyle = gradient(0, h, [[0, '#162B4C'], [0.42, '#465F82'], [0.7, '#D18C82'], [1, '#202B3D']]); x.fillRect(0, 0, w, h);
+    cloud(210, 95, 280, 'rgba(137,150,178,.22)', 'rgba(22,36,62,.3)'); cloud(740, 140, 330, 'rgba(212,159,157,.2)', 'rgba(35,43,69,.32)');
+    for (let i = 0; i < 42; i++) circle(rnd() * w, rnd() * 155, rnd() * 0.8 + 0.25, 'rgba(222,232,255,.6)');
+    for (let i = 0; i < 30; i++) { const bw = 18 + rnd() * 45, bh = 35 + rnd() * 95; building(i * 38 - 15, 302 - bh, bw, bh, '#4C5D73', 0.09, false); }
+    for (let i = 0; i < 22; i++) { const bw = 28 + rnd() * 62, bh = 70 + rnd() * 180, bx = i * 49 - 30; building(bx, 355 - bh, bw, bh, i % 3 ? '#293B50' : '#34465A', 0.24, true); }
+    building(120, 95, 105, 300, '#263A4E', 0.34, true); poly([[120, 95], [225, 95], [195, 64], [150, 64]], '#30465C'); line([[174, 64], [174, 27]], '#8093A9', 2); circle(174, 26, 2, '#F18C79');
+    building(740, 70, 124, 332, '#263A4B', 0.38, true); rect(760, 52, 82, 18, '#344C61'); line([[810, 52], [810, 18]], '#71879C', 2);
+    building(430, 145, 86, 235, '#2B3D50', 0.27, true);
+    x.fillStyle = gradient(365, h, [[0, '#293B4B'], [1, '#101C29']]); x.fillRect(0, 365, w, h - 365);
+    rect(0, 415, w, 70, '#152632'); rect(0, 414, w, 3, 'rgba(177,184,183,.3)');
+    for (let i = 0; i < 20; i++) { const px = i * 58 - 20; line([[px, 447], [px + 28, 447]], 'rgba(223,214,178,.35)', 2); }
+    for (let i = 0; i < 12; i++) { const y = 427 + rnd() * 42, px = rnd() * w, len = 25 + rnd() * 85; line([[px, y], [Math.min(w, px + len), y]], i % 3 ? 'rgba(255,178,100,.48)' : 'rgba(232,244,255,.45)', 1.5); }
+    for (let i = 0; i < 65; i++) { const px = rnd() * w, py = 390 + rnd() * 130; glow(px, py, 5 + rnd() * 12, rnd() < 0.6 ? 'rgba(255,179,91,.35)' : 'rgba(115,176,224,.25)', 'rgba(0,0,0,0)'); }
+    building(-35, 210, 155, 310, '#172B3C', 0.38, true); building(895, 185, 170, 350, '#182B3B', 0.42, true);
+    lamp(350, 480, 1.2, true); lamp(697, 470, 1.1, true);
+    finish('#496E9E', '#D07765', 0.16);
+  } else if (kind === 'sunset') {
+    x.fillStyle = gradient(0, h, [[0, '#32375E'], [0.3, '#745476'], [0.55, '#E57470'], [0.74, '#FFB65E'], [1, '#F7D98D']]); x.fillRect(0, 0, w, h);
+    glow(720, 265, 190, 'rgba(255,222,143,.72)', 'rgba(255,155,94,0)'); circle(720, 265, 43, '#FFE4A1'); circle(710, 255, 34, '#FFF0BD');
+    cloud(240, 120, 350, 'rgba(85,66,104,.65)', 'rgba(238,140,127,.34)'); cloud(770, 95, 280, 'rgba(96,65,105,.58)', 'rgba(255,177,128,.28)'); cloud(480, 220, 240, 'rgba(140,76,105,.36)', 'rgba(255,196,136,.28)');
+    for (let i = 0; i < 13; i++) { const px = 160 + rnd() * 250, py = 145 + rnd() * 70, s = 2 + rnd() * 3; x.strokeStyle = '#40364F'; x.lineWidth = 1.2; x.beginPath(); x.arc(px - s, py, s, Math.PI * 1.1, Math.PI * 1.9); x.arc(px + s, py, s, Math.PI * 1.1, Math.PI * 1.9); x.stroke(); }
+    poly([[0, 330], [120, 275], [245, 312], [370, 262], [520, 320], [650, 285], [810, 325], [930, 270], [1024, 305], [1024, 390], [0, 390]], '#68536C');
+    poly([[0, 355], [160, 310], [300, 345], [470, 305], [630, 350], [790, 315], [950, 350], [1024, 330], [1024, 405], [0, 405]], '#493F58');
+    for (let i = 0; i < 34; i++) { const bw = 12 + rnd() * 34, bh = 20 + rnd() * 85, bx = i * 32 - 10; rect(bx, 390 - bh, bw, bh, '#35344A'); if (rnd() < 0.4) line([[bx + bw / 2, 390 - bh], [bx + bw / 2, 382 - bh]], '#454257', 1); for (let j = 0; j < 4; j++) if (rnd() < 0.5) rect(bx + 3 + rnd() * Math.max(2, bw - 7), 395 - bh + rnd() * Math.max(4, bh - 10), 2, 2, '#F5B775'); }
+    x.fillStyle = gradient(390, h, [[0, '#68566B'], [0.35, '#A86E71'], [1, '#2F3D56']]); x.fillRect(0, 390, w, h - 390);
+    for (let i = 0; i < 180; i++) { const y = 395 + rnd() * 120, spread = (y - 380) * 1.2, cx = 720 + (rnd() - 0.5) * spread; line([[cx - rnd() * 18, y], [cx + rnd() * 24, y]], rnd() < 0.6 ? 'rgba(255,196,112,.45)' : 'rgba(241,157,126,.28)', 0.5 + rnd()); }
+    poly([[0, 440], [170, 425], [300, 449], [480, 435], [600, 466], [0, 512]], '#252F43'); poly([[1024, 430], [870, 442], [760, 470], [1024, 512]], '#273044');
+    tree(75, 490, 190, 88, ['#1D2932', '#26343B', '#374044', '#514B4B'], 520); tree(950, 500, 210, 95, ['#1B2730', '#29343A', '#3A4142', '#564B49'], 560);
+    finish('#6A527A', '#F3A15D', 0.14);
+  } else {
+    x.fillStyle = gradient(0, 300, [[0, '#75B7DE'], [0.62, '#C6E3E9'], [1, '#F2EBCF']]); x.fillRect(0, 0, w, 320);
+    cloud(250, 78, 240, 'rgba(255,255,255,.8)', 'rgba(181,211,215,.24)'); cloud(775, 130, 260, 'rgba(255,255,255,.7)', 'rgba(178,207,211,.2)');
+    for (let i = 0; i < 24; i++) tree(i * 48 - 25, 315, 95 + rnd() * 65, 42 + rnd() * 20, ['#446B48', '#658652', '#86A061', '#A5B574'], 150);
+    x.fillStyle = gradient(285, h, [[0, '#89A956'], [0.45, '#638C42'], [1, '#3D6938']]); x.fillRect(0, 285, w, h - 285);
+    x.beginPath(); x.moveTo(-50, 390); x.bezierCurveTo(210, 340, 370, 445, 590, 395); x.bezierCurveTo(760, 355, 895, 410, 1070, 370); x.strokeStyle = '#C9BA93'; x.lineWidth = 68; x.stroke();
+    x.beginPath(); x.moveTo(-50, 382); x.bezierCurveTo(210, 332, 370, 437, 590, 387); x.bezierCurveTo(760, 347, 895, 402, 1070, 362); x.strokeStyle = 'rgba(239,224,187,.35)'; x.lineWidth = 18; x.stroke();
+    for (let i = 0; i < 2200; i++) { const px = rnd() * w, py = 300 + rnd() * (h - 300); line([[px, py], [px + (rnd() - 0.5) * 3, py - 2 - rnd() * 4]], rnd() < 0.5 ? 'rgba(40,92,42,.25)' : 'rgba(181,194,99,.23)', 0.6); }
+    tree(105, 460, 330, 142, ['#244E32', '#3F703C', '#669146', '#91AA59', '#B7C377'], 1500);
+    tree(915, 475, 350, 152, ['#254E31', '#40703A', '#6C9447', '#9CB65F', '#C1CB80'], 1600);
+    tree(330, 365, 180, 72, ['#315E36', '#527F40', '#7C9D50', '#A9B96A'], 550); tree(690, 360, 175, 70, ['#315E36', '#527F40', '#7C9D50', '#A9B96A'], 550);
+    bench(665, 415, 0.95); bench(265, 430, 1.05); lamp(600, 390, 0.85, false); lamp(370, 405, 0.9, false);
+    for (let i = 0; i < 180; i++) { const px = rnd() * w, py = 420 + rnd() * 90, col = ['#F4D370', '#E9E4C9', '#B9C9E0', '#D98E88'][Math.floor(rnd() * 4)]; circle(px, py, 0.8 + rnd() * 1.4, col); }
+    for (let i = 0; i < 5; i++) { const px = 470 + rnd() * 95, py = 300 + rnd() * 45; circle(px, py - 5, 2.3, '#C69B78'); line([[px, py - 2], [px, py + 9]], '#435968', 2.5); line([[px, py + 9], [px - 3, py + 16]], '#435968', 1.2); line([[px, py + 9], [px + 3, py + 16]], '#435968', 1.2); }
+    finish('#FFF4CF', '#315D3C', 0.07);
+  }
+}
+// Детализированные процедурные виды за окном; текстуры создаются локально и кэшируются.
 function viewTex(kind) {
-  return canvasTex('view5-' + kind, 1024, 512, (x, w, h) => {
-    let s = 41; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-    const HZ = h * 0.625;
-    const lg = (y0, y1, stops) => { const g = x.createLinearGradient(0, y0, 0, y1); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; };
-    const rect = (c, a, b, cw, ch) => { x.fillStyle = c; x.fillRect(a, b, cw, ch); };
-    const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16), f = (v) => Math.max(0, Math.min(255, Math.round(v * k))); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; };
-    const sky = (y1, top, mid, low) => { x.fillStyle = lg(0, y1, [[0, top], [0.6, mid], [1, low]]); x.fillRect(0, 0, w, y1); };
-    const clouds = (n, y0, y1, col) => { for (let k = 0; k < n; k++) { const cx = r() * w, cy = y0 + r() * (y1 - y0), cw = 120 + r() * 260, chh = 14 + r() * 26;   // вытянутые мягкие облака из множества полупрозрачных пятен
-      for (let q = 0; q < 34; q++) { const px = cx + (r() - 0.5) * cw, py = cy + (r() - 0.5) * chh * (1 - Math.abs(px - cx) / cw), pr = chh * (0.5 + r() * 0.9); const g = x.createRadialGradient(px, py - pr * 0.2, 0, px, py, pr);
-        g.addColorStop(0, col); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(px - pr, py - pr, pr * 2, pr * 2); } } };
-    const windows = (bx, by, bw, bh, fh, ww, wh, glass, frame, lit) => {   // окна по этажам: рама, стекло с отражением неба, иногда светятся
-      for (let fy = by + fh * 0.25; fy + wh < by + bh - 4; fy += fh) for (let fx = bx + ww * 0.6; fx + ww < bx + bw - 3; fx += ww * 2) {
-        rect(frame, fx - 1.5, fy - 1.5, ww + 3, wh + 3); x.fillStyle = r() < lit ? lg(fy, fy + wh, [[0, '#F6D9A0'], [1, '#D9A860']]) : lg(fy, fy + wh, [[0, glass[0]], [1, glass[1]]]); x.fillRect(fx, fy, ww, wh);
-        rect('rgba(255,255,255,.18)', fx, fy, ww * 0.35, wh); rect(frame, fx + ww / 2 - 0.7, fy, 1.4, wh); } };
-    const tree = (cx, base, rr, greens, trunk) => {   // крона из сотен мелких «листовых» пятен: снизу темнее, сверху-слева светлее, с просветами
-      x.fillStyle = trunk || '#4A3B2C'; x.beginPath(); x.moveTo(cx - rr * 0.08, base); x.lineTo(cx - rr * 0.035, base - rr * 1.2); x.lineTo(cx + rr * 0.035, base - rr * 1.2); x.lineTo(cx + rr * 0.08, base); x.fill();
-      const cy = base - rr * 1.45, n = Math.round(900 + rr * 14);   /* много мелких листьев вместо крупных пятен */
-      for (let k = 0; k < n; k++) { const a = r() * 6.283, d = Math.sqrt(r()) * rr * 0.85, px = cx + Math.cos(a) * d * 1.05, py = cy + Math.sin(a) * d * 0.8, pr = rr * (0.07 + r() * 0.12);
-        const lt = 0.72 + 0.5 * ((cy - py) / rr * 0.5 + (cx - px) / rr * 0.25 + 0.5) + (r() - 0.5) * 0.2; x.fillStyle = shade(greens[Math.floor(r() * greens.length)], Math.max(0.5, lt)); x.beginPath(); x.ellipse(px, py, pr * 0.34, pr * 0.26, r() * 3, 0, 7); x.fill(); } };
-    const car = (cx, by, cw, col) => { const ch = cw * 0.32; x.fillStyle = col; x.beginPath(); x.moveTo(cx, by - ch * 0.35); x.lineTo(cx + cw * 0.18, by - ch * 0.4); x.lineTo(cx + cw * 0.3, by - ch); x.lineTo(cx + cw * 0.72, by - ch); x.lineTo(cx + cw * 0.86, by - ch * 0.42); x.lineTo(cx + cw, by - ch * 0.35); x.lineTo(cx + cw, by - ch * 0.08); x.lineTo(cx, by - ch * 0.08); x.fill();
-      x.fillStyle = 'rgba(40,52,64,.85)'; x.beginPath(); x.moveTo(cx + cw * 0.32, by - ch * 0.92); x.lineTo(cx + cw * 0.7, by - ch * 0.92); x.lineTo(cx + cw * 0.8, by - ch * 0.45); x.lineTo(cx + cw * 0.24, by - ch * 0.45); x.fill();
-      [0.22, 0.78].forEach(f => { x.fillStyle = '#16171A'; x.beginPath(); x.arc(cx + cw * f, by - ch * 0.08, ch * 0.24, 0, 7); x.fill(); }); };
-    const glowWin = (bx, by, bw, bh, fh, ww, wh, p, dark) => {   // окна вечером: часть тёплых светящихся, остальные тёмные
-      for (let fy = by + fh * 0.3; fy + wh < by + bh - 2; fy += fh) for (let fx = bx + ww * 0.7; fx + ww < bx + bw - 2; fx += ww * 2.1) {
-        if (r() < p) { const g = x.createRadialGradient(fx + ww / 2, fy + wh / 2, 0, fx + ww / 2, fy + wh / 2, ww * 1.4); g.addColorStop(0, 'rgba(255,200,120,.35)'); g.addColorStop(1, 'rgba(255,200,120,0)'); x.fillStyle = g; x.fillRect(fx - ww, fy - wh, ww * 3, wh * 3);
-          x.fillStyle = lg(fy, fy + wh, [[0, '#FFE2A8'], [1, '#E9A85A']]); } else x.fillStyle = dark; x.fillRect(fx, fy, ww, wh); } };
-    const leafy = (cx, base, rr, cols, trunk, tw, hgt) => {   // дерево с высоким тонким стволом и рыхлой кроной
-      x.fillStyle = trunk; x.beginPath(); x.moveTo(cx - tw, base); x.quadraticCurveTo(cx - tw * 0.6 + (r() - 0.5) * tw * 3, base - hgt * 0.5, cx - tw * 0.35, base - hgt); x.lineTo(cx + tw * 0.35, base - hgt); x.quadraticCurveTo(cx + tw * 0.6 + (r() - 0.5) * tw * 3, base - hgt * 0.5, cx + tw, base); x.fill();
-      for (let k = 0; k < 4; k++) { x.strokeStyle = trunk; x.lineWidth = tw * 0.5; x.beginPath(); x.moveTo(cx, base - hgt * (0.6 + r() * 0.3)); x.lineTo(cx + (r() - 0.5) * rr * 1.6, base - hgt - rr * (0.2 + r() * 0.6)); x.stroke(); }
-      const cy = base - hgt - rr * 0.35, n = Math.round(1500 + rr * 22);
-      for (let k = 0; k < n; k++) { const a = r() * 6.283, d = Math.sqrt(r()) * rr, px = cx + Math.cos(a) * d * 1.15, py = cy + Math.sin(a) * d * 0.75, pr = rr * (0.04 + r() * 0.09);
-        const lt = 0.7 + 0.55 * ((cy - py) / rr * 0.5 + 0.5) + (r() - 0.5) * 0.25; x.fillStyle = shade(cols[Math.floor(r() * cols.length)], Math.max(0.45, lt)); x.beginPath(); x.ellipse(px, py, pr * 0.34, pr * 0.26, r() * 3, 0, 7); x.fill(); } };
-    if (kind === 'street') {   // улица с первого этажа: современные кирпичные дома, пасмурно, переход-«зебра», осенние деревья
-      x.fillStyle = lg(0, HZ, [[0, '#E9EBEC'], [1, '#D9DCDD']]); x.fillRect(0, 0, w, HZ + 10);
-      const brick = (bx, top, bw, bot, col) => { x.fillStyle = col; x.fillRect(bx, top, bw, bot - top);
-        for (let by = top; by < bot; by += 3) rect(r() < 0.5 ? 'rgba(0,0,0,.08)' : 'rgba(255,230,210,.05)', bx, by, bw, 1);   // кладка
-        for (let fy = top + 12; fy < bot - 70; fy += 34) for (let fx = bx + 10; fx < bx + bw - 26; fx += 34) { rect('#2A2B2E', fx - 2, fy - 2, 22, 26); x.fillStyle = lg(fy, fy + 22, [[0, '#C9CED2'], [1, '#6E757B']]); x.fillRect(fx, fy, 18, 22); rect('rgba(240,238,232,.7)', fx, fy, 7, 22); rect('#2A2B2E', fx + 8, fy, 2, 22); } };
-      brick(-10, h * 0.0, 330, HZ + 30, '#5E3F2E'); rect('#26272A', -10, HZ - 40, 330, 75);   // дом слева: кирпич, тёмный первый этаж
-      x.fillStyle = 'rgba(255,190,90,.75)'; x.fillRect(230, HZ - 20, 30, 50);   // тёплый вход
-      brick(420, h * 0.33, 230, HZ + 10, '#6A4A38'); rect('#2E2F33', 420, HZ - 12, 230, 26);   // дальний дом в просвете
-      for (let fy = h * 0.33 + 6; fy < HZ - 16; fy += 18) rect('rgba(30,30,32,.35)', 420, fy, 230, 1.5);
-      rect('#2B2C30', 330, HZ - 10, 400, 8); x.fillStyle = 'rgba(80,95,70,.8)'; x.fillRect(330, HZ - 24, 400, 14);   // мост-переход с зеленью
-      brick(720, -10, 320, HZ + 30, '#4E3426'); rect('#1F2023', 720, HZ - 70, 320, 105);   // дом справа: кирпич, стеклянный первый этаж
-      for (let fx = 735; fx < 1030; fx += 46) { x.fillStyle = lg(HZ - 64, HZ + 30, [[0, 'rgba(120,130,135,.6)'], [1, 'rgba(40,44,48,.7)']]); x.fillRect(fx, HZ - 64, 40, 92); }
-      x.fillStyle = 'rgba(230,150,60,.55)'; for (let k = 0; k < 18; k++) { x.beginPath(); x.arc(860 + r() * 140, HZ - 40 + r() * 50, 3 + r() * 4, 0, 7); x.fill(); }   // осенний декор в витрине
-      [[120, HZ + 34, 70], [300, HZ + 20, 58], [30, HZ + 40, 50]].forEach(([cx, b, rr]) => leafy(cx, b, rr, ['#B79A45', '#C9A64E', '#8E7A3A', '#A88C3E', '#D4B866'], '#4A3E30', rr * 0.07, rr * 1.3));
-      x.fillStyle = lg(HZ + 25, h * 0.86, [[0, '#7E8083'], [1, '#606265']]); x.fillRect(0, HZ + 25, w, h * 0.86 - HZ - 25);   // асфальт
-      for (let k = 0; k < 4000; k++) rect(r() < 0.5 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.08)', r() * w, HZ + 25 + r() * (h * 0.86 - HZ - 25), 2, 1);
-      for (let k = 0; k < 13; k++) { const zx = 150 + k * 58; x.fillStyle = '#ECECEA'; x.beginPath(); x.moveTo(zx, HZ + 62); x.lineTo(zx + 38, HZ + 62); x.lineTo(zx + 30, HZ + 104); x.lineTo(zx - 14, HZ + 104); x.fill(); }   // «зебра»
-      x.fillStyle = lg(h * 0.86, h, [[0, '#4C4D50'], [1, '#3C3D40']]); x.fillRect(0, h * 0.86, w, h * 0.14);   // плитка тротуара у окна
-      for (let ty = h * 0.86; ty < h; ty += 10) rect('rgba(0,0,0,.25)', 0, ty, w, 1); for (let tx = 0; tx < w; tx += 22) rect('rgba(0,0,0,.2)', tx, h * 0.86, 1, h * 0.14);
-      for (let k = 0; k < 160; k++) { x.fillStyle = ['#C9862F', '#B5702A', '#D9A040', '#8E5A22'][Math.floor(r() * 4)]; x.beginPath(); x.ellipse(r() * w, HZ + 30 + r() * (h - HZ - 30), 3 + r() * 3, 1.5 + r() * 1.5, r() * 3, 0, 7); x.fill(); }   // опавшие листья
-    } else if (kind === 'city') {   // город с высокого этажа в синий час: проспект с огнями машин, высотки со шпилями, светящиеся окна
-      x.fillStyle = lg(0, HZ, [[0, '#4F6E99'], [0.6, '#7E95B6'], [1, '#B4BFCC']]); x.fillRect(0, 0, w, HZ + 10);
-      for (let k = 0; k < 70; k++) { const bw = 14 + r() * 40, bh = 10 + r() * 50, bx = r() * w; rect(`rgba(${110 + r() * 20},${125 + r() * 20},${145 + r() * 20},.9)`, bx, HZ - bh, bw, bh + 12); }   // дальний город в дымке
-      const spire = (cx, base, bw, bh) => { x.fillStyle = lg(base - bh, base, [[0, '#C8CCD2'], [1, '#9AA0A8']]);
-        x.fillRect(cx - bw / 2, base - bh * 0.55, bw, bh * 0.55); x.fillRect(cx - bw * 0.34, base - bh * 0.75, bw * 0.68, bh * 0.2); x.fillRect(cx - bw * 0.2, base - bh * 0.88, bw * 0.4, bh * 0.13);
-        x.beginPath(); x.moveTo(cx - bw * 0.06, base - bh * 0.88); x.lineTo(cx, base - bh); x.lineTo(cx + bw * 0.06, base - bh * 0.88); x.fill(); glowWin(cx - bw / 2, base - bh * 0.55, bw, bh * 0.55, 7, 3, 4, 0.25, 'rgba(70,80,96,.6)'); };
-      spire(240, HZ + 40, 110, 300); spire(330, HZ - 10, 60, 190); spire(470, HZ - 20, 40, 130);   // высотки со шпилями
-      [[520, 90, 70], [640, 120, 100], [600, 60, 40], [880, 70, 60]].forEach(([bx, bw, bh]) => { rect('#8592A3', bx, HZ - bh, bw, bh + 20); glowWin(bx, HZ - bh, bw, bh, 9, 4, 5, 0.3, 'rgba(60,70,86,.7)'); });
-      x.fillStyle = lg(HZ, h, [[0, '#5A6474'], [1, '#3C4350']]); x.fillRect(0, HZ, w, h - HZ);   // кварталы внизу
-      x.fillStyle = '#3A3E46'; x.beginPath(); x.moveTo(0, h * 0.73); x.lineTo(210, HZ + 10); x.lineTo(260, HZ + 10); x.lineTo(120, h); x.lineTo(0, h); x.fill();   // проспект уходит вдаль
-      for (let k = 0; k < 260; k++) { const u = r(), px = 230 - u * 230 + (r() - 0.5) * 40 * u, py = HZ + 12 + u * (h - HZ) * 0.55, red = r() < 0.5; x.fillStyle = red ? 'rgba(255,90,70,.85)' : 'rgba(255,240,200,.9)'; x.fillRect(px, py, 2 + u * 5, 1 + u * 2); }   // фары и стоп-сигналы
-      rect('#CFC7B8', 300, HZ - 10, 420, h - HZ + 10); x.fillStyle = lg(HZ - 10, h, [[0, '#D8CFBE'], [1, '#B8AE9C']]); x.fillRect(300, HZ - 10, 420, h - HZ + 10);   // дом на переднем плане
-      rect('#9E9585', 300, HZ - 14, 420, 6); glowWin(300, HZ - 6, 420, h - HZ + 6, 34, 14, 22, 0.55, '#3A3F48');
-      for (let k = 0; k < 9; k++) { const gx = 310 + k * 46; const g = x.createRadialGradient(gx, HZ - 4, 0, gx, HZ - 4, 30); g.addColorStop(0, 'rgba(255,220,160,.55)'); g.addColorStop(1, 'rgba(255,220,160,0)'); x.fillStyle = g; x.fillRect(gx - 30, HZ - 34, 60, 60); }   // подсветка фасада
-      rect('#8C939E', 720, HZ + 20, 300, h); glowWin(720, HZ + 20, 300, h, 30, 12, 18, 0.35, '#3D434D');
-      leafy(60, h + 10, 60, ['#3F5F3A', '#4E6E42', '#37543A'], '#2E2A26', 4, 30); leafy(430, h + 20, 45, ['#3F5F3A', '#4E6E42'], '#2E2A26', 3, 20);
-    } else if (kind === 'sunset') {   // закат с высокого этажа: огненная полоса над горизонтом, лилово-синее небо с тёмными облаками, силуэт города
-      x.fillStyle = lg(0, HZ + 5, [[0, '#3A4772'], [0.35, '#6A5C86'], [0.62, '#C8506A'], [0.8, '#F2602E'], [0.92, '#FF9A3A'], [1, '#FFC66A']]); x.fillRect(0, 0, w, HZ + 10);
-      for (let k = 0; k < 14; k++) { const cy = 20 + r() * HZ * 0.5, cw = 160 + r() * 320, cx0 = r() * w; for (let q = 0; q < 60; q++) { const px = cx0 + (r() - 0.5) * cw, py = cy + (r() - 0.5) * 10 * (1 - Math.abs(px - cx0) / cw), pr = 8 + r() * 16; const g = x.createRadialGradient(px, py, 0, px, py, pr); g.addColorStop(0, 'rgba(52,46,74,.35)'); g.addColorStop(1, 'rgba(52,46,74,0)'); x.fillStyle = g; x.fillRect(px - pr, py - pr, pr * 2, pr * 2); } }   // тёмные облака
-      for (let k = 0; k < 16; k++) { const cy = HZ * 0.62 + r() * HZ * 0.3, cw = 140 + r() * 300, cx0 = r() * w; x.fillStyle = `rgba(${200 + r() * 55},${60 + r() * 50},${40 + r() * 30},.55)`; x.beginPath(); x.ellipse(cx0, cy, cw / 2, 3 + r() * 6, 0, 0, 7); x.fill(); }   // огненные прожилки облаков
-      for (let k = 0; k < 90; k++) { const bw = 6 + r() * 26, bh = 4 + r() * 40, bx = r() * w; rect('#3B2E45', bx, HZ - bh, bw, bh + 4); }   // дальние силуэты
-      [[150, 18, 70], [560, 22, 60], [610, 16, 80], [760, 20, 55]].forEach(([bx, bw, bh]) => rect('#2F2538', bx, HZ - bh, bw, bh + 4));
-      x.fillStyle = lg(HZ, h, [[0, '#3D3346'], [1, '#262030']]); x.fillRect(0, HZ, w, h - HZ);
-      let bx = -10; while (bx < w) { const bw = 50 + r() * 110, bh = 20 + r() * 110, top = HZ + 40 - bh * 0.3; x.fillStyle = lg(top, h, [[0, '#6E6276'], [1, '#43394D']]); x.fillRect(bx, top, bw, h - top);
-        rect('rgba(255,150,90,.35)', bx, top, 3, h - top); glowWin(bx, top + 4, bw, h - top, 12, 5, 6, 0.3, 'rgba(50,42,60,.85)'); bx += bw + 6 + r() * 20; }   // дома внизу: отсвет заката на гранях
-    } else {   // парк: высокие стройные деревья, яркий газон, дорожка; мягкий рассеянный свет без солнца
-      x.fillStyle = lg(0, HZ, [[0, '#DDE6DA'], [1, '#EEF1E6']]); x.fillRect(0, 0, w, HZ + 10);
-      for (let k = 0; k < 60; k++) { const cx = r() * w, rr = 20 + r() * 30; x.fillStyle = `rgba(${150 + r() * 30},${180 + r() * 20},${140 + r() * 20},.6)`; x.beginPath(); x.ellipse(cx, HZ - 40 - r() * 60, rr, rr * 0.9, 0, 0, 7); x.fill(); }   // дальние кроны в дымке
-      x.fillStyle = lg(HZ - 10, h, [[0, '#8DB64A'], [0.5, '#79A63A'], [1, '#5E8C2C']]); x.fillRect(0, HZ - 10, w, h - HZ + 10);
-      rect('#9A9A92', 0, HZ + 6, w, 9); rect('#B4B3AA', 0, HZ + 6, w, 3);   // дорожка поперёк
-      for (let k = 0; k < 9000; k++) rect(r() < 0.5 ? 'rgba(220,240,120,.12)' : 'rgba(20,60,10,.12)', r() * w, HZ + r() * (h - HZ), 1.5, 2 + r() * 2);   // трава
-      const trees = [[140, 0.55, 45], [380, 0.5, 40], [560, 0.55, 48], [760, 0.5, 42], [60, 1.15, 120], [300, 1.0, 105], [470, 1.25, 130], [690, 1.05, 115], [930, 1.2, 125]];   // дальний ряд меньше, ближний — крупные кроны, смыкающиеся сверху
-      trees.forEach(([cx, sc, rr]) => leafy(cx + (r() - 0.5) * 20, HZ + 20 + sc * 50, rr, ['#3D6B26', '#4F8030', '#62953A', '#2F5A22', '#76A845'], '#4A4034', 3 + sc * 4, 130 + sc * 110));
-      for (let k = 0; k < 10; k++) { x.fillStyle = 'rgba(30,60,20,.18)'; x.beginPath(); x.ellipse(r() * w, HZ + 60 + r() * (h - HZ - 70), 60 + r() * 60, 8, 0, 0, 7); x.fill(); }   // мягкие тени под кронами
-    }
-    /* --- фотообработка: глубина резкости, свечение, грейд, зерно, виньетка --- */
-    {
-      const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h; const tc = tmp.getContext('2d');
-      tc.drawImage(x.canvas, 0, 0);
-
-      /* дальний план мягче: размытая копия с градиентной маской сверху */
-      const soft = document.createElement('canvas'); soft.width = w; soft.height = h; const sc = soft.getContext('2d');
-      sc.filter = 'blur(1.6px)'; sc.drawImage(tmp, 0, 0); sc.filter = 'none';
-      sc.globalCompositeOperation = 'destination-in';
-      const mask = sc.createLinearGradient(0, 0, 0, h);
-      mask.addColorStop(0, 'rgba(0,0,0,.95)'); mask.addColorStop(0.62, 'rgba(0,0,0,.55)'); mask.addColorStop(0.9, 'rgba(0,0,0,0)');
-      sc.fillStyle = mask; sc.fillRect(0, 0, w, h);
-      x.drawImage(soft, 0, 0);
-
-      /* блик от ярких участков */
-      x.save(); x.globalCompositeOperation = 'screen'; x.globalAlpha = 0.2; x.filter = 'blur(22px)'; x.drawImage(tmp, 0, 0); x.restore();
-
-      /* цветовой грейд и лёгкая десатурация */
-      x.save(); x.globalCompositeOperation = 'soft-light'; x.globalAlpha = 0.22;
-      const grade = kind === 'sunset' ? ['#FF9A5A', '#241E36'] : kind === 'city' ? ['#7FA0D0', '#0C1420'] : kind === 'street' ? ['#FFE9CC', '#2A2C30'] : ['#FFF3CC', '#1B2A18'];
-      const gg = x.createLinearGradient(0, 0, 0, h); gg.addColorStop(0, grade[0]); gg.addColorStop(1, grade[1]);
-      x.fillStyle = gg; x.fillRect(0, 0, w, h); x.restore();
-
-      const im = x.getImageData(0, 0, w, h), d = im.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-        for (let c = 0; c < 3; c++) d[i + c] = lum + (d[i + c] - lum) * 0.96;   /* чуть меньше цвета — ближе к фото */
-      }
-      for (let yy = 0, q = 0; yy < h; yy++) {
-        const vg = 1 - 0.2 * Math.pow(Math.hypot(0.55, (yy / h - 0.5) * 1.15), 2);
-        for (let xx = 0; xx < w; xx++, q += 4) {
-          const gr = (Math.random() - 0.5) * 7;
-          d[q] = Math.max(0, Math.min(255, d[q] * vg + gr));
-          d[q + 1] = Math.max(0, Math.min(255, d[q + 1] * vg + gr));
-          d[q + 2] = Math.max(0, Math.min(255, d[q + 2] * vg + gr * 1.2));
-        }
-      }
-      x.putImageData(im, 0, 0);
-
-      x.save(); x.filter = 'blur(1.1px)'; x.drawImage(x.canvas, 0, 0); x.restore();   /* за стеклом всё чуть не в фокусе */
-    }
-  });
+  return canvasTex('view6-' + kind, 1024, 512, (x, w, h) => drawWindowScene(x, w, h, kind));
 }
 const DOOR_COLORS = [['#E8E6E1', 'Белый'], ['#B4B4B2', 'Светло-серый'], ['#8A8A88', 'Серый'], ['#4A4C50', 'Графит'], ['#232427', 'Чёрный'], ['#CDBFA6', 'Бежевый'], ['#6B4E38', 'Дерево'], ['#3D5778', 'Синий'], ['#3F5A4C', 'Зелёный']];
 const doorCol = (o) => o.dcol || '#E8E6E1';
@@ -6420,26 +6460,24 @@ function buildOpening(sc, o, lit) {
   if (o.type === 'window') {
     const glass = o.view ? mat('glassv', '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: 0.3, transparent: true, opacity: 0.2, roughness: 0.05, depthWrite: false, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp }) : mat('glass' + (lit ? 1 : 0), '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: lit ? 1.1 : 0.35, transparent: true, opacity: 0.55, roughness: 0.1 });
     const hw = hostWall(o), wkey = hw || o.id;
-    if (o.view && !T3.vw[wkey]) {   // вид из окна: один общий задник на всю стену (у всех окон этой стены), сам «светится», как дневной пейзаж
+    if (o.view && !T3.vw[wkey]) {
       T3.vw[wkey] = 1; const W = byId(hw), ws = W ? segOf(W) : sg, wl = W ? ws.len : sg.len;
       const ocx = (o.x1 + o.x2) / 2, ocy = (o.y1 + o.y2) / 2, bmx = W ? (W.x1 + W.x2) / 2 : ocx, bmy = W ? (W.y1 + W.y2) / 2 : ocy, along = (bmx - ocx) * sg.ux + (bmy - ocy) * sg.uy;
-      const vw = wl + 16, bd = mesh(g, new THREE.PlaneGeometry(vw, 8), mat('view4|' + o.view + (lit ? 1 : 0), '#FFFFFF', { map: viewTex(o.view), emissive: c3('#FFFFFF'), emissiveMap: viewTex(o.view), emissiveIntensity: lit ? 0.95 : 0.6, roughness: 1, transparent: true, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp }), along, 2.5, side * 4, true);   // огромный щит 8 м: края не видны даже с нижней камеры
-      bd.rotation.y = side > 0 ? Math.PI : 0; bd.receiveShadow = false; bd.renderOrder = 2;   // щит рисуется только сквозь стекло окна (трафарет): поверх стен его не видно ни в 3D-виде, ни с низкой камеры
+      const vw = wl + 16, bd = mesh(g, new THREE.PlaneGeometry(vw, 8), mat('view4|' + o.view + (lit ? 1 : 0), '#FFFFFF', { map: viewTex(o.view), emissive: c3('#FFFFFF'), emissiveMap: viewTex(o.view), emissiveIntensity: lit ? 0.95 : 0.6, roughness: 1, transparent: true, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp }), along, 2.5, side * 4, true);
+      bd.rotation.y = side > 0 ? Math.PI : 0; bd.receiveShadow = false; bd.renderOrder = 2;
     }
     const sill = winSill(o), top = winTop(o), WH = top - sill, cy = sill + WH / 2, n = winPanes(sg.len);
     const gm = mbox(g, sg.len, WH, 0.01, glass, 0, cy, 0, true); if (o.view) gm.renderOrder = 1;
-    if (o.floor) mbox(g, sg.len, 0.04, 0.1, frame, 0, 0.02, 0);                   // нижняя рама у пола
-    else mbox(g, sg.len + 0.04, 0.05, 0.16, frame, 0, WIN_SILL, 0);                  // подоконник
-    mbox(g, sg.len, 0.04, 0.1, frame, 0, top, 0);                                   // верх рамы
+    if (o.floor) mbox(g, sg.len, 0.04, 0.1, frame, 0, 0.02, 0);
+    else mbox(g, sg.len + 0.04, 0.05, 0.16, frame, 0, WIN_SILL, 0);
+    mbox(g, sg.len, 0.04, 0.1, frame, 0, top, 0);
     mbox(g, 0.04, WH, 0.1, frame, -sg.len / 2 + 0.02, cy, 0); mbox(g, 0.04, WH, 0.1, frame, sg.len / 2 - 0.02, cy, 0);
-    for (let i = 1; i < n; i++) mbox(g, 0.04, WH, 0.1, frame, -sg.len / 2 + i * sg.len / n, cy, 0);   // вертикальные перегородки
+    for (let i = 1; i < n; i++) mbox(g, 0.04, WH, 0.1, frame, -sg.len / 2 + i * sg.len / n, cy, 0);
     if (lit) {
-      // дневной свет из окна: широкий мягкий прожектор снаружи, направленный внутрь комнаты
-      const day = kelvin3(o.view === 'sunset' ? 3200 : 6500); const ix = -onx, iz = -onz;   // на закате свет из окна тёплый
-      const sunny = objs().some(q => q.type === 'light' && q.kind === 'sun');   // без солнца — пасмурно: свет окна вчетверо слабее
+      const day = kelvin3(o.view === 'sunset' ? 3200 : 6500); const ix = -onx, iz = -onz;
+      const sunny = objs().some(q => q.type === 'light' && q.kind === 'sun');
       const sp = new THREE.SpotLight(day, (0.9 + sg.len * 0.35) * (sunny ? 1 : 0.25), 9, 62 * RAD, 1, 1.2);
       sp.position.set(cx + onx * 2.2, Math.min(WALL_H + 0.2, winTop(o) + 0.2), cy + onz * 2.2); sp.target.position.set(cx + ix * 2.2, 0.2, cy + iz * 2.2); sc.add(sp.target);
-      // дневной свет неба мягкий и рассеянный — без жёстких теней (тени даёт только солнце)
       sc.add(sp);
     }
   } else {
@@ -6454,10 +6492,10 @@ function buildOpening(sc, o, lit) {
   g.traverse(m => { if (m.isMesh) cutTag(m, cx, cy, onx, onz, null); });
 }
 const FURN = [['gray', 'Серый', '#8E8E8E', '#A2A2A2'], ['white', 'Белый', '#E6E4DF', '#F0EEEA'], ['black', 'Чёрный', '#2A2B2E', '#3A3B3F'], ['blue', 'Синий', '#3E5B8A', '#5272A3'], ['beige', 'Бежевый', '#CDB894', '#DCCAA9'], ['brown', 'Коричневый', '#6B4A33', '#84603F']];
-const FURN_DEF = { ochair: 'black', stool: 'black', tcoffee: 'brown', bed: 'white', carpet: 'beige', trect: 'brown', tround: 'brown', chair: 'gray', armchair: 'blue', sofa: 'blue', shelf: 'white', cabinet: 'white', wardrobe: 'white' };   // цвет по умолчанию
+const FURN_DEF = { ochair: 'black', stool: 'black', tcoffee: 'brown', bed: 'white', carpet: 'beige', trect: 'brown', tround: 'brown', chair: 'gray', armchair: 'blue', sofa: 'blue', shelf: 'white', cabinet: 'white', wardrobe: 'white' };
 const furnOf = (o) => o.fc || FURN_DEF[o.kind];
 const lighten = (hex, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.substr(i, 2), 16) + (255 - parseInt(hex.substr(i, 2), 16)) * k).toString(16).padStart(2, '0')).join('').toUpperCase();
-const furnRow = (o) => { const f = furnOf(o); return f && f[0] === '#' ? [f, 'Свой', f, lighten(f, 0.12)] : FURN.find(x => x[0] === f); };   // свой цвет мебели — hex в o.fc
+const furnRow = (o) => { const f = furnOf(o); return f && f[0] === '#' ? [f, 'Свой', f, lighten(f, 0.12)] : FURN.find(x => x[0] === f); };
 const FURN_KINDS = ['ochair', 'stool', 'tcoffee', 'bed', 'carpet', 'trect', 'tround', 'chair', 'armchair', 'sofa', 'shelf', 'cabinet', 'wardrobe'];
 // соты (тканевый grid «яичная решётка»): квадратные ячейки из тонких чёрных перегородок глубиной depth перед светящейся поверхностью.
 // w×h — прямоугольник, или r — круг (у софтбокса); cell — шаг ячейки (м)
@@ -6561,13 +6599,39 @@ function chairInstance(w, d, h) {
   p.scale.set(sx, sy, sz); p.position.set(-c.x * sx, -b.min.y * sy, -c.z * sz);
   return p;
 }
+function upholsteryMat(key, col, roughness) {
+  const map = canvasTex('fabric-color-v1', 1024, 1024, (c, w, h) => {
+    let s = 31; const r = () => { s = s * 16807 % 2147483647; return s / 2147483647; };
+    const im = c.createImageData(w, h), d = im.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const over = (Math.floor(x / 4) + Math.floor(y / 4)) % 2, tx = x % 4, ty = y % 4;
+      const thread = over ? Math.sin((tx + 0.5) / 4 * Math.PI) : Math.sin((ty + 0.5) / 4 * Math.PI);
+      const cross = over ? Math.sin(y * Math.PI / 2) * 0.06 : Math.sin(x * Math.PI / 2) * 0.06;
+      const fuzz = (r() - 0.5) * 17, broad = Math.sin(x / 83) * Math.sin(y / 97) * 5;
+      const v = Math.max(0, Math.min(255, 198 + thread * 34 + cross * 255 + fuzz + broad));
+      const i = (y * w + x) * 4; d[i] = v; d[i + 1] = v; d[i + 2] = v; d[i + 3] = 255;
+    }
+    c.putImageData(im, 0, 0);
+  }, true);
+  const bump = canvasTex('fabric-bump-v1', 1024, 1024, (c, w, h) => {
+    const im = c.createImageData(w, h), d = im.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const over = (Math.floor(x / 4) + Math.floor(y / 4)) % 2, v = Math.round((over ? Math.sin((x % 4 + 0.5) / 4 * Math.PI) : Math.sin((y % 4 + 0.5) / 4 * Math.PI)) * 150 + 70);
+      const i = (y * w + x) * 4; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255;
+    }
+    c.putImageData(im, 0, 0);
+  }, true);
+  bump.colorSpace = THREE.NoColorSpace;
+  map.repeat.set(3, 3); bump.repeat.set(3, 3);
+  const m = mat(key, col, { map, bumpMap: bump, bumpScale: 0.0025, roughness }); m.userData.upholstery = true; return m;
+}
 function buildProp(g, o) {
   const w = o.w, d = o.d, h = o.h, hw = w / 2, hd = d / 2, k = o.kind;
   let wood = mat('wood', '#7A5A40', { roughness: 0.55 }), light = mat('lwood', '#B89770', { roughness: 0.6 });
-  let fabric = mat('fabric', '#5D6878', { roughness: 0.95 }), cushion = mat('cushion', '#6B7788', { roughness: 0.95 }); const dark = mat('dark', '#2A2D33', { roughness: 0.5 });
+  let fabric = upholsteryMat('fabric', '#5D6878', 0.95), cushion = upholsteryMat('cushion', '#6B7788', 0.95); const dark = mat('dark', '#2A2D33', { roughness: 0.5 });
   const steel = mat('steel', '#8A8F96', { roughness: 0.3, metalness: 0.8 });
   const fc = FURN_KINDS.includes(k) && furnRow(o);
-  if (fc) { wood = light = mat('fw_' + fc[0], fc[2], { roughness: 0.55 }); fabric = mat('ff_' + fc[0], fc[2], { roughness: 0.95 }); cushion = mat('fc_' + fc[0], fc[3], { roughness: 0.95 }); }
+  if (fc) { wood = light = mat('fw_' + fc[0], fc[2], { roughness: 0.55 }); fabric = upholsteryMat('ff_' + fc[0], fc[2], 0.95); cushion = upholsteryMat('fc_' + fc[0], fc[3], 0.95); }
   if (k === 'carpet') {   // оригинальный ковёр из officehome: рисунок и микрорельеф ворса
     const cb = fc && fc[0] !== 'beige' ? fc[2] : null, col = cb || '#D4D1CA';
     const m = mat('carpetm-office' + (cb || ''), col, { map: finishTex('rug-color', 'models/finishes/rug-color.webp', true, false), normalMap: finishTex('rug-normal', 'models/finishes/rug-normal.webp', false, false), normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.97 });
@@ -6588,7 +6652,7 @@ function buildProp(g, o) {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.013, len, 14), legM); leg.position.copy(a).add(b).multiplyScalar(0.5); leg.quaternion.setFromUnitVectors(V(0, 1, 0), v.normalize()); leg.castShadow = true; leg.receiveShadow = true; g.add(leg);   // точёная ножка: сужается к полу
     });
   } else if (k === 'chair') {   // мягкий стул-«ракушка»: гладкое мягкое сиденье и выгнутая спинка (цвет меняется), тонкие чёрные металлические ножки враспор
-    const fcol = (fc || ['gray', '', '#8E8E8E'])[2], vel = mat('chairv2|' + fcol, fcol, { roughness: 0.9 }), blk = mat('chairleg', '#16171A', { roughness: 0.45, metalness: 0.6 });
+    const fcol = (fc || ['gray', '', '#8E8E8E'])[2], vel = upholsteryMat('chairv2|' + fcol, fcol, 0.95), blk = mat('chairleg', '#16171A', { roughness: 0.45, metalness: 0.6 });
     const sh = 0.47, st = 0.075, sw = w * 0.96, sd = d * 0.86, bt = 0.06;
     const seat = mesh(g, bentPanel(sw, sd, st, 1.6, -0.08, 4, 3, 0.09), vel, 0, sh - st / 2, d * 0.05); seat.rotation.x = -Math.PI / 2;   // сиденье: почти плоское, края чуть подняты, спереди скруглено
     const bh = Math.max(0.25, h - sh + 0.06), back = mesh(g, bentPanel(w, bh, bt, 0.34, 0.16, 4, 4, 0.1), vel, 0, sh - 0.02 + bh / 2, -hd + 0.06); back.rotation.x = -0.16;   // спинка: охватывает спину, расширяется кверху, отклонена назад
@@ -6624,13 +6688,7 @@ function buildProp(g, o) {
     const fg = mesh(g, ficusGeo(h, Math.max(r, 0.15), ph * 0.86, pr * 0.35), mat('ficusleaf', '#FFFFFF', { roughness: 0.42, side: THREE.DoubleSide, vertexColors: true }), 0, 0, 0);
     fg.userData.shared = true;
   } else if (k === 'shelf') {
-    mbox(g, 0.025, h, d, light, -hw + 0.0125, h / 2, 0); mbox(g, 0.025, h, d, light, hw - 0.0125, h / 2, 0); mbox(g, w, h, 0.01, light, 0, h / 2, -hd + 0.005);
-    const n = Math.max(2, Math.round(h / 0.38)); seed = 9;
-    const books = ['#8A3B32', '#2F4F6B', '#C9A24A', '#4E6B45', '#6B4E6E', '#D8D2C4'];
-    for (let i = 0; i <= n; i++) {
-      const y = i * (h - 0.02) / n; mbox(g, w - 0.05, 0.02, d, light, 0, y + 0.01, 0);
-      if (i < n) { let x = -hw + 0.04; const sh = (h - 0.02) / n - 0.04; while (x < hw - 0.08) { const bw = 0.03 + rnd() * 0.04, bh = sh * (0.6 + rnd() * 0.35); if (rnd() > 0.15) mbox(g, bw, bh, d * 0.8, mat('book' + Math.floor(rnd() * 6), books[Math.floor(rnd() * 6)], { roughness: 0.7 }), x + bw / 2, y + 0.02 + bh / 2, 0); x += bw + 0.004; } }
-    }
+    buildShelfLoft(g, o);
   } else if (k === 'tv') {
     // современная плоская панель 55" (≈1,23 × 0,71 м); экран смотрит по направлению указателя.
     // На столе/тумбе — на центральной подставке; на полу — на мобильной стойке с двумя колоннами, высота регулируется
@@ -6751,6 +6809,138 @@ function limb(p, a, b, ra, rb, m) {
 }
 const HUMAN = { m: null, f: null, started: false, state: 'idle' };
 function heroSex(o) { return 'm'; }
+function buildShelfLoft(g, o) {
+  const w = o.w, d = o.d, h = o.h, hw = w / 2, hd = d / 2, fc = furnRow(o), woodCol = fc ? fc[2] : '#A4805D';
+  const wood = mat('loftwood|' + woodCol, woodCol, { map: wallTex('wood'), roughness: 0.58 });
+  const metal = mat('loftmetal', '#252A2D', { roughness: 0.34, metalness: 0.78 });
+  const brass = mat('shelfbrass', '#B08A4B', { roughness: 0.28, metalness: 0.82 });
+  const pages = mat('bookpages', '#D9D2BE', { roughness: 0.88 });
+  const dark = mat('shelfdark', '#25282A', { roughness: 0.62 });
+  const glass = ownMat({ color: c3('#E8F1F2'), transparent: true, opacity: 0.24, roughness: 0.08, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
+  const shelfT = Math.max(0.025, h * 0.018), levels = [0.07, 0.25, 0.45, 0.65, 0.85].map(v => v * h);
+
+  rbox(g, w + 0.07, 0.065, d + 0.055, wood, 0, 0.045, 0, 0.012);
+  rbox(g, w + 0.085, 0.045, d + 0.065, wood, 0, h + 0.015, 0, 0.009);
+  rbox(g, w + 0.045, 0.035, d + 0.035, wood, 0, h - 0.025, 0, 0.007);
+  levels.forEach(y => rbox(g, w, shelfT, d, wood, 0, y, 0, 0.004));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const px = sx * (hw - 0.012), pz = sz * (hd - 0.008);
+    mbox(g, 0.026, h, 0.026, metal, px, h / 2, pz);
+    mbox(g, 0.034, 0.018, 0.034, metal, px, 0.084, pz);
+  }
+  for (const sx of [-1, 1]) for (let i = 0; i < levels.length - 1; i++) {
+    const px = sx * hw, y0 = levels[i] + 0.025, y1 = levels[i + 1] - 0.025;
+    mrod(g, V(px, y0, -hd + 0.014), V(px, y1, hd - 0.014), 0.006, metal, true);
+    mrod(g, V(px, y0, hd - 0.014), V(px, y1, -hd + 0.014), 0.006, metal, true);
+    msph(g, 0.012, metal, px, (y0 + y1) / 2, 0, true);
+  }
+  for (const sx of [-1, 1]) {
+    mrod(g, V(sx * (hw - 0.03), 0.12, -hd - 0.003), V(sx * (hw - 0.03), h - 0.08, -hd - 0.003), 0.005, metal, true);
+  }
+
+  const bookCols = ['#D8D3C6', '#E8E3D8', '#747D79', '#A28A6B', '#424D55', '#B7AC96', '#7E4E3D'];
+  const book = (x0, y0, z0, bw, bh, bd, col, lean) => {
+    const b = new THREE.Group(); b.position.set(x0, y0, z0); b.rotation.z = lean || 0; g.add(b);
+    mbox(b, bw * 0.82, bh - 0.008, bd - 0.006, pages, 0, bh / 2, 0, true);
+    const cover = mat('shelfbook|' + col, col, { roughness: 0.72 });
+    mbox(b, bw, bh, 0.003, cover, 0, bh / 2, -bd / 2, true); mbox(b, bw, bh, 0.003, cover, 0, bh / 2, bd / 2, true);
+    mbox(b, 0.004, bh, bd, cover, -bw / 2, bh / 2, 0, true);
+    mbox(b, bw * 0.65, 0.003, 0.003, pages, 0, bh * 0.72, bd / 2 + 0.002, true);
+    mbox(b, bw * 0.5, 0.002, 0.003, pages, 0, bh * 0.67, bd / 2 + 0.002, true);
+  };
+  const bookRow = (x0, y0, z0, count, scale) => {
+    let xx = x0;
+    for (let i = 0; i < count; i++) { const bw = (0.018 + rnd() * 0.014) * scale, bh = (0.17 + rnd() * 0.07) * scale, bd = (0.105 + rnd() * 0.025) * scale; book(xx, y0, z0, bw, bh, bd, bookCols[i % bookCols.length], i === 0 ? -0.08 : 0); xx += bw + 0.005 * scale; }
+  };
+  const bookStack = (x0, y0, z0, count, scale) => {
+    for (let i = 0; i < count; i++) { const bw = (0.15 + rnd() * 0.035) * scale, bh = 0.018 * scale, bd = 0.11 * scale; const b = new THREE.Group(); b.position.set(x0 + (rnd() - 0.5) * 0.012, y0 + (i + 0.5) * 0.019 * scale, z0); b.rotation.y = (rnd() - 0.5) * 0.12; g.add(b); mbox(b, bw, bh, bd, pages, 0, 0, 0, true); const cm = mat('shelfbook|' + bookCols[(i + 2) % bookCols.length], bookCols[(i + 2) % bookCols.length], { roughness: 0.72 }); mbox(b, bw + 0.003, 0.003, bd + 0.003, cm, 0, bh / 2, 0, true); mbox(b, bw + 0.003, 0.003, bd + 0.003, cm, 0, -bh / 2, 0, true); }
+  };
+  const photo = (x0, y0, z0, s, landscape) => {
+    const p = new THREE.Group(); p.position.set(x0, y0, z0); p.rotation.x = -0.08; g.add(p);
+    rbox(p, 0.15 * s, 0.19 * s, 0.009 * s, dark, 0, 0.095 * s, 0, 0.003 * s);
+    const pm = mat('shelfphoto' + (landscape ? 'land' : 'mono'), '#FFFFFF', { map: landscape ? paintTex() : canvasTex('shelfmono', 256, 320, (c, cw, ch) => {
+      c.fillStyle = '#D8D4CA'; c.fillRect(0, 0, cw, ch); c.fillStyle = '#8A8378'; c.fillRect(40, 35, 176, 105); c.fillStyle = '#383D3D'; c.beginPath(); c.arc(128, 185, 43, 0, Math.PI * 2); c.fill(); c.fillStyle = '#B4AA99'; c.fillRect(42, 245, 172, 35);
+    }), roughness: 0.4 });
+    mesh(p, new THREE.PlaneGeometry(0.125 * s, 0.16 * s), pm, 0, 0.097 * s, 0.006 * s, true);
+    mrod(p, V(0, 0.06 * s, -0.006 * s), V(0, 0.025 * s, -0.055 * s), 0.006 * s, dark, true);
+  };
+  const plant = (x0, y0, z0, s) => {
+    const q = new THREE.Group(); q.position.set(x0, y0, z0); g.add(q);
+    const pot = mat('shelf-pot', '#A5A39A', { map: wallTex('concrete'), roughness: 0.9 });
+    const profile = [[0.024, 0], [0.041, 0.008], [0.052, 0.03], [0.056, 0.055], [0.052, 0.078], [0.046, 0.09], [0.043, 0.094]].map(([r, y]) => new THREE.Vector2(r * s, y * s));
+    mesh(q, new THREE.LatheGeometry(profile, 40), pot, 0, 0, 0, true);
+    mcyl(q, 0.042 * s, 0.042 * s, 0.004 * s, mat('shelf-soil', '#302C22', { roughness: 1 }), 0, 0.091 * s, 0, 32, true);
+    const leafShape = new THREE.Shape(); leafShape.moveTo(0, 0); leafShape.quadraticCurveTo(-0.009, 0.009, 0, 0.026); leafShape.quadraticCurveTo(0.009, 0.009, 0, 0);
+    const leafGeo = new THREE.ShapeGeometry(leafShape), leafMats = ['#355C35', '#527C42', '#759952'].map((c, i) => mat('shelf-leaf-' + i, c, { roughness: 0.78, side: THREE.DoubleSide }));
+    const stem = mat('shelf-stem', '#415F35', { roughness: 0.9 });
+    for (let i = 0; i < 34; i++) {
+      const a = i * 2.399 + rnd() * 0.3, rr = (0.045 + rnd() * 0.055) * s, base = V(0, 0.088 * s, 0), tip = V(Math.cos(a) * rr, (0.16 + rnd() * 0.065) * s, Math.sin(a) * rr);
+      mrod(q, base, tip, 0.0009 * s, stem, true);
+      for (let j = 1; j <= 6; j++) for (const side of [-1, 1]) {
+        const t = j / 7, p = base.clone().lerp(tip, t), dir = V(Math.cos(a + side * 0.85) * 0.8, 0.45 + rnd() * 0.35, Math.sin(a + side * 0.85) * 0.8).normalize();
+        const leaf = cachedMesh(q, 'shelf-small-leaf', () => leafGeo, leafMats[(i + j + (side > 0 ? 1 : 0)) % 3], p.x, p.y, p.z, true);
+        leaf.quaternion.setFromUnitVectors(V(0, 1, 0), dir); leaf.rotateY(rnd() * 0.5); leaf.scale.setScalar(s * (0.7 + rnd() * 0.45));
+      }
+    }
+  };
+  const globeMap = () => canvasTex('globe-map', 512, 256, (c, cw, ch) => {
+    c.fillStyle = '#426F83'; c.fillRect(0, 0, cw, ch);
+    c.strokeStyle = 'rgba(223,224,184,.25)'; c.lineWidth = 1;
+    for (let i = 1; i < 12; i++) { c.beginPath(); c.moveTo(0, i * ch / 12); c.lineTo(cw, i * ch / 12); c.stroke(); }
+    for (let i = 1; i < 24; i++) { c.beginPath(); c.moveTo(i * cw / 24, 0); c.lineTo(i * cw / 24, ch); c.stroke(); }
+    c.fillStyle = '#C5B784';
+    const lands = [[[55,45],[105,35],[145,55],[135,90],[112,105],[90,92],[72,115],[55,88]],[[125,110],[155,125],[165,170],[145,220],[125,180]],[[230,55],[270,42],[310,55],[330,82],[310,100],[275,92],[260,125],[235,110]],[[290,120],[325,128],[338,176],[310,220],[280,170]],[[345,70],[410,58],[450,90],[425,120],[390,105]],[[420,170],[455,160],[475,185],[450,202]]];
+    lands.forEach(points => { c.beginPath(); points.forEach(([px, py], i) => i ? c.lineTo(px, py) : c.moveTo(px, py)); c.closePath(); c.fill(); });
+  });
+  const globe = (x0, y0, z0, s) => {
+    const q = new THREE.Group(); q.position.set(x0, y0, z0); g.add(q);
+    mcyl(q, 0.065 * s, 0.075 * s, 0.016 * s, brass, 0, 0.008 * s, 0, 32);
+    mcyl(q, 0.012 * s, 0.012 * s, 0.055 * s, brass, 0, 0.04 * s, 0, 16);
+    const sphere = msph(q, 0.085 * s, mat('globe', '#FFFFFF', { map: globeMap(), roughness: 0.42 }), 0, 0.15 * s, 0, true); sphere.rotation.z = -0.18;
+    const ring = mesh(q, new THREE.TorusGeometry(0.098 * s, 0.0035 * s, 8, 48), brass, 0, 0.15 * s, 0, true); ring.rotation.y = 0.22; ring.rotation.z = -0.18;
+  };
+  const hourglass = (x0, y0, z0, s) => {
+    const q = new THREE.Group(); q.position.set(x0, y0, z0); g.add(q);
+    const profile = [[0.038, 0], [0.038, 0.008], [0.012, 0.047], [0.006, 0.065], [0.012, 0.083], [0.038, 0.122], [0.038, 0.13]].map(([r, y]) => new THREE.Vector2(r * s, y * s));
+    mesh(q, new THREE.LatheGeometry(profile, 32), glass, 0, 0.018 * s, 0, true);
+    const sand = mat('sand', '#C7A66B', { roughness: 0.92 });
+    const lower = mesh(q, new THREE.ConeGeometry(0.029 * s, 0.035 * s, 24), sand, 0, 0.04 * s, 0, true);
+    const upper = mesh(q, new THREE.ConeGeometry(0.027 * s, 0.03 * s, 24), sand, 0, 0.12 * s, 0, true); upper.rotation.z = Math.PI;
+    mrod(q, V(0, 0.068 * s, 0), V(0, 0.108 * s, 0), 0.0015 * s, sand, true);
+    for (const sy of [0.012, 0.15]) mcyl(q, 0.046 * s, 0.046 * s, 0.012 * s, wood, 0, sy * s, 0, 32);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) mrod(q, V(sx * 0.035 * s, 0.016 * s, sz * 0.035 * s), V(sx * 0.035 * s, 0.148 * s, sz * 0.035 * s), 0.003 * s, brass, true);
+  };
+  const candle = (x0, y0, z0, s) => {
+    const wax = mat('candlewax', '#E7DDC5', { roughness: 0.72 });
+    mcyl(g, 0.026 * s, 0.028 * s, 0.085 * s, wax, x0, y0 + 0.043 * s, z0, 32);
+    mcyl(g, 0.03 * s, 0.03 * s, 0.008 * s, brass, x0, y0 + 0.004 * s, z0, 32);
+    mrod(g, V(x0, y0 + 0.084 * s, z0), V(x0, y0 + 0.095 * s, z0), 0.0018 * s, dark, true);
+    const flame = msph(g, 0.009 * s, ownMat({ color: c3('#FFD080'), emissive: c3('#FFAD45'), emissiveIntensity: 1.4, roughness: 0.5 }), x0, y0 + 0.105 * s, z0, true); flame.scale.set(0.65, 1.45, 0.65);
+  };
+  const box = (x0, y0, z0, s, woven) => {
+    const cm = mat(woven ? 'basket' : 'storagebox', woven ? '#A88A58' : '#B8B5AB', { roughness: 0.86 });
+    rbox(g, 0.19 * s, 0.105 * s, 0.14 * s, cm, x0, y0 + 0.053 * s, z0, 0.008 * s);
+    rbox(g, 0.197 * s, 0.014 * s, 0.147 * s, cm, x0, y0 + 0.112 * s, z0, 0.005 * s);
+    rbox(g, 0.04 * s, 0.012 * s, 0.004 * s, dark, x0, y0 + 0.063 * s, z0 + 0.073 * s, 0.003 * s);
+    if (woven) for (let i = 0; i < 12; i++) mbox(g, 0.003 * s, 0.09 * s, 0.002 * s, pages, x0 - 0.085 * s + i * 0.015 * s, y0 + 0.052 * s, z0 + 0.072 * s, true);
+  };
+  const statue = (x0, y0, z0, s) => {
+    const q = new THREE.Group(); q.position.set(x0, y0, z0); g.add(q);
+    mcyl(q, 0.055 * s, 0.06 * s, 0.018 * s, dark, 0, 0.009 * s, 0, 32);
+    const torso = msph(q, 0.055 * s, brass, 0, 0.105 * s, 0, true); torso.scale.set(0.58, 1.25, 0.48); torso.rotation.z = -0.18;
+    msph(q, 0.026 * s, brass, -0.012 * s, 0.185 * s, 0, true);
+    mrod(q, V(-0.026 * s, 0.145 * s, 0), V(-0.065 * s, 0.105 * s, 0.015 * s), 0.009 * s, brass, true);
+    mrod(q, V(0.018 * s, 0.15 * s, 0), V(0.052 * s, 0.205 * s, -0.005 * s), 0.008 * s, brass, true);
+    mrod(q, V(-0.015 * s, 0.06 * s, 0), V(-0.027 * s, 0.022 * s, 0.012 * s), 0.009 * s, brass, true);
+    mrod(q, V(0.018 * s, 0.06 * s, 0), V(0.033 * s, 0.022 * s, -0.008 * s), 0.009 * s, brass, true);
+  };
+
+  bookStack(-hw * 0.52, levels[0] + shelfT / 2, 0.015, 3, 0.9); box(hw * 0.43, levels[0] + shelfT / 2, 0, 1.05, true);
+  hourglass(-hw * 0.52, levels[1] + shelfT / 2, 0.015, 0.95); candle(-hw * 0.18, levels[1] + shelfT / 2, 0.04, 0.85); box(hw * 0.43, levels[1] + shelfT / 2, 0, 0.95, false);
+  plant(-hw * 0.55, levels[2] + shelfT / 2, 0.015, 0.95); photo(0, levels[2] + shelfT / 2, hd * 0.25, 0.9, true); photo(hw * 0.48, levels[2] + shelfT / 2, hd * 0.05, 1.05, false);
+  bookRow(-hw * 0.78, levels[3] + shelfT / 2, 0.02, 7, 0.85); globe(hw * 0.38, levels[3] + shelfT / 2, 0.015, 1.05);
+  bookRow(-hw * 0.78, levels[4] + shelfT / 2, 0.015, 6, 0.82); statue(hw * 0.42, levels[4] + shelfT / 2, 0.01, 1.05);
+}
 // герои появляются только когда готовы и модель, и перекрашенные футболки — без «мигания» цвета
 function humansFinish() {
   if (!HUMAN.modelReady || !SHIRT.done || HUMAN.state === 'ready') return;
@@ -6989,70 +7179,157 @@ function buildHero(g, o) {
     const hd = blob(g, 1, skin, hand.x, hand.y, hand.z, 0.024, 0.075, 0.045); hd.rotation.set(hrot[0], hrot[1], hrot[2]);
   });
 }
-function buildCamera(g, o) {
-  // компактная кинокамера (форм-фактор mini-класса) на тяжёлой видео-голове и двухсекционном штативе со средней распоркой
-  const h = Math.max(0.45, o.h || 1.4);
-  const body = mat('cambody', '#202226', { roughness: 0.45, metalness: 0.25 }), panel = mat('campanel', '#34373C', { roughness: 0.5, metalness: 0.2 });
-  const glassM = mat('camglass', '#0B0C0E', { roughness: 0.05, metalness: 0.6 }), gear = mat('camgear', '#9BA1A8', { roughness: 0.35, metalness: 0.7 });
-  const rubber = mat('rubber', '#121315', { roughness: 0.9 }), cast = mat('tripcast', '#2B2D31', { roughness: 0.45, metalness: 0.4 });
-  const carbon = mat('carbon', '#18191C', { roughness: 0.35, metalness: 0.3 }), steel = mat('steel', '#8A8F96', { roughness: 0.3, metalness: 0.8 });
-  const ff = o.sensor === 'FF' ? 1.08 : 1;
-  // --- голова камеры (наклоняется вокруг оптической оси) ---
-  const head = new THREE.Group(); head.position.set(0, h, 0); head.rotation.x = (o.tilt || 0) * RAD; g.add(head);
-  const BW = 0.125 * ff, BH = 0.14 * ff, BL = 0.185, bz = 0.04;           // корпус ~125×140×185 мм
-  mbox(head, BW, BH, BL, body, 0, 0.005, bz);
-  mbox(head, 0.006, BH * 0.8, BL * 0.8, panel, BW / 2 + 0.003, 0.005, bz, true); mbox(head, 0.006, BH * 0.8, BL * 0.8, panel, -BW / 2 - 0.003, 0.005, bz, true);
-  const bf = bz - BL / 2;                                                    // передняя плоскость корпуса
-  const mount = mcyl(head, 0.05, 0.05, 0.018, gear, 0, 0, bf - 0.009, 28, true); mount.rotation.x = Math.PI / 2;
-  // объектив: длина зависит от фокусного
-  const LL = 0.09 + Math.min(0.2, o.lens / 1000 * 0.6), lz0 = bf - 0.018;
-  const lb = mcyl(head, 0.046, 0.044, LL, body, 0, 0, lz0 - LL / 2, 28); lb.rotation.x = Math.PI / 2;
-  [0.3, 0.62].forEach(f => { const r = mcyl(head, 0.051, 0.051, 0.014, gear, 0, 0, lz0 - LL * f, 32, true); r.rotation.x = Math.PI / 2; });
-  const fr = mcyl(head, 0.052, 0.048, 0.022, body, 0, 0, lz0 - LL + 0.011, 28, true); fr.rotation.x = Math.PI / 2;
-  const gl = mesh(head, new THREE.CircleGeometry(0.042, 28), glassM, 0, 0, lz0 - LL - 0.001, true); gl.rotation.y = Math.PI;
-  // опорная площадка
-  mbox(head, 0.13, 0.025, BL + 0.12, cast, 0, -BH / 2 - 0.012, bz + 0.02);
-  mbox(head, 0.1, 0.12, 0.055, panel, 0, 0, bz + BL / 2 + 0.03); // аккумулятор
-  // --- видео-голова (не наклоняется) ---
-  const hy = h - BH / 2 - 0.03;                       // верх головы под площадкой
-  mbox(g, 0.13, 0.03, 0.2, cast, 0, hy - 0.015, bz);
-  const drum = mcyl(g, 0.062, 0.062, 0.15, cast, 0, hy - 0.08, bz, 28); drum.rotation.z = Math.PI / 2;
-  [-1, 1].forEach(sx => { const k = mcyl(g, 0.03, 0.03, 0.02, gear, sx * 0.085, hy - 0.08, bz, 16, true); k.rotation.z = Math.PI / 2; });
-  mcyl(g, 0.07, 0.075, 0.05, cast, 0, hy - 0.16, bz, 28);
-  const bowlY = hy - 0.2; mcyl(g, 0.075, 0.06, 0.04, cast, 0, bowlY, bz, 24);
-  // --- штатив: 3 ноги, у каждой две трубы, две секции, средняя распорка ---
-  const y0 = bowlY - 0.03, R = Math.min(0.62, Math.max(0.32, y0 * 0.45)), midT = 0.52;
-  mcyl(g, 0.1, 0.09, 0.05, cast, 0, y0, bz, 3 * 8);
-  const hubY = y0 * (1 - midT) * 0.95; mcyl(g, 0.035, 0.035, 0.03, cast, 0, hubY, bz, 12);
-  for (let i = 0; i < 3; i++) {
-    const a = i * 2.094 - Math.PI / 2;                 // одна нога вперёд, под объектив
-    const ux = Math.cos(a), uz = Math.sin(a), tx = -uz, tz = ux;
-    const P = (r, y, s) => V(ux * r + tx * s, y, bz + uz * r + tz * s);
-    const top = 0.085, ym = y0 * (1 - midT), rm = top + (R - top) * midT;
-    [-0.022, 0.022].forEach(s => {
-      mrod(g, P(top, y0, s), P(rm, ym, s), 0.011, carbon, true);
-      mrod(g, P(rm, ym, s * 0.7), P(R, 0.03, s * 0.7), 0.0085, carbon, true);
-    });
-    mbox(g, 0.05, 0.05, 0.05, cast, ux * rm, ym, bz + uz * rm, true);
-    mbox(g, 0.05, 0.04, 0.06, cast, ux * (R - 0.01), 0.04, bz + uz * (R - 0.01), true);
-    mcyl(g, 0.03, 0.035, 0.025, rubber, ux * R, 0.0125, bz + uz * R, 12, true);
-    mrod(g, P(rm, ym, 0), V(0, hubY, bz), 0.008, steel, true);
+function buildCamera(g, o) { buildUrsaCamera(g, o); }
+function buildUrsaCamera(g, o) {
+  const h = Math.max(0.45, o.h || 1.4), ff = o.sensor === 'FF' ? 1.08 : 1;
+  const body = mat('ursa-body', '#30363A', { roughness: 0.42, metalness: 0.68 });
+  const edge = mat('ursa-edge', '#151A1D', { roughness: 0.5, metalness: 0.55 });
+  const rubber = mat('ursa-rubber', '#111517', { roughness: 0.88 });
+  const silver = mat('ursa-silver', '#B9C1C5', { roughness: 0.24, metalness: 0.92 });
+  const darkMetal = mat('ursa-dark-metal', '#242A2E', { roughness: 0.3, metalness: 0.85 });
+  const red = mat('record-red', '#C93732', { roughness: 0.4 });
+  const glass = mat('ursa-glass', '#10252E', { roughness: 0.08, metalness: 0.55 });
+  const label = (text, bw, bh, col) => canvasTex('label|' + text + '|' + col, 512, 128, (c, w, hh) => {
+    c.clearRect(0, 0, w, hh); c.fillStyle = col || '#D9DEDF'; c.font = '600 43px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, w / 2, hh / 2);
+  });
+  const labelMesh = (p, text, ww, hh, x, y, z, ry, col) => {
+    const m = mat('label|' + text, '#FFFFFF', { map: label(text, ww, hh, col), transparent: true, roughness: 0.7, depthWrite: false });
+    const q = mesh(p, new THREE.PlaneGeometry(ww, hh), m, x, y, z, true); q.rotation.y = ry || 0; return q;
+  };
+  const screw = (p, x, y, z, r, front) => {
+    const s = mcyl(p, r, r, r * 0.4, silver, x, y, z, 16, true); s.rotation.x = Math.PI / 2;
+    lineScrew(s, r);
+  };
+  const lineScrew = (s, r) => { const q = mbox(s, r * 1.2, r * 0.16, r * 0.08, edge, 0, 0, -r * 0.22, true); };
+  const cylZ = (p, r0, r1, len, m, x, y, z, seg) => { const q = mcyl(p, r0, r1, len, m, x, y, z, seg || 32, true); q.rotation.x = Math.PI / 2; return q; };
+
+  const head = new THREE.Group(); head.position.set(0, h - 0.01, 0); head.rotation.x = (o.tilt || 0) * RAD; g.add(head);
+  const BW = 0.145 * ff, BH = 0.15 * ff, BL = 0.19, bz = 0.035, bf = bz - BL / 2;
+  rbox(head, BW, BH, BL, body, 0, 0, bz, 0.008);
+  rbox(head, BW * 0.94, 0.018, BL * 0.9, edge, 0, -BH / 2 - 0.006, bz, 0.005);
+  rbox(head, BW * 0.78, 0.017, BL * 0.82, body, 0, BH / 2 + 0.006, bz + 0.006, 0.004);
+  rbox(head, 0.012, BH * 0.72, BL * 0.74, edge, BW / 2 + 0.003, -0.002, bz + 0.008, 0.003);
+  rbox(head, 0.012, BH * 0.68, BL * 0.68, edge, -BW / 2 - 0.003, -0.005, bz + 0.006, 0.003);
+  const backZ = bz + BL / 2, batteryZ = backZ + 0.032;
+  rbox(head, 0.088 * ff, 0.108 * ff, 0.046, edge, 0, -0.006, batteryZ, 0.007);
+  rbox(head, 0.074 * ff, 0.091 * ff, 0.004, rubber, 0, -0.006, batteryZ + 0.025, 0.004);
+  mrod(head, V(-0.032 * ff, 0.026, batteryZ + 0.029), V(0, -0.026, batteryZ + 0.029), 0.003, darkMetal, true);
+  mrod(head, V(0.032 * ff, 0.026, batteryZ + 0.029), V(0, -0.026, batteryZ + 0.029), 0.003, darkMetal, true);
+  rbox(head, 0.025, 0.008, 0.018, rubber, 0, 0.052 * ff, batteryZ - 0.006, 0.002);
+  labelMesh(head, 'V-MOUNT', 0.052, 0.01, 0, 0.025, batteryZ + 0.029, 0, '#C9CECF');
+  const led = mat('battery-led', '#8FCB68', { emissive: c3('#7BBD55'), emissiveIntensity: 0.6, roughness: 0.4 });
+  for (let i = 0; i < 4; i++) msph(head, 0.0022, led, -0.018 + i * 0.012, -0.038, batteryZ + 0.029, true);
+
+  const mountZ = bf - 0.018;
+  cylZ(head, 0.065 * ff, 0.065 * ff, 0.018, edge, 0, 0, mountZ, 48);
+  cylZ(head, 0.058 * ff, 0.058 * ff, 0.008, silver, 0, 0, mountZ - 0.012, 64);
+  cylZ(head, 0.049 * ff, 0.049 * ff, 0.009, darkMetal, 0, 0, mountZ - 0.018, 64);
+  const mountRing = mesh(head, new THREE.TorusGeometry(0.056 * ff, 0.003 * ff, 10, 64), silver, 0, 0, mountZ - 0.018, true);
+  for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.25; screw(head, Math.cos(a) * 0.056 * ff, Math.sin(a) * 0.056 * ff, mountZ - 0.022, 0.0025 * ff, true); }
+  const redDot = msph(head, 0.003, red, 0, 0.061 * ff, mountZ - 0.023, true); redDot.scale.z = 0.3;
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; const contact = mbox(head, 0.003, 0.006, 0.001, brassContact(), Math.cos(a) * 0.035 * ff, Math.sin(a) * 0.035 * ff, mountZ - 0.025, true); contact.rotation.z = a; }
+
+  const LL = 0.085 + Math.min(0.16, o.lens / 1000 * 0.55), lz = mountZ - 0.027;
+  cylZ(head, 0.043 * ff, 0.041 * ff, LL, darkMetal, 0, 0, lz - LL / 2, 48);
+  for (const f of [0.08, 0.18, 0.55, 0.82, 0.94]) cylZ(head, 0.045 * ff, 0.045 * ff, 0.009, f === 0.55 ? rubber : edge, 0, 0, lz - LL * f, 48);
+  for (let i = 0; i < 36; i++) { const a = i * Math.PI * 2 / 36, r = 0.044 * ff; const rib = mbox(head, 0.002, 0.004, LL * 0.28, rubber, Math.cos(a) * r, Math.sin(a) * r, lz - LL * 0.55, true); rib.rotation.z = a; }
+  cylZ(head, 0.037 * ff, 0.037 * ff, 0.004, glass, 0, 0, lz - LL - 0.003, 48);
+  const lensRing = mesh(head, new THREE.TorusGeometry(0.04 * ff, 0.0018 * ff, 8, 48), silver, 0, 0, lz - LL - 0.005, true);
+  labelMesh(head, 'BLACKMAGIC', 0.043, 0.009, 0, -BH / 2 + 0.015, bf - 0.004, Math.PI, '#CBD1D2');
+
+  const grip = new THREE.Group(); grip.position.set(-BW / 2 - 0.035, -0.01, bz - 0.015); head.add(grip);
+  rbox(grip, 0.036, BH * 0.86, 0.055, rubber, 0, 0, 0, 0.012);
+  rbox(grip, 0.042, 0.023, 0.063, body, 0, BH * 0.43, 0, 0.006);
+  rbox(grip, 0.041, 0.019, 0.061, edge, 0, -BH * 0.43, 0, 0.005);
+  for (let i = 0; i < 7; i++) mbox(grip, 0.004, 0.008, 0.04, edge, -0.019, -0.04 + i * 0.014, 0, true);
+  labelMesh(grip, 'URSA', 0.034, 0.012, -0.022, 0, 0, -Math.PI / 2, '#CBD1D2');
+
+  const top = new THREE.Group(); top.position.set(0, BH / 2 + 0.018, bz + 0.01); head.add(top);
+  for (const sx of [-1, 1]) {
+    rbox(top, 0.014, 0.022, 0.12, body, sx * BW * 0.33, 0.01, 0, 0.003);
+    screw(top, sx * BW * 0.33, 0.023, -0.045, 0.003, false);
   }
-  g.traverse(m => { if (m.isMesh) m.castShadow = true; });   // штатив и камера отбрасывают тени
-  // контактная тень на полу: мягкое пятно под штативом и полосы под ногами (тонкие трубы теряются в мягких картах теней)
+  rbox(top, BW * 0.75, 0.018, 0.027, darkMetal, 0, 0.035, 0, 0.005);
+  rbox(top, BW * 0.48, 0.014, 0.055, rubber, 0, 0.045, 0.005, 0.004);
+  for (let i = 0; i < 4; i++) { const z = -0.045 + i * 0.027; const hole = rbox(top, 0.016, 0.003, 0.009, edge, 0, 0.02, z, 0.003); screw(top, BW * 0.29, 0.023, z, 0.0025, false); }
+  labelMesh(top, 'URSA MINI', 0.047, 0.011, 0, 0.053, 0.008, 0, '#D8D8D0');
+
+  const vent = mat('ursa-vent', '#111619', { map: canvasTex('ursa-vent', 256, 128, (c, w, hh) => {
+    c.fillStyle = '#252D31'; c.fillRect(0, 0, w, hh); c.fillStyle = '#080C0E';
+    for (let y = 3; y < hh; y += 7) for (let x = 3; x < w; x += 7) { c.beginPath(); c.arc(x + (y % 2 ? 2 : 0), y, 1.8, 0, Math.PI * 2); c.fill(); }
+  }), roughness: 0.72, metalness: 0.4 });
+  const vp = mesh(head, new THREE.PlaneGeometry(0.085, 0.045), vent, BW / 2 + 0.01, 0.014, bz + 0.02, true); vp.rotation.y = Math.PI / 2;
+  for (const yy of [-0.036, 0.008]) for (const zz of [-0.048, 0.065]) screw(head, BW / 2 + 0.011, yy, bz + zz, 0.0023, false);
+
+  const ports = new THREE.Group(); ports.position.set(-BW / 2 - 0.011, -0.02, bz + 0.03); ports.rotation.y = -Math.PI / 2; head.add(ports);
+  rbox(ports, 0.064, 0.065, 0.007, body, 0, 0, 0, 0.004);
+  cylZ(ports, 0.012, 0.012, 0.008, silver, -0.015, 0.014, -0.007, 24);
+  cylZ(ports, 0.017, 0.017, 0.008, darkMetal, 0.013, -0.014, -0.007, 32);
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; cylZ(ports, 0.0024, 0.0024, 0.004, rubber, 0.013 + Math.cos(a) * 0.008, -0.014 + Math.sin(a) * 0.008, -0.012, 12); }
+  labelMesh(ports, 'SDI  •  12V', 0.055, 0.008, 0, 0.034, -0.006, Math.PI, '#D5D9DA');
+  const rec = mcyl(head, 0.006, 0.006, 0.004, red, BW / 2 + 0.008, BH * 0.3, bz - 0.055, 20, true); rec.rotation.z = Math.PI / 2;
+
+  const hy = h - BH / 2 - 0.012;
+  rbox(g, 0.135, 0.022, 0.18, darkMetal, 0, hy + 0.014, bz + 0.012);
+  rbox(g, 0.092, 0.012, 0.135, rubber, 0, hy + 0.03, bz - 0.006);
+  for (const sx of [-1, 1]) screw(g, sx * 0.045, hy + 0.038, bz - 0.047, 0.003, false);
+  const fluid = new THREE.Group(); fluid.position.set(0, hy - 0.055, bz); g.add(fluid);
+  rbox(fluid, 0.09, 0.07, 0.092, edge, 0, 0, 0, 0.016);
+  const casing = msph(fluid, 0.055, body, -0.028, 0.002, 0, true); casing.scale.set(0.58, 0.88, 0.82);
+  const rosette = mcyl(fluid, 0.035, 0.035, 0.014, silver, -0.055, 0, 0, 32, true); rosette.rotation.z = Math.PI / 2;
+  for (let i = 0; i < 10; i++) { const a = i * Math.PI * 2 / 10; const b = mcyl(fluid, 0.003, 0.003, 0.005, darkMetal, -0.064, Math.cos(a) * 0.027, Math.sin(a) * 0.027, 12, true); b.rotation.z = Math.PI / 2; }
+  const lock = rbox(fluid, 0.013, 0.019, 0.033, red, 0.015, 0.044, -0.025, 0.003); lock.rotation.x = -0.25;
+  labelMesh(fluid, 'ace', 0.04, 0.016, 0.006, 0.005, -0.048, Math.PI, '#E4E5E1');
+  labelMesh(fluid, 'S', 0.026, 0.026, -0.066, 0, 0, -Math.PI / 2, '#E4E5E1');
+
+  const bowlY = hy - 0.16;
+  const ball = msph(g, 0.06, darkMetal, 0, bowlY + 0.04, bz, true); ball.scale.y = 0.75;
+  mcyl(g, 0.07, 0.06, 0.027, silver, 0, bowlY + 0.005, bz, 40);
+  for (let i = 0; i < 12; i++) { const a = i * Math.PI * 2 / 12; const rib = mbox(g, 0.006, 0.024, 0.006, silver, Math.cos(a) * 0.066, bowlY + 0.005, bz + Math.sin(a) * 0.066, true); rib.rotation.y = -a; }
+  mcyl(g, 0.065, 0.052, 0.04, edge, 0, bowlY - 0.025, bz, 32);
+
+  const y0 = bowlY - 0.06, R = Math.min(0.62, Math.max(0.32, y0 * 0.45)), midT = 0.52;
+  const carbon = mat('ace-carbon', '#181D20', { map: canvasTex('carbon-weave', 128, 128, (c, w, hh) => {
+    c.fillStyle = '#202629'; c.fillRect(0, 0, w, hh);
+    for (let y = 0; y < hh; y += 8) for (let x = 0; x < w; x += 8) { c.fillStyle = (x + y) % 16 ? '#343C40' : '#111619'; c.fillRect(x, y, 7, 3); c.fillRect(x + 3, y + 3, 3, 4); }
+  }), roughness: 0.35, metalness: 0.4 });
+  mcyl(g, 0.095, 0.082, 0.055, edge, 0, y0, bz, 24);
+  const hubY = y0 * (1 - midT) * 0.95;
+  rbox(g, 0.062, 0.04, 0.055, edge, 0, hubY, bz, 0.006);
+  const hubKnob = mcyl(g, 0.015, 0.015, 0.018, rubber, 0.04, hubY, bz, 20, true); hubKnob.rotation.z = Math.PI / 2;
+  for (let i = 0; i < 3; i++) {
+    const a = i * 2.094 - Math.PI / 2, ux = Math.cos(a), uz = Math.sin(a), tx = -uz, tz = ux;
+    const P = (r, y, s) => V(ux * r + tx * s, y, bz + uz * r + tz * s);
+    const top = 0.082, ym = y0 * (1 - midT), rm = top + (R - top) * midT, yLow = ym * 0.57, rLow = rm + (R - rm) * 0.45;
+    for (const side of [-0.014, 0.014]) {
+      mrod(g, P(top, y0, side), P(rm, ym, side), 0.0095, carbon, true);
+      mrod(g, P(rm, ym, side), P(R, 0.045, side), 0.008, carbon, true);
+    }
+    for (const [yy, rr] of [[ym, rm], [yLow, rLow]]) {
+      const clamp = rbox(g, 0.057, 0.032, 0.05, edge, ux * rr, yy, bz + uz * rr, 0.005); clamp.rotation.y = -a;
+      const lever = rbox(g, 0.034, 0.012, 0.052, rubber, ux * (rr + 0.03), yy + 0.006, bz + uz * (rr + 0.03), 0.004); lever.rotation.y = -a;
+      screw(g, ux * (rr + 0.035), yy, bz + uz * (rr + 0.035), 0.003, false);
+    }
+    const hinge = rbox(g, 0.072, 0.065, 0.06, edge, ux * top, y0 - 0.025, bz + uz * top, 0.008); hinge.rotation.y = -a;
+    labelMesh(g, 'Sachtler', 0.047, 0.01, ux * (top + 0.032), y0 - 0.018, bz + uz * (top + 0.032), Math.atan2(ux, uz), '#D9DEDD');
+    mrod(g, V(ux * R, 0.06, bz + uz * R), V(ux * R, 0.018, bz + uz * R), 0.008, darkMetal, true);
+    const loop = mesh(g, new THREE.TorusGeometry(0.018, 0.0035, 8, 28), rubber, ux * R, 0.043, bz + uz * R, true); loop.rotation.y = -a;
+    mcyl(g, 0.027, 0.029, 0.008, red, ux * R, 0.006, bz + uz * R, 32, true);
+    mrod(g, P(rm, ym, 0), V(0, hubY, bz), 0.0065, darkMetal, true);
+    const spread = rbox(g, 0.04, 0.025, 0.037, edge, ux * rm, ym, bz + uz * rm, 0.004); spread.rotation.y = -a;
+  }
+  g.traverse(m => { if (m.isMesh) m.castShadow = true; });
   const half = R + 0.18, ff2 = Math.round(R / half * 100) / 100;
   const tex = canvasTex('tripsh' + ff2, 256, 256, (c, w) => {
-    const m = w / 2; const gr = c.createRadialGradient(m, m, 0, m, m, m * 0.55); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    c.fillStyle = gr; c.fillRect(0, 0, w, w);
+    const m = w / 2, gr = c.createRadialGradient(m, m, 0, m, m, m * 0.55); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gr; c.fillRect(0, 0, w, w);
     c.filter = 'blur(5px)'; c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineCap = 'round'; c.lineWidth = 10;
-    for (let i = 0; i < 3; i++) { const a = i * 2.094 - Math.PI / 2; c.beginPath(); c.moveTo(m, m); c.lineTo(m + Math.cos(a) * m * ff2, m + Math.sin(a) * m * ff2); c.stroke();
-      c.fillStyle = 'rgba(0,0,0,.6)'; c.beginPath(); c.arc(m + Math.cos(a) * m * ff2, m + Math.sin(a) * m * ff2, 9, 0, Math.PI * 2); c.fill(); }
+    for (let i = 0; i < 3; i++) { const a = i * 2.094 - Math.PI / 2; c.beginPath(); c.moveTo(m, m); c.lineTo(m + Math.cos(a) * m * ff2, m + Math.sin(a) * m * ff2); c.stroke(); }
     c.filter = 'none';
   });
-  const shm = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
-  shm.userData.own = true;
+  const shm = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); shm.userData.own = true;
   const sh = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2), shm); sh.rotation.x = -Math.PI / 2; sh.position.set(0, 0.004, bz); sh.renderOrder = 1; g.add(sh);
 }
+function brassContact() { return mat('brass-contact', '#C6A75A', { roughness: 0.25, metalness: 0.85 }); }
 // бытовые светильники: геометрия от пола (или от столешницы), лампа — точечный источник у абажура
 function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
   const k = o.kind, e = ON_TABLE.includes(k) ? supportTop(o) : 0;
