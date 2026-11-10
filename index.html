@@ -239,6 +239,12 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 .inspector .note-ta { width: 100%; box-sizing: border-box; min-height: 88px; resize: vertical; padding: 8px; border-radius: 6px; border: none; background: var(--chip); color: var(--fg); font: 13px/1.4 var(--font-ui); }
 .inspector .seg { width: 100%; box-sizing: border-box; }
 .inspector .seg button { flex: 1; }
+.plant-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.plant-choice { min-width: 0; padding: 5px 2px; border: 1px solid transparent; border-radius: 9px; background: var(--chip); color: var(--muted); font-size: 10px; line-height: 1.2; }
+.plant-choice img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; pointer-events: none; }
+.plant-choice span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.plant-choice:hover { border-color: var(--line3); color: var(--fg); }
+.plant-choice[aria-pressed="true"] { border-color: var(--accent); background: var(--active); color: var(--fg); box-shadow: 0 0 0 1px var(--accent); }
 .inspector .vsep { display: none; }
 .inspector .ins-name { padding: 0; }
 .inspector .ins-name input { flex: 1; min-width: 0; }
@@ -531,7 +537,7 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
   .sheet-grip { display: grid; place-items: center; flex: none; width: 100%; height: 24px; padding: 0; border: none; background: transparent; cursor: pointer; position: sticky; top: -4px; z-index: 4; }
   .sheet-grip::after { content: ''; width: 36px; height: 4px; border-radius: 2px; background: var(--line3); }
   .inspector .ins-x { position: sticky; top: 24px; align-self: flex-end; flex: none; width: 36px; height: 32px; margin-bottom: -32px; z-index: 5; }
-  .inspector .ins-head { position: sticky; top: 24px; z-index: 2; display: flex; align-items: center; min-height: 32px; background: var(--raised); }
+  .inspector .ins-head { position: sticky; top: 24px; z-index: 2; display: flex; align-items: center; min-height: 32px; background: transparent; }
   .inspector.compact { max-height: 72px; overflow: hidden; padding-bottom: 8px; }
   .inspector.compact > :not(.sheet-grip):not(.ins-x):not(.ins-head):not(.ins-name) { display: none; }
   .frow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
@@ -897,9 +903,9 @@ select option { background: var(--surface); color: var(--fg); }
       <button class="rtool type" id="rtCam" title="Камера" aria-label="Камера" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="6.8" width="12.6" height="10.4" rx="2.6" fill="currentColor" fill-opacity=".25"/><path d="M15.2 10.8l6.2-3.4v9.2l-6.2-3.4"/></svg></button>
       <button class="rtool type" id="rtLight" title="Свет" aria-label="Свет" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16c0 8-4 13-8 13S4 13 4 5z" fill="currentColor" fill-opacity=".25"/></svg></button>
       <button class="rtool type" id="rtPrac" title="Практикал" aria-label="Практикал" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3h11.6l2 5.8H4.2z" fill="currentColor" fill-opacity=".25"/><path d="M12 8.8v11.6M8.6 20.4h6.8"/></svg></button>
-      <button class="rtool type" id="rtProp" title="Реквизит" aria-label="Реквизит" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.2" y="2.6" width="13.6" height="18.8" rx=".8" fill="currentColor" fill-opacity=".25"/><path d="M12 2.6v18.8M10.4 11v2.2M13.6 11v2.2"/></svg></button>
+      <button class="rtool type" id="rtProp" title="Реквизит" aria-label="Реквизит" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.4 14.6h9.2l-1.1 6.8H8.5z" fill="currentColor" fill-opacity=".25"/><path d="M12 14.6V6.2M12 11.2L7.2 7.4M12 9.6l4.5-3.5"/><path d="M7.2 8.2C3.9 7.7 3.4 4.9 3.6 3.1c3.2-.2 5.5 1.4 5.6 4.5zM11.9 6.8C9.7 4.4 11 1.9 12.7 1.3c2.1 1.8 2.3 4.2-.8 5.5zM13 8.2c.7-3.4 3.6-4.3 6.2-3.5-.1 3.1-2.1 5.3-5.5 4.8z" fill="currentColor" fill-opacity=".32"/></svg></button>
       <button class="rtool type" id="rtHero" title="Герой" aria-label="Герой" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.4" r="2.4" fill="currentColor" fill-opacity=".4"/><path d="M8.6 9.8c0-1.8 1.5-3 3.4-3s3.4 1.2 3.4 3l-.4 4.2h-6z" fill="currentColor" fill-opacity=".25"/><path d="M8.8 10l-1.6 4.6M15.2 10l1.6 4.6"/><path d="M10.4 14.6l-.8 6M13.6 14.6l.8 6"/><path d="M8.4 20.6h2.2M13.4 20.6h2.2"/></svg></button>
-      <button class="rtool type" id="rtRoom" title="Объекты комнаты" aria-label="Объекты комнаты" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3.6" width="16" height="16.8" rx="2" fill="currentColor" fill-opacity=".25"/><path d="M12 3.6v16.8M4 12h16"/></svg></button>
+      <button class="rtool type" id="rtRoom" title="Объекты комнаты" aria-label="Объекты комнаты" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 2.4v19.2L3.4 18.2V5.8z" fill="currentColor" fill-opacity=".22"/><path d="M16.2 3.6h4.4v16.8h-4.4"/><circle cx="10.4" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></button>
       <button class="rtool type" id="rtNote" title="Заметка" aria-label="Заметка"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.8 3.4h14.4v10.4l-4 4H4.8z" fill="currentColor" fill-opacity=".2"/><path d="M15.2 17.8v-4H19.2"/><path d="M8 7.8h8M8 11.2h5.4"/></svg></button>
       <span class="rsep"></span>
       <button class="rtool type" id="rtPip" title="Вид с камеры" aria-label="Вид с камеры"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.8" y="5" width="18.4" height="13.2" rx="2.4"/><rect x="5.4" y="7.4" width="7.8" height="5.6" rx="1.2" fill="currentColor" fill-opacity=".3"/></svg></button>
@@ -4862,11 +4868,12 @@ Object.assign(LIGHTS, {
   p_small: { name: 'Ночник', prac: true, cct: 2700, omni: true, len: 1, icon: `<circle cx="12" cy="11" r="5.6" ${F}/><path d="M8.4 17.8h7.2l-.9 3.2H9.3z" ${F}/>` }
 });
 // порядок в меню «Реквизит»: мебель → растения → мелкие предметы
-const PROP_ORDER = ['armchair', 'sofa', 'chair', 'ochair', 'trect', 'tround', 'tcoffee', 'cabinet', 'shelf', 'wardrobe', 'tv', 'carpet', 'plant', 'tree', 'picture', 'laptop', 'monitor', 'books', 'cup'];
+const PROP_ORDER = ['armchair', 'sofa', 'chair', 'ochair', 'trect', 'tround', 'tcoffee', 'cabinet', 'shelf', 'wardrobe', 'tv', 'carpet', 'curtain', 'plant', 'picture', 'laptop', 'monitor', 'books', 'cup'];
 const PRAC_FIXED = ['p_desk', 'p_torch', 'p_floor', 'p_small'];   // форма фиксирована — высоту не задаём
 const ON_TABLE = ['laptop', 'monitor', 'books', 'cup', 'plant', 'tv', 'p_desk', 'p_small'];   // ставятся на стол/тумбу, если поставить поверх
 const PROPS = {
   carpet: { name: 'Ковёр', w: 2, d: 1.4, h: 0.01, icon: `<rect x="3" y="6" width="18" height="12" rx="1" ${F}/>` },
+  curtain: { name: 'Штора', w: 2.5, d: .25, h: 3, icon: `<path d="M3 5h18M3 8c.45-1.5 1.35-1.5 1.8 0s1.35 1.5 1.8 0 1.35-1.5 1.8 0 1.35 1.5 1.8 0 1.35-1.5 1.8 0 1.35 1.5 1.8 0 1.35-1.5 1.8 0 1.35 1.5 1.8 0 1.35-1.5 1.8 0 1.35 1.5 1.8 0" ${F}/>` },
   armchair: { name: 'Кресло', w: .85, d: .85, h: .9, icon: `<rect x="3" y="8" width="3" height="11" rx="1.5" ${F}/><rect x="18" y="8" width="3" height="11" rx="1.5" ${F}/><rect x="5" y="4.5" width="14" height="4" rx="1.5" ${F}/><rect x="6" y="8.5" width="12" height="10" rx="1.5" ${F}/>` },
   chair: { name: 'Стул', w: .45, d: .5, h: .9, icon: `<rect x="7" y="5" width="10" height="14" rx="1.5" ${F}/><path d="M7 8h10"/>` },
   sofa: { name: 'Диван', w: 2, d: .9, h: .85, icon: `<rect x="1.5" y="8" width="3" height="11" rx="1.5" ${F}/><rect x="19.5" y="8" width="3" height="11" rx="1.5" ${F}/><rect x="3" y="5" width="18" height="4" rx="1.5" ${F}/><rect x="4.5" y="9" width="15" height="9.5" rx="1" ${F}/><path d="M12 9v9.5"/>` },
@@ -4888,7 +4895,7 @@ const PROPS = {
   cup: { name: 'Чашка', w: .12, d: .09, h: .1, icon: `<circle cx="10.5" cy="12" r="5" ${F}/><path d="M15.5 10.4h1.6a1.6 1.6 0 0 1 0 3.2h-1.6"/>` },
   picture: { name: 'Картина', w: .8, d: .04, h: .6, icon: `<rect x="4" y="5" width="16" height="14" rx=".5" ${F}/><path d="M6.5 16.5l4-4.5 3 3 2-2 2.5 3.5"/><circle cx="9" cy="8.5" r="1.2"/>` }
 };
-const PROP_DIMS = { ochair: [], cup: ['h'], books: ['h'], picture: ['w', 'h'], monitor: ['w', 'h'], tv: ['w', 'h'] };
+const PROP_DIMS = { ochair: [], cup: ['h'], books: ['h'], picture: ['w', 'h'], monitor: ['w', 'h'], tv: ['w', 'h'], curtain: ['w'], plant: [], shelf: ['w', 'd'] };
 const propDims = (o) => PROP_DIMS[o.kind] || ['w', 'd', 'h'];
 const CAM_ICON = (s) => `<rect x="3" y="7" width="12" height="10" rx="2" class="bgf"/><rect x="3" y="7" width="12" height="10" rx="2" ${F}/><path d="M15 10l6-3v10l-6-3z" ${F}/>` + (s === 'FF' ? '<rect x="5.6" y="9.8" width="6.8" height="4.4" class="d"/>' : '<rect x="7.2" y="10.8" width="3.6" height="2.4" class="d"/>');
 // у своего цвета героя — тонкий контур цвета текста: белый/светлый не сливается со светлой схемой, чёрный — с тёмной
@@ -5345,7 +5352,7 @@ function renderPlan() {
         const box = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => corner(u * so.w / 2, v * so.d / 2));
         scr += `<polygon points="${box.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--prop)" stroke-width="1" stroke-dasharray="4 3" pointer-events="none"/>`;
         const dims = propDims(so);
-        [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]].filter(([u, v]) => (u && dims.includes('w')) || (v && dims.includes('d'))).forEach(([u, v]) => {
+        [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]].filter(([u, v]) => ((u && dims.includes('w')) || (v && dims.includes('d'))) && (so.kind !== 'curtain' || !v)).forEach(([u, v]) => {
           const [hx, hy] = corner(u * so.w / 2, v * so.d / 2);
           // курсор по фактическому направлению ручки от центра на экране (с учётом поворота)
           const ang = ((Math.atan2(u * sn + v * c, u * c - v * sn) / RAD) % 180 + 180) % 180;
@@ -5999,24 +6006,26 @@ function setCuts(cp, near) {
 }
 // отделка стен: текстура (светлая «маска» рисунка, умножается на цвет стены) и размер одного повтора в метрах
 const WALL_FIN = {
-  paint: { name: 'Покраска', col: '#A4A4A4', sx: 2, sy: 2, rough: 0.95 },
+  paint: { name: 'Покраска', col: '#4A4C50', sx: 2, sy: 2, rough: 0.95 },
   plaster: { name: 'Штукатурка', col: '#C6C7C3', sx: 1.2, sy: 1.2, rough: 0.95, bump: 0.011 },
   stone: { name: 'Камень', col: '#CDBFA6', sx: 1.6, sy: 1.6, rough: 0.97, bump: 0.017 },
   concrete: { name: 'Бетон', col: '#8A8A88', sx: 2.4, sy: 1.2, rough: 0.9 },
   brick: { name: 'Кирпич', col: '#94695A', sx: 1.04, sy: 1.05, rough: 0.92 },
   wood: { name: 'Дерево', col: '#C2A27C', sx: 2.4, sy: 3, rough: 0.92, px: 1024 },
-  laminate: { name: 'Ламинат', col: '#C2A27C', sx: 3.6, sy: 3, rough: 0.9, px: 1280 },   // повтор рисунка не чаще чем через 3,6 × 3 м — сучки не выстраиваются в линию
-  porcelain: { name: 'Керамогранит', col: '#D8D6D2', sx: 2.4, sy: 1.2, rough: 0.32, px: 1024 }
+  laminate: { name: 'Ламинат', col: '#FBF3E4', sx: 3.6, sy: 3, rough: 0.96, px: 1280 },   // повтор рисунка не чаще чем через 3,6 × 3 м — сучки не выстраиваются в линию
+  porcelain: { name: 'Керамогранит', col: '#C6C7C3', sx: 2.4, sy: 1.2, rough: 0.32, px: 1024 }
 };
 // в ряду кружков есть цвета по умолчанию всех отделок
 const WALL_COLORS = [['#E8E6E1', 'Белый'], ['#D8D6D2', 'Молочный'], ['#C6C7C3', 'Светло-серый'], ['#A4A4A4', 'Серый'], ['#8A8A88', 'Бетонный'], ['#4A4C50', 'Графит'], ['#232427', 'Чёрный'], ['#CDBFA6', 'Бежевый'], ['#C2A27C', 'Дерево'], ['#94695A', 'Кирпич'], ['#7A7C55', 'Оливковый'], ['#3F5A4C', 'Зелёный'], ['#3D5778', 'Синий']];
+const WALL_SWATCHES = WALL_COLORS.slice(2).filter((c, i) => i !== 1);
+const FLOOR_COLORS = WALL_COLORS.filter((c, i) => i !== 0 && i !== 2).filter((c, i) => i !== 1).map((c, i) => i === 4 ? ['#FBF3E4', 'Ламинат'] : c);
 // отделка пола (по комнатам): своя текстура-«маска», размер повтора в метрах, шероховатость
 const FLOOR_FIN = {
-  laminate: { name: 'Ламинат', tex: 'laminate', col: '#E9D6B4', rough: 0.7 },   // второй цвет в линейке — «Молочный»
+  laminate: { name: 'Ламинат', tex: 'laminate', col: '#FBF3E4', rough: 0.96 },   // второй цвет в линейке — «Молочный»
   wood: { name: 'Дерево (доска)', tex: 'wood', col: '#C2A27C', rough: 0.75 },
   herringbone: { name: 'Паркет «ёлочка»', tex: 'herringbone', col: '#C2A27C', rough: 0.6 },
   porcelain: { name: 'Керамогранит', tex: 'porcelain', col: '#D8D6D2', rough: 0.3 },
-  tile: { name: 'Плитка', tex: 'tile', col: '#E8E6E1', rough: 0.4 },
+  tile: { name: 'Плитка', tex: 'tile', col: '#D8D6D2', rough: 0.4 },
   carpet: { name: 'Ковролин', tex: 'carpetf', col: '#8A8A88', rough: 1 },
   solid: { name: 'Наливной пол', tex: 'paint', col: '#8A8A88', rough: 0.12 }
 };
@@ -6037,10 +6046,10 @@ function finishTex(key, path, srgb, repeat) {
 }
 function floorMat(o) {
   const fin = floorFin(o), F = FLOOR_FIN[fin], T = WALL_FIN[F.tex] || FLOOR_TEX[F.tex], col = floorCol(o);
-  const opt = Object.assign({ roughness: F.rough, map: wallTex(F.tex) }, T.bump ? { bumpMap: wallBump(F.tex), bumpScale: T.bump } : {});
+  const opt = Object.assign({ roughness: F.rough, map: fin === 'laminate' ? laminateBaseMap(col) : wallTex(F.tex) }, T.bump ? { bumpMap: wallBump(F.tex), bumpScale: T.bump } : {});
   if (fin === 'laminate') {
-    opt.roughnessMap = finishTex('laminate-roughness', 'models/finishes/laminate-roughness.webp', false, true); opt.roughnessMap.repeat.set(1.6, 1.6);
-    opt.bumpMap = wallTex('laminate'); opt.bumpScale = 0.003;
+    opt.roughnessMap = finishTex('laminate-roughness', 'models/finishes/laminate-roughness.webp', false, true);
+    opt.normalMap = finishTex('laminate-normal', 'models/finishes/laminate-normal.webp', false, true); opt.normalScale = new THREE.Vector2(0.65, 0.65);
   }
   return mat('floor|' + fin + '|' + col, col, opt);
 }
@@ -6219,12 +6228,28 @@ function wallBump(fin) {
   return canvasTex('wallbump_' + fin, 512, 512, (x, w, h) => { const H = hmap(fin, w), im = x.createImageData(w, h), d = im.data;
     for (let i = 0; i < w * h; i++) { const v = Math.round((H[i] + 0.5) * 255); d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v; d[i * 4 + 3] = 255; } x.putImageData(im, 0, 0); }, true);
 }
+function laminateBaseMap(col) {
+  const n = parseInt(String(col || '#FFFFFF').replace('#', '').slice(0, 6), 16), r = n >> 16, g = n >> 8 & 255, b = n & 255, mx = Math.max(r, g, b), sat = mx ? (mx - Math.min(r, g, b)) / mx : 0;
+  if (sat >= 0.16) return wallTex('laminate');
+  const mix = Math.round(Math.max(0, sat / 0.16) * 40) / 40;
+  if (!mix) return finishTex('laminate-neutral', 'models/finishes/laminate-neutral.webp', true, true);
+  const key = 'laminate-sat-' + mix.toFixed(3); if (T3.tex[key]) return T3.tex[key];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1024;
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.wrapS = t.wrapT = THREE.RepeatWrapping; T3.tex[key] = t;
+  let loaded = 0; const draw = () => {
+    if (++loaded < 2) return;
+    const x = cv.getContext('2d'); x.globalAlpha = 1; x.drawImage(neutral, 0, 0); x.globalAlpha = mix; x.drawImage(color, 0, 0); x.globalAlpha = 1; t.needsUpdate = true; t3compileRedraw();
+  };
+  const neutral = new Image(), color = new Image(); neutral.onload = draw; color.onload = draw;
+  neutral.src = 'models/finishes/laminate-neutral.webp'; color.src = 'models/finishes/laminate.webp';
+  return t;
+}
 function wallMat(o) {
   const fin = wallFin(o), F = WALL_FIN[fin], col = wallCol(o);
-  const opt = Object.assign({ roughness: F.rough, map: wallTex(fin) }, F.bump ? { bumpMap: wallBump(fin), bumpScale: F.bump } : {});
+  const opt = Object.assign({ roughness: F.rough, map: fin === 'laminate' ? laminateBaseMap(col) : wallTex(fin) }, F.bump ? { bumpMap: wallBump(fin), bumpScale: F.bump } : {});
   if (fin === 'laminate') {
-    opt.roughnessMap = finishTex('laminate-roughness', 'models/finishes/laminate-roughness.webp', false, true); opt.roughnessMap.repeat.set(1.6, 1.6);
-    opt.bumpMap = wallTex('laminate'); opt.bumpScale = 0.003;
+    opt.roughnessMap = finishTex('laminate-roughness', 'models/finishes/laminate-roughness.webp', false, true);
+    opt.normalMap = finishTex('laminate-normal', 'models/finishes/laminate-normal.webp', false, true); opt.normalScale = new THREE.Vector2(0.65, 0.65);
   }
   return mat('wall|' + fin + '|' + col, col, opt);
 }
@@ -6271,7 +6296,16 @@ function buildWalls(sc) {
       const me = mbox(sc, len, y1 - y0, WALL_T, wm, mx, (y0 + y1) / 2, mz);
       me.rotation.y = -Math.atan2(sg.uy, sg.ux); wallUV(me, t0 + e0 + len / 2, (y0 + y1) / 2, WF.sx, WF.sy);
       const [nx, nz] = outward(mx, mz, sg.nx, sg.ny); let stub = null;
-      if (y0 === 0) { stub = mbox(sc, len, 0.3, WALL_T, mat('wallstub', '#7C7C7C', { roughness: 0.95 }), mx, 0.15, mz, true); stub.rotation.y = me.rotation.y; stub.visible = false; }
+      if (y0 === 0) {
+        if (S.project.skirt) {
+          const sm = mat('skirt|' + (S.project.skirtCol || '#F2F0EA'), S.project.skirtCol || '#F2F0EA', { roughness: 0.62 });
+          for (const side of [-1, 1]) {
+            const sk = mbox(sc, len, 0.08, 0.012, sm, mx + sg.nx * side * (WALL_T / 2 + 0.006), 0.04, mz + sg.ny * side * (WALL_T / 2 + 0.006));
+            sk.rotation.y = me.rotation.y; cutTag(sk, mx, mz, nx, nz, null, part);
+          }
+        }
+        stub = mbox(sc, len, 0.3, WALL_T, mat('wallstub', '#7C7C7C', { roughness: 0.95 }), mx, 0.15, mz, true); stub.rotation.y = me.rotation.y; stub.visible = false;
+      }
       me.userData.bounce = wallCol(w); cutTag(me, mx, mz, nx, nz, stub, part);
     };
     let t = 0;
@@ -6481,7 +6515,7 @@ function buildOpening(sc, o, lit) {
       sc.add(sp);
     }
   } else {
-    const wood = mat('door|' + doorCol(o), doorCol(o), { roughness: 0.6 });
+    const wood = mat('door|' + doorCol(o), doorCol(o), { roughness: 0.6 }), frame = wood;
     mbox(g, 0.05, 2.05, 0.12, frame, -sg.len / 2, 1.025, 0); mbox(g, 0.05, 2.05, 0.12, frame, sg.len / 2, 1.025, 0); mbox(g, sg.len + 0.1, 0.05, 0.12, frame, 0, 2.05, 0);
     const leaf = new THREE.Group(); leaf.position.set(-sg.len / 2, 0, 0); leaf.rotation.y = o.open === false ? 0 : -Math.PI / 2 * (o.swing || 1); g.add(leaf);
     mbox(leaf, sg.len - 0.02, 2.0, 0.04, wood, sg.len / 2, 1.0, 0);
@@ -6492,11 +6526,11 @@ function buildOpening(sc, o, lit) {
   g.traverse(m => { if (m.isMesh) cutTag(m, cx, cy, onx, onz, null); });
 }
 const FURN = [['gray', 'Серый', '#8E8E8E', '#A2A2A2'], ['white', 'Белый', '#E6E4DF', '#F0EEEA'], ['black', 'Чёрный', '#2A2B2E', '#3A3B3F'], ['blue', 'Синий', '#3E5B8A', '#5272A3'], ['beige', 'Бежевый', '#CDB894', '#DCCAA9'], ['brown', 'Коричневый', '#6B4A33', '#84603F']];
-const FURN_DEF = { ochair: 'black', stool: 'black', tcoffee: 'brown', bed: 'white', carpet: 'beige', trect: 'brown', tround: 'brown', chair: 'gray', armchair: 'blue', sofa: 'blue', shelf: 'white', cabinet: 'white', wardrobe: 'white' };
+const FURN_DEF = { ochair: 'black', stool: 'black', tcoffee: 'oak', bed: 'white', carpet: 'beige', trect: 'black', tround: 'white', chair: 'gray', armchair: 'blue', sofa: 'blue', shelf: '#917A69', cabinet: 'white', wardrobe: 'white', curtain: 'gray', cup: 'white' };
 const furnOf = (o) => o.fc || FURN_DEF[o.kind];
 const lighten = (hex, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.substr(i, 2), 16) + (255 - parseInt(hex.substr(i, 2), 16)) * k).toString(16).padStart(2, '0')).join('').toUpperCase();
-const furnRow = (o) => { const f = furnOf(o); return f && f[0] === '#' ? [f, 'Свой', f, lighten(f, 0.12)] : FURN.find(x => x[0] === f); };
-const FURN_KINDS = ['ochair', 'stool', 'tcoffee', 'bed', 'carpet', 'trect', 'tround', 'chair', 'armchair', 'sofa', 'shelf', 'cabinet', 'wardrobe'];
+const furnRow = (o) => { const f = furnOf(o); return f === 'oak' ? ['oak', 'Бежевый', '#D8B78A', '#E3C59F'] : f && f[0] === '#' ? [f, 'Свой', f, lighten(f, 0.12)] : FURN.find(x => x[0] === f); };
+const FURN_KINDS = ['ochair', 'stool', 'tcoffee', 'bed', 'carpet', 'trect', 'tround', 'chair', 'armchair', 'sofa', 'shelf', 'cabinet', 'wardrobe', 'curtain', 'cup'];
 // соты (тканевый grid «яичная решётка»): квадратные ячейки из тонких чёрных перегородок глубиной depth перед светящейся поверхностью.
 // w×h — прямоугольник, или r — круг (у софтбокса); cell — шаг ячейки (м)
 function eggCrate(parent, dims, x, y, z, cell, depth) {
@@ -6529,11 +6563,28 @@ function slideTex() {
     x.fillStyle = AC; x.beginPath(); x.arc(X(9), Y(0.85), 5, 0, 7); x.fill();
   });
 }
+function obsTex() {
+  return canvasTex('obs-studio', 1024, 640, (x, w, h) => {
+    const txt = (s, px, py, size, col) => { x.fillStyle = col || '#D8DADF'; x.font = (size || 16) + 'px sans-serif'; x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillText(s, px, py); };
+    const panel = (px, py, pw, ph, title) => { x.fillStyle = '#202226'; x.fillRect(px, py, pw, ph); x.fillStyle = '#2D3035'; x.fillRect(px, py, pw, 34); txt(title, px + 12, py + 18, 15, '#E3E4E6'); };
+    x.fillStyle = '#18191D'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#303238'; x.fillRect(0, 0, w, 34); txt('OBS Studio', 14, 18, 15, '#F0F0F1');
+    x.fillStyle = '#24262B'; x.fillRect(0, 34, w, 36); txt('Файл     Правка     Вид     Панели     Профиль     Коллекция сцен     Справка', 16, 53, 14);
+    x.fillStyle = '#050506'; x.fillRect(18, 86, 988, 310); x.strokeStyle = '#42454C'; x.lineWidth = 2; x.strokeRect(18, 86, 988, 310);
+    panel(18, 412, 180, 154, 'Сцены'); panel(206, 412, 300, 154, 'Источники'); panel(514, 412, 282, 154, 'Микшер'); panel(804, 412, 202, 154, 'Управление');
+    x.fillStyle = '#353941'; x.fillRect(28, 458, 160, 28); txt('Сцена 1', 38, 473, 14);
+    txt('Захват экрана', 220, 464, 14); txt('Веб-камера', 220, 500, 14); txt('Микрофон', 220, 536, 14);
+    ['Микрофон', 'Захват экрана'].forEach((s, i) => { const py = 458 + i * 46; txt(s, 526, py, 12); x.fillStyle = '#34373D'; x.fillRect(620, py - 5, 152, 10); x.fillStyle = '#62B76C'; x.fillRect(620, py - 5, 82 - i * 30, 10); });
+    const button = (label, py, blue) => { x.fillStyle = blue ? '#395E7D' : '#363A42'; x.fillRect(818, py, 174, 30); txt(label, 830, py + 16, 13, '#F0F1F2'); };
+    button('Запустить запись', 454, true); button('Запустить трансляцию', 490, false); button('Настройки', 526, false);
+    x.fillStyle = '#24262B'; x.fillRect(0, 584, w, 56); txt('●  Запись остановлена', 18, 611, 14, '#AEB2B8'); txt('00:00:00', 924, 611, 14, '#D8DADF');
+  });
+}
 function bentPanel(w, h, t, R, flare, qx, qy, rc) {
-  const geo = new THREE.BoxGeometry(w, h, t, 28, 16, 1), P = geo.attributes.position, U = geo.attributes.uv, N = geo.attributes.normal;
+  const geo = new THREE.BoxGeometry(w, h, t, 28, 16, 1), P = geo.attributes.position, U = geo.attributes.uv;
   for (let i = 0; i < P.count; i++) {
     let x = P.getX(i), y = P.getY(i), z = P.getZ(i);
-    if (N.getZ(i) > 0.5) U.setXY(i, (x / w + 0.5) * qx, (y / h + 0.5) * qy); else U.setXY(i, 0.5, 0.5);   // стёжка qx × qy только на лицевой стороне, тыл и борта — гладкие
+    U.setXY(i, (x / w + 0.5) * qx, (y / h + 0.5) * qy);
     const cx = Math.abs(x) - (w / 2 - rc), cy = Math.abs(y) - (h / 2 - rc);   // скруглённые углы
     if (cx > 0 && cy > 0) { const r0 = Math.hypot(cx, cy); if (r0 > rc) { x = Math.sign(x) * (w / 2 - rc + cx * rc / r0); y = Math.sign(y) * (h / 2 - rc + cy * rc / r0); } }
     const e = Math.min(w / 2 - Math.abs(x), h / 2 - Math.abs(y), cx > 0 && cy > 0 ? rc - Math.hypot(cx, cy) : 1), k = Math.min(1, Math.max(0, e / 0.035));
@@ -6543,36 +6594,72 @@ function bentPanel(w, h, t, R, flare, qx, qy, rc) {
   }
   geo.computeVertexNormals(); return geo;
 }
-// Монстера из проекта officehome.ok.kimi.link: извлечены только горшок и листья, без остальной сцены.
-const PLANT = { model: null, started: false, state: 'idle' };
+const PLANT_VARIANTS = [['monstera', 'Фикус', 1.6, 0.6875, 0.5625], ['snake', 'Сансевиерия', 1, 0.637, 0.573], ['spider', 'Хлорофитум', 0.7, 1.625, 1.535], ['pothos', 'Потос', 0.65, 2.025, 2.156], ['palm', 'Пальма', 1.8, 0.646, 0.784], ['haworthia', 'Хавортия', 0.5, 0.716, 0.716], ['fern', 'Адиантум', 0.8, 1.065, 1.035]];
+const plantSpec = (key) => PLANT_VARIANTS.find(v => v[0] === key) || PLANT_VARIANTS[0];
+function plantSetHeight(o, height) {
+  const s = plantSpec(o.plant || 'monstera'); o.h = Math.max(0.2, Math.min(2, height));
+  o.w = Math.round(o.h * s[3] * 10000) / 10000; o.d = Math.round(o.h * s[4] * 10000) / 10000;
+}
+function plantSetVariant(o, key) { o.plant = plantSpec(key)[0]; plantSetHeight(o, plantSpec(key)[2]); }
+const PLANT = { model: null, variants: {}, started: false, state: 'idle' };
 function plantStandard(x) {
   if (!x || !x.isMeshPhysicalMaterial) return x;
   const n = new THREE.MeshStandardMaterial({ color: x.color.clone(), map: x.map, roughness: x.roughness, metalness: x.metalness, roughnessMap: x.roughnessMap, metalnessMap: x.metalnessMap, emissive: x.emissive.clone(), emissiveMap: x.emissiveMap, emissiveIntensity: x.emissiveIntensity, side: x.side });
-  n.name = x.name; return n;   // clearcoat/sheen не нужны растению и заметно удорожают холодную компиляцию шейдеров
+  n.name = x.name; return n;
+}
+function plantMesh(m) {
+  const old = Array.isArray(m.material) ? m.material : [m.material];
+  if (old.some(x => x && x.name === 'PaletteMaterial044')) m.name = 'plant-pot';
+  m.material = Array.isArray(m.material) ? m.material.map(plantStandard) : plantStandard(m.material);
+  m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; m.userData.noMerge = true;
+  (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => {
+    if (x && /^Flowerpot/i.test(x.name)) { x.color.copy(c3('#777B80')); x.map = null; x.roughness = 0.82; x.metalness = 0; x.needsUpdate = true; }
+    if (x && x.emissive) { x.emissive.setRGB(0, 0, 0); x.emissiveIntensity = 0; }
+  });
+}
+function plantPackKey(name) {
+  const n = name.toLowerCase();
+  for (const [key, word] of [['snake', 'snakeplant'], ['spider', 'spiderplant'], ['pothos', 'neonpothos'], ['palm', 'majestypalm'], ['haworthia', 'haworthia'], ['fern', 'maidenhairfern']]) if (n.includes(word)) return key;
+  return null;
 }
 function plantLoad() {
   if (PLANT.started) return; PLANT.started = true;
   if (!has3() || !THREE.GLTFLoader) { PLANT.state = 'failed'; return; }
   PLANT.state = 'loading';
-  new THREE.GLTFLoader().load('models/plant.glb', g => {
-    g.scene.traverse(m => {
-      if (!m.isMesh) return;
-      const old = Array.isArray(m.material) ? m.material : [m.material];
-      if (old.some(x => x && x.name === 'PaletteMaterial044')) m.name = 'plant-pot';
-      m.material = Array.isArray(m.material) ? m.material.map(plantStandard) : plantStandard(m.material);
-      m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; m.userData.noMerge = true;
-      (Array.isArray(m.material) ? m.material : [m.material]).forEach(x => { if (x && x.emissive) { x.emissive.setRGB(0, 0, 0); x.emissiveIntensity = 0; } });   // растение не является источником света
-    });
+  const loader = new THREE.GLTFLoader();
+  loader.load('models/plant.glb', g => {
+    g.scene.traverse(m => { if (m.isMesh) plantMesh(m); });
     PLANT.model = g.scene; PLANT.state = 'ready'; T3.key = ''; V3.dirty = true; renderAll(true);
   }, undefined, e => { console.error('plant GLB', e); PLANT.state = 'failed'; });
+  loader.load('models/low_poly_plants_pack.glb', g => {
+    g.scene.updateMatrixWorld(true);
+    const meshes = [], groups = {}, leaves = {}, centers = {};
+    PLANT_VARIANTS.forEach(([key]) => { if (key !== 'monstera') groups[key] = new THREE.Group(); });
+    g.scene.traverse(m => {
+      if (!m.isMesh) return;
+      plantMesh(m); meshes.push(m);
+      const key = plantPackKey(m.name); if (key) (leaves[key] || (leaves[key] = [])).push(m);
+    });
+    Object.entries(leaves).forEach(([key, list]) => {
+      const b = new THREE.Box3(); list.forEach(m => b.union(new THREE.Box3().setFromObject(m))); centers[key] = b.getCenter(new THREE.Vector3()).x;
+    });
+    meshes.forEach(m => {
+      let key = plantPackKey(m.name);
+      if (!key) { const x = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()).x; key = Object.keys(centers).reduce((a, b) => Math.abs(centers[a] - x) <= Math.abs(centers[b] - x) ? a : b); }
+      const copy = m.clone(false); copy.matrixAutoUpdate = false; copy.matrix.copy(m.matrixWorld); groups[key].add(copy);
+    });
+    PLANT.variants = groups; T3.key = ''; V3.dirty = true; renderAll(true);
+  }, undefined, e => console.error('plant pack GLB', e));
 }
-function plantInstance(w, d, h) {
-  const p = PLANT.model.clone(true); p.updateMatrixWorld(true);
+function plantInstance(o, w, d, h) {
+  const key = o.plant || 'monstera', source = key === 'monstera' ? PLANT.model : PLANT.variants[key] || PLANT.model;
+  if (!source) return null;
+  const p = source.clone(true); p.updateMatrixWorld(true);
   const b = new THREE.Box3().setFromObject(p), s = b.getSize(new THREE.Vector3());
-  const pot = p.getObjectByName('plant-pot'), pb = pot ? new THREE.Box3().setFromObject(pot) : b, pc = pb.getCenter(new THREE.Vector3());
+  const pot = key === 'monstera' && p.getObjectByName('plant-pot'), pb = pot ? new THREE.Box3().setFromObject(pot) : b, pc = pb.getCenter(new THREE.Vector3());
   const sx = w / Math.max(0.000001, s.x), sy = h / Math.max(0.000001, s.y), sz = d / Math.max(0.000001, s.z);
-  p.scale.set(sx, sy, sz); p.position.set(-pc.x * sx, -b.min.y * sy, -pc.z * sz);   // центрируем именно горшок, а не смещённую листву
-  return p;   // только исходная геометрия модели, без процедурных ствола и веток
+  p.scale.set(sx, sy, sz); p.position.set(-pc.x * sx, -b.min.y * sy, -pc.z * sz);
+  return p;
 }
 // Herman Miller Aeron из officehome: исходная геометрия, палитры и сетчатые материалы Pellicle.
 const CHAIR = { model: null, started: false, state: 'idle' };
@@ -6593,11 +6680,38 @@ function chairLoad() {
   }, undefined, e => { console.error('chair GLB', e); CHAIR.state = 'failed'; });
 }
 function chairInstance(w, d, h) {
-  const p = CHAIR.model.clone(true); p.rotation.y = -Math.PI / 2; p.updateMatrixWorld(true);   // в исходнике фронт +X, в Setboard — +Z
-  const b = new THREE.Box3().setFromObject(p), s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+  const p = CHAIR.model.clone(true); p.rotation.y = -85.05 * RAD; p.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(p), s = b.getSize(new THREE.Vector3());
+  let seat = null; p.traverse(m => { if (m.isMesh && /pellicleSeat/i.test(m.name)) seat = m; });
+  const c = seat ? new THREE.Box3().setFromObject(seat).getCenter(new THREE.Vector3()) : b.getCenter(new THREE.Vector3());
   const sx = w / Math.max(0.000001, s.x), sy = h / Math.max(0.000001, s.y), sz = d / Math.max(0.000001, s.z);
   p.scale.set(sx, sy, sz); p.position.set(-c.x * sx, -b.min.y * sy, -c.z * sz);
   return p;
+}
+const CABINET = { model: null, started: false };
+function cabinetLoad() {
+  if (CABINET.started) return; CABINET.started = true;
+  if (!has3() || !THREE.GLTFLoader) return;
+  new THREE.GLTFLoader().load('models/table_furniture.glb', glb => {
+    glb.scene.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; } });
+    CABINET.model = glb.scene; T3.key = ''; V3.dirty = true; renderAll(true);
+  }, undefined, e => console.error('cabinet GLB', e));
+}
+function cabinetInstance(o) {
+  const wrap = new THREE.Group(), n = Math.max(1, Math.round(o.w / 0.6)), cw = o.w / n, col = (furnRow(o) || FURN[1])[2];
+  for (let i = 0; i < n; i++) {
+    const p = CABINET.model.clone(true); p.updateMatrixWorld(true);
+    p.traverse(m => {
+      if (!m.isMesh) return;
+      const name = m.material && m.material.name;
+      if (name === 'blinn2SG' || name === 'initialShadingGroup') m.material = mat('cabinet-body|' + col, col, { roughness: 0.62 });
+      else if (name === 'blinn3SG') m.material = mat('cabinet-handle', '#3A3C40', { roughness: 0.3, metalness: 0.55 });
+    });
+    const b = new THREE.Box3().setFromObject(p), s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+    p.scale.set(cw / Math.max(0.000001, s.x), o.h / Math.max(0.000001, s.y), o.d / Math.max(0.000001, s.z));
+    p.position.set(-o.w / 2 + (i + 0.5) * cw - c.x * p.scale.x, -b.min.y * p.scale.y, -c.z * p.scale.z); wrap.add(p);
+  }
+  return wrap;
 }
 function upholsteryMat(key, col, roughness) {
   const map = canvasTex('fabric-color-v1', 1024, 1024, (c, w, h) => {
@@ -6625,23 +6739,49 @@ function upholsteryMat(key, col, roughness) {
   map.repeat.set(3, 3); bump.repeat.set(3, 3);
   const m = mat(key, col, { map, bumpMap: bump, bumpScale: 0.0025, roughness }); m.userData.upholstery = true; return m;
 }
+function furnitureFabricMat(key, col, roughness) {
+  const map = finishTex('armchair-fabric-color', 'models/finishes/upholstery-fabric.png', true, true), normal = finishTex('armchair-fabric-normal', 'models/finishes/upholstery-fabric-normal.png', false, true), rough = finishTex('armchair-fabric-roughness', 'models/finishes/upholstery-fabric-roughness.png', false, true);
+  map.repeat.set(2, 2); normal.repeat.set(2, 2); rough.repeat.set(2, 2);
+  const m = mat(key, col, { map, normalMap: normal, normalScale: new THREE.Vector2(0.45, 0.45), roughnessMap: rough, roughness }); m.userData.upholstery = true; return m;
+}
+function chairFabricMat(col) {
+  const tx = (key, path, srgb) => {
+    const ck = 'chair-' + key;
+    if (!T3.tex[ck]) { const t = finishTex(key, path, srgb, true).clone(); t.repeat.set(0.65, 0.65); t.needsUpdate = true; T3.tex[ck] = t; }
+    return T3.tex[ck];
+  };
+  return mat('chair-fabric-visible|' + col, col, { map: tx('armchair-fabric-color', 'models/finishes/upholstery-fabric.png', true), normalMap: tx('armchair-fabric-normal', 'models/finishes/upholstery-fabric-normal.png', false), normalScale: new THREE.Vector2(0.8, 0.8), roughnessMap: tx('armchair-fabric-roughness', 'models/finishes/upholstery-fabric-roughness.png', false), roughness: 0.95 });
+}
+function tableTopMat(o) {
+  const fc = furnRow(o), key = fc ? fc[0] : 'brown', gray = key === 'white' || key === 'gray' || key === 'black';
+  let col = key === 'oak' ? '#FFFFFF' : fc ? fc[2] : '#6B4A33';
+  if (gray) {
+    const n = parseInt(col.slice(1), 16), r = n >> 16, g = n >> 8 & 255, b = n & 255, y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    col = '#' + [r, g, b].map(v => Math.round(y + (v - y) * 0.03).toString(16).padStart(2, '0')).join('').toUpperCase();
+  }
+  return mat('table-oak-top|' + key, col, { map: finishTex(gray ? 'table-oak-top-gray' : 'table-oak-top', gray ? 'models/finishes/table-oak-top-gray.jpg' : 'models/finishes/table-oak-top.jpg', true, false), roughnessMap: finishTex('table-oak-top-roughness', 'models/finishes/table-oak-top-roughness.png', false, false), roughness: 0.42 });
+}
 function buildProp(g, o) {
   const w = o.w, d = o.d, h = o.h, hw = w / 2, hd = d / 2, k = o.kind;
   let wood = mat('wood', '#7A5A40', { roughness: 0.55 }), light = mat('lwood', '#B89770', { roughness: 0.6 });
   let fabric = upholsteryMat('fabric', '#5D6878', 0.95), cushion = upholsteryMat('cushion', '#6B7788', 0.95); const dark = mat('dark', '#2A2D33', { roughness: 0.5 });
   const steel = mat('steel', '#8A8F96', { roughness: 0.3, metalness: 0.8 });
   const fc = FURN_KINDS.includes(k) && furnRow(o);
-  if (fc) { wood = light = mat('fw_' + fc[0], fc[2], { roughness: 0.55 }); fabric = upholsteryMat('ff_' + fc[0], fc[2], 0.95); cushion = upholsteryMat('fc_' + fc[0], fc[3], 0.95); }
+  if (fc) {
+    wood = light = mat('fw_' + fc[0], fc[2], { roughness: 0.55 });
+    const fm = ['armchair', 'sofa', 'chair'].includes(k) ? furnitureFabricMat : upholsteryMat;
+    fabric = fm((fm === furnitureFabricMat ? 'furn_ff_' : 'ff_') + fc[0], fc[2], 0.95); cushion = fm((fm === furnitureFabricMat ? 'furn_fc_' : 'fc_') + fc[0], fc[3], 0.95);
+  }
   if (k === 'carpet') {   // оригинальный ковёр из officehome: рисунок и микрорельеф ворса
     const cb = fc && fc[0] !== 'beige' ? fc[2] : null, col = cb || '#D4D1CA';
     const m = mat('carpetm-office' + (cb || ''), col, { map: finishTex('rug-color', 'models/finishes/rug-color.webp', true, false), normalMap: finishTex('rug-normal', 'models/finishes/rug-normal.webp', false, false), normalScale: new THREE.Vector2(0.9, 0.9), roughness: 0.97 });
     mbox(g, w, 0.012, d, m, 0, 0.006, 0);
   }
   else if (k === 'trect' || k === 'tround') {   // обеденный стол в скандинавском стиле: столешница со скруглённой кромкой, царга, точёные ножки враспор
-    const round = k === 'tround', tt = 0.035, rr = Math.min(hw, hd);
-    if (round) { const top = mcyl(g, hw, hw - 0.006, tt, wood, 0, h - tt / 2, 0, 56); top.scale.z = d / w; const eg = mcyl(g, hw - 0.006, hw - 0.012, 0.006, wood, 0, h - tt - 0.003, 0, 56, true); eg.scale.z = d / w; }
-    else rbox(g, w, tt, d, wood, 0, h - tt / 2, 0, 0.012);
-    const ah = 0.07, ay = h - tt - ah / 2, legM = mat('tleg_' + (fc ? fc[0] : 'w'), fc ? fc[2] : '#7A5A40', { roughness: 0.5 });
+    const round = k === 'tround', tt = 0.035, rr = Math.min(hw, hd), topM = tableTopMat(o);
+    if (round) { const top = mcyl(g, hw, hw - 0.006, tt, topM, 0, h - tt / 2, 0, 56); top.scale.z = d / w; const eg = mcyl(g, hw - 0.006, hw - 0.012, 0.006, wood, 0, h - tt - 0.003, 0, 56, true); eg.scale.z = d / w; }
+    else rbox(g, w, tt, d, topM, 0, h - tt / 2, 0, 0.012);
+    const ah = 0.07, ay = h - tt - ah / 2, legM = mat('table-leg-black', '#1B1C1F', { roughness: 0.45, metalness: 0.25 });
     if (round) { const ap = mcyl(g, rr * 0.55, rr * 0.55, ah, wood, 0, ay, 0, 40, true); ap.scale.z = d / w; }
     else { const ix = hw - 0.09, iz = hd - 0.09; mbox(g, ix * 2, ah, 0.022, wood, 0, ay, iz, true); mbox(g, ix * 2, ah, 0.022, wood, 0, ay, -iz, true); mbox(g, 0.022, ah, iz * 2, wood, ix, ay, 0, true); mbox(g, 0.022, ah, iz * 2, wood, -ix, ay, 0, true); }
     const legs = round ? [0, 1, 2, 3].map(i => { const a = Math.PI / 4 + i * Math.PI / 2; return [Math.cos(a), Math.sin(a)]; }) : [[-1, -1], [1, -1], [1, 1], [-1, 1]];
@@ -6652,10 +6792,10 @@ function buildProp(g, o) {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.013, len, 14), legM); leg.position.copy(a).add(b).multiplyScalar(0.5); leg.quaternion.setFromUnitVectors(V(0, 1, 0), v.normalize()); leg.castShadow = true; leg.receiveShadow = true; g.add(leg);   // точёная ножка: сужается к полу
     });
   } else if (k === 'chair') {   // мягкий стул-«ракушка»: гладкое мягкое сиденье и выгнутая спинка (цвет меняется), тонкие чёрные металлические ножки враспор
-    const fcol = (fc || ['gray', '', '#8E8E8E'])[2], vel = upholsteryMat('chairv2|' + fcol, fcol, 0.95), blk = mat('chairleg', '#16171A', { roughness: 0.45, metalness: 0.6 });
+    const fcol = (fc || ['gray', '', '#8E8E8E'])[2], vel = chairFabricMat(fcol), blk = mat('chairleg', '#16171A', { roughness: 0.45, metalness: 0.6 });
     const sh = 0.47, st = 0.075, sw = w * 0.96, sd = d * 0.86, bt = 0.06;
-    const seat = mesh(g, bentPanel(sw, sd, st, 1.6, -0.08, 4, 3, 0.09), vel, 0, sh - st / 2, d * 0.05); seat.rotation.x = -Math.PI / 2;   // сиденье: почти плоское, края чуть подняты, спереди скруглено
-    const bh = Math.max(0.25, h - sh + 0.06), back = mesh(g, bentPanel(w, bh, bt, 0.34, 0.16, 4, 4, 0.1), vel, 0, sh - 0.02 + bh / 2, -hd + 0.06); back.rotation.x = -0.16;   // спинка: охватывает спину, расширяется кверху, отклонена назад
+    const seat = mesh(g, bentPanel(sw, sd, st, 1.6, -0.08, 1, 1, 0.09), vel, 0, sh - st / 2, d * 0.05); seat.rotation.x = -Math.PI / 2;   // сиденье: почти плоское, края чуть подняты, спереди скруглено
+    const bh = Math.max(0.25, h - sh + 0.06), back = mesh(g, bentPanel(w, bh, bt, 0.34, 0.16, 1, 1, 0.1), vel, 0, sh - 0.02 + bh / 2, -hd + 0.06); back.rotation.x = -0.16;   // спинка: охватывает спину, расширяется кверху, отклонена назад
     [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sy]) => mrod(g, V(sx * (hw - 0.09), sh - st, sy * (hd - 0.11) + d * 0.03), V(sx * (hw - 0.025), 0, sy * (hd - 0.03)), 0.011, blk));
   } else if (k === 'armchair' || k === 'sofa') {
     // мягкая мебель mid-century: всё из скруглённых блоков, деревянные ножки враспор
@@ -6671,7 +6811,7 @@ function buildProp(g, o) {
     const bh = top - L - 0.12; rbox(back, w - 0.01, bh, 0.17, fabric, 0, bh / 2, 0, 0.08);
     if (sofa) for (let i = 0; i < n; i++) rbox(back, cw - 0.02, bh * 0.55, 0.1, cushion, -hw + a + 0.01 + cw * (i + 0.5), bh * 0.5, 0.11, 0.05);   // спинные подушки дивана
   } else if (k === 'plant' && PLANT.model) {
-    g.add(plantInstance(w, d, h));
+    const plant = plantInstance(o, w, d, h); if (plant) g.add(plant);
   } else if (k === 'plant') {   // запасной фикус на время загрузки или при ошибке GLB
     const r = Math.min(hw, hd), ph = Math.max(0.12, h * 0.36), pr = Math.max(0.05, Math.min(0.17, r * 0.5)), sl = pr * 0.45;
     const pot = mat('ficuspot', '#3C3D40', { roughness: 0.88, side: THREE.DoubleSide });
@@ -6689,6 +6829,8 @@ function buildProp(g, o) {
     fg.userData.shared = true;
   } else if (k === 'shelf') {
     buildShelfLoft(g, o);
+  } else if (k === 'curtain') {
+    buildCurtain(g, o);
   } else if (k === 'tv') {
     // современная плоская панель 55" (≈1,23 × 0,71 м); экран смотрит по направлению указателя.
     // На столе/тумбе — на центральной подставке; на полу — на мобильной стойке с двумя колоннами, высота регулируется
@@ -6740,8 +6882,8 @@ function buildProp(g, o) {
     [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([sx, sz]) => mrod(g, V(sx * r * 0.45, h - 0.05, sz * r * 0.45), V(sx * r * 0.8, 0, sz * r * 0.8), 0.014, steel));
     const ring = new THREE.Mesh(new THREE.TorusGeometry(r * 0.62, 0.01, 8, 32), steel); ring.rotation.x = Math.PI / 2; ring.position.y = h * 0.35; g.add(ring);
   } else if (k === 'tcoffee') {   // журнальный столик: толстая скруглённая столешница на точёных ножках
-    rbox(g, w, 0.05, d, wood, 0, h - 0.025, 0, 0.02);
-    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => mrod(g, V(sx * (hw - 0.07), h - 0.05, sz * (hd - 0.07)), V(sx * (hw - 0.04), 0, sz * (hd - 0.04)), 0.016, mat('legwood', '#6B4A33', { roughness: 0.5 })));
+    rbox(g, w, 0.05, d, tableTopMat(o), 0, h - 0.025, 0, 0.02);
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => mrod(g, V(sx * (hw - 0.07), h - 0.05, sz * (hd - 0.07)), V(sx * (hw - 0.04), 0, sz * (hd - 0.04)), 0.016, mat('table-leg-black', '#1B1C1F', { roughness: 0.45, metalness: 0.25 })));
   } else if (k === 'bed') {   // кровать: каркас, матрас, одеяло, подушки, мягкое изголовье у задней стороны
     const sheet = mat('sheet', '#ECEAE6', { roughness: 0.9 }), duvet = mat('duvet', '#C9CFD6', { roughness: 0.95 });
     rbox(g, w, 0.28, d, wood, 0, 0.14, 0, 0.03);
@@ -6750,7 +6892,7 @@ function buildProp(g, o) {
     [-1, 1].forEach(sx => rbox(g, w / 2 - 0.12, 0.12, 0.38, sheet, sx * (w / 4 + 0.01), 0.53, -hd + 0.3, 0.05));
     rbox(g, w, Math.max(0.6, h), 0.08, fabric, 0, Math.max(0.6, h) / 2, -hd + 0.04, 0.035);
   } else if (k === 'laptop') {   // ноутбук: корпус и раскрытый экран (шарнир сзади, экран смотрит вперёд)
-    const alu = mat('alu', '#B8BCC2', { roughness: 0.35, metalness: 0.6 }), scr = mat('lapscr', '#2C3A4A', { emissive: c3('#3E5874'), emissiveIntensity: 0.5, roughness: 0.2 });
+    const alu = mat('alu', '#B8BCC2', { roughness: 0.35, metalness: 0.6 }), scr = mat('lapscr', '#FFFFFF', { map: obsTex(), emissive: c3('#FFFFFF'), emissiveMap: obsTex(), emissiveIntensity: 0.35, roughness: 0.25 });
     mbox(g, w, 0.016, d, alu, 0, 0.008, 0);
     if (!MAT.lapkb) {   // клавиатура — текстура с клавишами (одна на все ноутбуки)
       const cv = document.createElement('canvas'); cv.width = 512; cv.height = 200; const x = cv.getContext('2d');
@@ -6776,10 +6918,12 @@ function buildProp(g, o) {
     seed = 4; const cols = ['#8A3B32', '#2F4F6B', '#C9A24A', '#4E6B45', '#6B4E6E', '#D8D2C4']; let y = 0;
     while (y < h - 0.02) { const th = 0.025 + rnd() * 0.02, b = mbox(g, w * (0.85 + rnd() * 0.15), th, d * (0.85 + rnd() * 0.15), mat('book' + Math.floor(rnd() * 6), cols[Math.floor(rnd() * 6)], { roughness: 0.7 }), 0, y + th / 2, 0); b.rotation.y = (rnd() - 0.5) * 0.4; y += th; }
   } else if (k === 'cup') {   // чашка с ручкой
-    const cer = mat('ceramic', '#F1EFEA', { roughness: 0.35 });
-    mesh(g, new THREE.CylinderGeometry(0.042, 0.034, h, 24, 1, true), mat('ceramic2', '#F1EFEA', { roughness: 0.35, side: THREE.DoubleSide }), -0.012, h / 2, 0);
+    const cf = furnRow(o), cc = cf ? cf[2] : '#F1EFEA', cer = mat('ceramic|' + cc, cc, { roughness: 0.35 });
+    mesh(g, new THREE.CylinderGeometry(0.042, 0.034, h, 24, 1, true), mat('ceramic2|' + cc, cc, { roughness: 0.35, side: THREE.DoubleSide }), -0.012, h / 2, 0);
     mcyl(g, 0.034, 0.034, 0.006, cer, -0.012, 0.003, 0, 20); mcyl(g, 0.039, 0.039, 0.004, mat('coffee', '#3B2618', { roughness: 0.2 }), -0.012, h * 0.82, 0, 20, true);
     const hd2 = new THREE.Mesh(new THREE.TorusGeometry(0.022, 0.006, 8, 16, Math.PI), cer); hd2.position.set(0.03, h * 0.5, 0); hd2.rotation.z = -Math.PI / 2; g.add(hd2);
+  } else if (k === 'cabinet' && CABINET.model) {
+    g.add(cabinetInstance(o));
   } else if (k === 'picture') {
     const base = 1.25, zb = Math.max(0, hd - 0.015) * -1;   // картина прижата к задней стороне своей зоны (к стене)
     mbox(g, w, h, 0.03, mat('pframe', '#3B2C20', { roughness: 0.5 }), 0, base + h / 2, zb);
@@ -6809,15 +6953,18 @@ function limb(p, a, b, ra, rb, m) {
 }
 const HUMAN = { m: null, f: null, started: false, state: 'idle' };
 function heroSex(o) { return 'm'; }
+const shelfCount = (o) => Math.max(1, Math.min(8, o.shelves || Math.round((o.h - 0.126) / 0.36 + 1)));
+function shelfSetCount(o, count) { o.shelves = Math.max(1, Math.min(8, Math.round(count))); o.h = 0.486 + (o.shelves - 1) * 0.36; }
 function buildShelfLoft(g, o) {
-  const w = o.w, d = o.d, h = o.h, hw = w / 2, hd = d / 2, fc = furnRow(o), woodCol = fc ? fc[2] : '#A4805D';
-  const wood = mat('loftwood|' + woodCol, woodCol, { map: wallTex('wood'), roughness: 0.58 });
+  const w = o.w, d = o.d, h = 0.486 + (shelfCount(o) - 1) * 0.36, hw = w / 2, hd = d / 2, fc = furnRow(o), woodCol = fc ? fc[2] : '#A4805D';
+  const woodMap = finishTex('shelf-wood-rotated', 'models/finishes/wood.webp', true, true); woodMap.center.set(0.5, 0.5); woodMap.rotation = Math.PI / 2;
+  const wood = mat('loftwood|' + woodCol, woodCol, { map: woodMap, roughness: 0.58 });
   const metal = mat('loftmetal', '#252A2D', { roughness: 0.34, metalness: 0.78 });
   const brass = mat('shelfbrass', '#B08A4B', { roughness: 0.28, metalness: 0.82 });
   const pages = mat('bookpages', '#D9D2BE', { roughness: 0.88 });
   const dark = mat('shelfdark', '#25282A', { roughness: 0.62 });
   const glass = ownMat({ color: c3('#E8F1F2'), transparent: true, opacity: 0.24, roughness: 0.08, metalness: 0, side: THREE.DoubleSide, depthWrite: false });
-  const shelfT = Math.max(0.025, h * 0.018), levels = [0.07, 0.25, 0.45, 0.65, 0.85].map(v => v * h);
+  const shelfT = 0.032, levels = Array.from({ length: shelfCount(o) }, (v, i) => 0.126 + i * 0.36);
 
   rbox(g, w + 0.07, 0.065, d + 0.055, wood, 0, 0.045, 0, 0.012);
   rbox(g, w + 0.085, 0.045, d + 0.065, wood, 0, h + 0.015, 0, 0.009);
@@ -6935,11 +7082,93 @@ function buildShelfLoft(g, o) {
     mrod(q, V(0.018 * s, 0.06 * s, 0), V(0.033 * s, 0.022 * s, -0.008 * s), 0.009 * s, brass, true);
   };
 
-  bookStack(-hw * 0.52, levels[0] + shelfT / 2, 0.015, 3, 0.9); box(hw * 0.43, levels[0] + shelfT / 2, 0, 1.05, true);
-  hourglass(-hw * 0.52, levels[1] + shelfT / 2, 0.015, 0.95); candle(-hw * 0.18, levels[1] + shelfT / 2, 0.04, 0.85); box(hw * 0.43, levels[1] + shelfT / 2, 0, 0.95, false);
-  plant(-hw * 0.55, levels[2] + shelfT / 2, 0.015, 0.95); photo(0, levels[2] + shelfT / 2, hd * 0.25, 0.9, true); photo(hw * 0.48, levels[2] + shelfT / 2, hd * 0.05, 1.05, false);
-  bookRow(-hw * 0.78, levels[3] + shelfT / 2, 0.02, 7, 0.85); globe(hw * 0.38, levels[3] + shelfT / 2, 0.015, 1.05);
-  bookRow(-hw * 0.78, levels[4] + shelfT / 2, 0.015, 6, 0.82); statue(hw * 0.42, levels[4] + shelfT / 2, 0.01, 1.05);
+  const books = Math.max(2, Math.round(w * 7));
+  if (levels[0] !== undefined) { bookStack(-hw * 0.52, levels[0] + shelfT / 2, 0.015, 3, 0.9); box(hw * 0.43, levels[0] + shelfT / 2, 0, 1.05, true); }
+  if (levels[1] !== undefined) { box(-hw * 0.43, levels[1] + shelfT / 2, 0, 0.95, false); candle(0, levels[1] + shelfT / 2, 0.04, 0.85); hourglass(hw * 0.48, levels[1] + shelfT / 2, 0.015, 0.95); }
+  if (levels[2] !== undefined) { photo(-hw * 0.48, levels[2] + shelfT / 2, hd * 0.05, 1.05, false); plant(0, levels[2] + shelfT / 2, 0.015, 0.95); photo(hw * 0.48, levels[2] + shelfT / 2, hd * 0.25, 0.9, true); }
+  if (levels[3] !== undefined) { globe(-hw * 0.42, levels[3] + shelfT / 2, 0.015, 1.05); bookRow(0, levels[3] + shelfT / 2, 0.02, books, 0.85); }
+  if (levels[4] !== undefined) { bookRow(-hw * 0.78, levels[4] + shelfT / 2, 0.015, books + 1, 0.82); statue(hw * 0.42, levels[4] + shelfT / 2, 0.01, 1.05); }
+  for (let i = 5; i < levels.length; i++) { bookRow(i % 2 ? 0 : -hw * 0.78, levels[i] + shelfT / 2, 0.015, books + (i % 2), 0.82); if (i % 2) box(-hw * 0.43, levels[i] + shelfT / 2, 0, 1, true); else plant(hw * 0.42, levels[i] + shelfT / 2, 0.015, 0.9); }
+}
+function curtainPanelMesh(width, height, open, side, material) {
+  const folds = Math.max(5, Math.round(width / 0.055)), nx = folds * 12, ny = 68, pos = [], uv = [], ind = [];
+  for (let iy = 0; iy <= ny; iy++) for (let ix = 0; ix <= nx; ix++) {
+    const u = ix / nx, v = iy / ny, phase = u * folds * Math.PI * 2 + Math.sin(v * 3.5) * 0.18;
+    const pinch = open ? Math.exp(-Math.pow((v - 0.64) / 0.145, 2)) : 0;
+    const gatheredWidth = open ? 1 - pinch * 0.8 + Math.max(0, v - 0.78) * 0.9 : 1;
+    const gatherShift = open ? side * Math.sin(v * Math.PI) * width * 0.18 : 0;
+    const foldAmp = (0.012 + width * 0.034) * (1 + pinch * 0.65);
+    const fold = (Math.sin(phase) + Math.sin(phase * 0.51 + 0.7) * 0.16) * foldAmp;
+    const billow = Math.sin(v * Math.PI) * width * (open ? 0.085 : 0.035);
+    const puddle = Math.max(0, v - 0.88) * width * 0.12;
+    const xx = (u - 0.5) * width * gatheredWidth + gatherShift;
+    const zz = fold + billow + puddle + Math.sin(v * 8 + u * 3) * 0.006;
+    const yy = height - 0.075 - v * (height - 0.115) + Math.sin(u * folds * Math.PI) * 0.012 * Math.pow(v, 3);
+    pos.push(xx, yy, zz); uv.push(u * Math.max(1, width / 0.35), v * height / 0.5);
+  }
+  for (let iy = 0; iy < ny; iy++) for (let ix = 0; ix < nx; ix++) { const a = iy * (nx + 1) + ix, b = a + 1, c = a + nx + 1, d = c + 1; ind.push(a, c, b, b, c, d); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(ind); geo.computeVertexNormals();
+  const me = new THREE.Mesh(geo, material); me.castShadow = true; me.receiveShadow = true; return me;
+}
+const CURTAIN_MODEL = { model: null, started: false, state: 'idle' };
+function curtainLoad() {
+  if (CURTAIN_MODEL.started) return; CURTAIN_MODEL.started = true;
+  if (!has3() || !THREE.GLTFLoader) { CURTAIN_MODEL.state = 'failed'; return; }
+  CURTAIN_MODEL.state = 'loading';
+  new THREE.GLTFLoader().load('models/curtain.glb', glb => {
+    CURTAIN_MODEL.model = glb.scene; CURTAIN_MODEL.state = 'ready'; T3.key = ''; V3.dirty = true; renderAll(true);
+  }, undefined, e => { console.error('curtain GLB', e); CURTAIN_MODEL.state = 'failed'; });
+}
+function curtainInstance(o) {
+  if (!CURTAIN_MODEL.model) return null;
+  const q = CURTAIN_MODEL.model.clone(true), single = o.single === true, open = !single && o.open === true, col = furnRow(o) ? furnRow(o)[2] : '#6B4A33';
+  const hidden = [];
+  q.traverse(m => {
+    if (!m.isMesh) return;
+    if (/tied/i.test(m.name) !== open) { hidden.push(m); return; }
+    m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
+    const old = Array.isArray(m.material) ? m.material : [m.material], mats = old.map(v => {
+      const n = v.clone(); n.color.copy(c3(col)); n.roughness = 0.84; n.metalness = 0; n.side = THREE.DoubleSide; return n;
+    });
+    m.material = Array.isArray(m.material) ? mats : mats[0];
+  });
+  hidden.forEach(m => m.removeFromParent());
+  const wrap = new THREE.Group(), sides = single ? [0] : [-1, 1], panelW = single ? o.w : open ? Math.min(o.w / 2, 1) : o.w / 2 + Math.min(0.04, o.w * 0.02);
+  for (const side of sides) {
+    const panel = q.clone(true);
+    if (!single && open && side === -1) panel.rotation.y = Math.PI;
+    panel.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(panel), size = bb.getSize(new THREE.Vector3()), center = bb.getCenter(new THREE.Vector3());
+    panel.scale.set(panelW / Math.max(0.001, size.x), WALL_H / Math.max(0.001, size.y), 0.25 / Math.max(0.001, size.z));
+    panel.position.set((single ? 0 : side * (o.w / 2 - panelW / 2)) - center.x * panel.scale.x, -bb.min.y * panel.scale.y, -center.z * panel.scale.z);
+    wrap.add(panel);
+  }
+  return wrap;
+}
+function buildCurtain(g, o) {
+  const w = o.w, h = WALL_H, single = o.single === true, open = !single && o.open === true, fc = furnRow(o), col = fc ? fc[2] : '#6B4A33';
+  const base = upholsteryMat('curtain|' + col, col, 0.96);
+  const fabric = new THREE.MeshPhysicalMaterial({ color: base.color, map: base.map, bumpMap: base.bumpMap, bumpScale: base.bumpScale, roughness: 0.93, sheen: 0.42, sheenColor: base.color, sheenRoughness: 0.82, side: THREE.DoubleSide }); fabric.userData.own = true;
+  const metal = mat('curtain-rod', '#36302B', { roughness: 0.32, metalness: 0.78 });
+  const rope = mat('curtain-rope', '#887253', { roughness: 0.88 });
+  const rod = mcyl(g, 0.009, 0.009, w + 0.12, metal, 0, h - 0.035, -0.055, 24, true); rod.rotation.z = Math.PI / 2;
+  for (const side of [-1, 1]) {
+    msph(g, 0.018, metal, side * (w / 2 + 0.07), h - 0.035, -0.055, true);
+    mrod(g, V(side * (w / 2 - 0.03), h - 0.04, -0.055), V(side * (w / 2 - 0.03), h - 0.04, -0.01), 0.005, metal, true);
+  }
+  const model = curtainInstance(o); if (model) g.add(model);
+  for (const side of single ? [0] : [-1, 1]) {
+    if (model) continue;
+    const pw = single ? w : open ? Math.min(w / 2, 1) : w / 2, cx = single ? 0 : side * (w / 2 - pw / 2);
+    const panel = curtainPanelMesh(pw, h, open, side, fabric); panel.position.set(cx, 0, 0); g.add(panel);
+    const rings = Math.max(4, Math.round(pw / 0.085));
+    for (let i = 0; i <= rings; i++) { const ring = mesh(g, new THREE.TorusGeometry(0.014, 0.0022, 6, 18), metal, cx - pw / 2 + i * pw / rings, h - 0.043, -0.052, true); ring.rotation.y = Math.PI / 2; }
+    if (open) {
+      const bandY = h * 0.34;
+      const band = rbox(g, pw * 0.39, 0.014, 0.025, rope, cx, bandY, 0.055, 0.005); band.rotation.z = side * 0.08;
+      mrod(g, V(cx, bandY, 0.06), V(side * (w / 2 + 0.025), bandY + 0.01, -0.03), 0.003, rope, true);
+    }
+  }
 }
 // герои появляются только когда готовы и модель, и перекрашенные футболки — без «мигания» цвета
 function humansFinish() {
@@ -7203,14 +7432,14 @@ function buildUrsaCamera(g, o) {
   const lineScrew = (s, r) => { const q = mbox(s, r * 1.2, r * 0.16, r * 0.08, edge, 0, 0, -r * 0.22, true); };
   const cylZ = (p, r0, r1, len, m, x, y, z, seg) => { const q = mcyl(p, r0, r1, len, m, x, y, z, seg || 32, true); q.rotation.x = Math.PI / 2; return q; };
 
-  const head = new THREE.Group(); head.position.set(0, h - 0.01, 0); head.rotation.x = (o.tilt || 0) * RAD; g.add(head);
+  const head = new THREE.Group(); head.position.set(0, h - 0.02, 0); head.rotation.x = (o.tilt || 0) * RAD; g.add(head);
   const BW = 0.145 * ff, BH = 0.15 * ff, BL = 0.19, bz = 0.035, bf = bz - BL / 2;
   rbox(head, BW, BH, BL, body, 0, 0, bz, 0.008);
   rbox(head, BW * 0.94, 0.018, BL * 0.9, edge, 0, -BH / 2 - 0.006, bz, 0.005);
   rbox(head, BW * 0.78, 0.017, BL * 0.82, body, 0, BH / 2 + 0.006, bz + 0.006, 0.004);
   rbox(head, 0.012, BH * 0.72, BL * 0.74, edge, BW / 2 + 0.003, -0.002, bz + 0.008, 0.003);
   rbox(head, 0.012, BH * 0.68, BL * 0.68, edge, -BW / 2 - 0.003, -0.005, bz + 0.006, 0.003);
-  const backZ = bz + BL / 2, batteryZ = backZ + 0.032;
+  const backZ = bz + BL / 2, batteryZ = backZ + 0.023;
   rbox(head, 0.088 * ff, 0.108 * ff, 0.046, edge, 0, -0.006, batteryZ, 0.007);
   rbox(head, 0.074 * ff, 0.091 * ff, 0.004, rubber, 0, -0.006, batteryZ + 0.025, 0.004);
   mrod(head, V(-0.032 * ff, 0.026, batteryZ + 0.029), V(0, -0.026, batteryZ + 0.029), 0.003, darkMetal, true);
@@ -7220,7 +7449,7 @@ function buildUrsaCamera(g, o) {
   const led = mat('battery-led', '#8FCB68', { emissive: c3('#7BBD55'), emissiveIntensity: 0.6, roughness: 0.4 });
   for (let i = 0; i < 4; i++) msph(head, 0.0022, led, -0.018 + i * 0.012, -0.038, batteryZ + 0.029, true);
 
-  const mountZ = bf - 0.018;
+  const mountZ = bf - 0.009;
   cylZ(head, 0.065 * ff, 0.065 * ff, 0.018, edge, 0, 0, mountZ, 48);
   cylZ(head, 0.058 * ff, 0.058 * ff, 0.008, silver, 0, 0, mountZ - 0.012, 64);
   cylZ(head, 0.049 * ff, 0.049 * ff, 0.009, darkMetal, 0, 0, mountZ - 0.018, 64);
@@ -7229,7 +7458,7 @@ function buildUrsaCamera(g, o) {
   const redDot = msph(head, 0.003, red, 0, 0.061 * ff, mountZ - 0.023, true); redDot.scale.z = 0.3;
   for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; const contact = mbox(head, 0.003, 0.006, 0.001, brassContact(), Math.cos(a) * 0.035 * ff, Math.sin(a) * 0.035 * ff, mountZ - 0.025, true); contact.rotation.z = a; }
 
-  const LL = 0.085 + Math.min(0.16, o.lens / 1000 * 0.55), lz = mountZ - 0.027;
+  const LL = 0.085 + Math.min(0.16, o.lens / 1000 * 0.55), lz = mountZ - 0.0225;
   cylZ(head, 0.043 * ff, 0.041 * ff, LL, darkMetal, 0, 0, lz - LL / 2, 48);
   for (const f of [0.08, 0.18, 0.55, 0.82, 0.94]) cylZ(head, 0.045 * ff, 0.045 * ff, 0.009, f === 0.55 ? rubber : edge, 0, 0, lz - LL * f, 48);
   for (let i = 0; i < 36; i++) { const a = i * Math.PI * 2 / 36, r = 0.044 * ff; const rib = mbox(head, 0.002, 0.004, LL * 0.28, rubber, Math.cos(a) * r, Math.sin(a) * r, lz - LL * 0.55, true); rib.rotation.z = a; }
@@ -7237,7 +7466,7 @@ function buildUrsaCamera(g, o) {
   const lensRing = mesh(head, new THREE.TorusGeometry(0.04 * ff, 0.0018 * ff, 8, 48), silver, 0, 0, lz - LL - 0.005, true);
   labelMesh(head, 'BLACKMAGIC', 0.043, 0.009, 0, -BH / 2 + 0.015, bf - 0.004, Math.PI, '#CBD1D2');
 
-  const grip = new THREE.Group(); grip.position.set(-BW / 2 - 0.035, -0.01, bz - 0.015); head.add(grip);
+  const grip = new THREE.Group(); grip.position.set(-BW / 2 - 0.018, -0.01, bz - 0.015); head.add(grip);
   rbox(grip, 0.036, BH * 0.86, 0.055, rubber, 0, 0, 0, 0.012);
   rbox(grip, 0.042, 0.023, 0.063, body, 0, BH * 0.43, 0, 0.006);
   rbox(grip, 0.041, 0.019, 0.061, edge, 0, -BH * 0.43, 0, 0.005);
@@ -7604,10 +7833,27 @@ function buildLight(sc, g, o, lit, shadowBudget) {
       const fl = new THREE.Group(); fl.position.set(0, sy * H / 2, -D / 2); fl.rotation.x = sy * 0.45; head.add(fl);
       mbox(fl, W, 0.004, 0.27, blk, 0, 0, -0.135, true);
     });
-  } else if (k === 'panel' || k === 'mat') {
-    const W = k === 'mat' ? 0.6 : panelW(o), H = k === 'mat' ? 0.6 : panelH(o);
+  } else if (k === 'panel') {
+    const W = panelW(o), H = panelH(o);
     mbox(head, W, H, 0.05, black, 0, 0, 0.02, true);
     const f = mesh(head, new THREE.PlaneGeometry(W - 0.04, H - 0.04), emi, 0, 0, -0.006, true); f.rotation.y = Math.PI;
+  } else if (k === 'mat') {
+    const W = 0.6, H = 0.6, D = 0.1, T = 0.009, frontBase = upholsteryMat('mat-front', '#F2F1ED', 0.98), backBase = upholsteryMat('mat-back', '#111214', 1), shell = ownMat({ color: c3('#111214'), map: backBase.map, bumpMap: backBase.bumpMap, bumpScale: 0.0012, roughness: 1, metalness: 0, envMapIntensity: 0, side: THREE.DoubleSide });
+    shell.userData.glow = false;
+    const diffuser = ownMat({ color: c3('#F4F3EF'), map: frontBase.map, bumpMap: frontBase.bumpMap, bumpScale: 0.0015, roughness: 0.96, emissive: col, emissiveIntensity: lit ? emi.emissiveIntensity : 0, side: THREE.DoubleSide });
+    [-1, 1].forEach(s => {
+      mbox(head, T, H, D, shell, s * (W / 2 - T / 2), 0, 0, true);
+      mbox(head, W - T * 2, T, D, shell, 0, s * (H / 2 - T / 2), 0, true);
+    });
+    mesh(head, new THREE.PlaneGeometry(W - 0.006, H - 0.006), shell, 0, 0, D / 2 + 0.001, true);
+    const fg = new THREE.PlaneGeometry(W - T * 2, H - T * 2, 32, 32), fp = fg.attributes.position;
+    for (let i = 0; i < fp.count; i++) { const x = fp.getX(i), y = fp.getY(i); fp.setZ(i, Math.sin(x * 41 + y * 9) * Math.sin(y * 27 - x * 7) * 0.0012 + Math.sin(y * 13 + x * 5) * 0.0007); }
+    fg.computeVertexNormals();
+    const f = mesh(head, fg, diffuser, 0, 0, -D / 2 + 0.02, true); f.rotation.y = Math.PI;
+    const brace = mat('mat-brace', '#1B1D21', { roughness: 0.16, metalness: 0.82, envMapIntensity: 1.2 });
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) mrod(head, V(sx * (W / 2 - 0.045), sy * (H / 2 - 0.045), D / 2 + 0.008), V(0, 0, D / 2 + 0.048), 0.009, brace, true);
+    const hub = mcyl(head, 0.038, 0.038, 0.018, brace, 0, 0, D / 2 + 0.05, 28, true); hub.rotation.x = Math.PI / 2;
+    rbox(head, 0.055, 0.085, 0.032, black, 0, -0.045, D / 2 + 0.066, 0.008);
   } else if (k === 'astera') { mcyl(head, 0.025, 0.025, 1.0, emi, 0, 0, 0, 12, true); }
   else if (k === 'reflector') {
     // круглый отражатель Ø1 м висит вертикально под точкой крепления: стойка держит его сзади за верхний край
@@ -7636,7 +7882,7 @@ function buildLight(sc, g, o, lit, shadowBudget) {
   if (o.grid && GRID_KINDS.includes(k)) {   // соты перед светящейся поверхностью
     if (k === 'softbox') { const fr = head.children.find(c => c.geometry && c.geometry.type === 'CircleGeometry'); if (fr) eggCrate(head, { r: softboxSize(o) / 200 }, fr.position.x, fr.position.y, fr.position.z - 0.004, 0.06, 0.035); }
     else if (k === 'kino') eggCrate(head, { w: 1.24, h: 0.28 }, 0, 0, -0.052, 0.045, 0.03);
-    else { const W = k === 'mat' ? 0.6 : panelW(o), H = k === 'mat' ? 0.6 : panelH(o); eggCrate(head, { w: W - 0.02, h: H - 0.02 }, 0, 0, -0.008, 0.042, 0.03); }
+    else { const W = k === 'mat' ? 0.6 : panelW(o), H = k === 'mat' ? 0.6 : panelH(o); eggCrate(head, { w: W - 0.02, h: H - 0.02 }, 0, 0, k === 'mat' ? -0.035 : -0.008, 0.042, 0.03); }
   }
   if (stand) {
     // сдвигаем корпус вперёд так, чтобы его задняя часть оказалась в точке поворота на верху стойки
@@ -7928,6 +8174,7 @@ function sceneKeys() {
     KEYS.rev = S.rev; KEYS.p = S.project; KEYS.per = new Map(); const all = [], lt = [], st = [];
     objs().forEach(o => { const s = JSON.stringify(o, sceneKeyFilter); KEYS.per.set(o.id, s); all.push(s); if (STRUCT_T.includes(o.type)) lt.push(s); if (STATIC_T.includes(o.type)) st.push(s); });
     all.push('h' + WALL_H); lt.push('h' + WALL_H); st.push('h' + WALL_H);
+    const skirt = 'skirt|' + !!S.project.skirt + '|' + (S.project.skirtCol || '#F2F0EA'); all.push(skirt); lt.push(skirt); st.push(skirt);
     KEYS.full = all.join(','); KEYS.light = lt.join(',') + '|w' + objs().some(o => o.type === 'wall'); KEYS.struct = st.join(',') + '|w' + objs().some(o => o.type === 'wall');
   }
   return KEYS;
@@ -8559,12 +8806,25 @@ function renderInspector() {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
     const dims = propDims(o);
     h += '<div class="frow">';
-    if (dims.includes('w')) h += field('Ш', `<input type="number" id="inW" step="0.05" min="0.05" max="20" value="${o.w}"> м`);
-    if (dims.includes('d')) h += field('Г', `<input type="number" id="inD" step="0.05" min="0.02" max="20" value="${o.d}"> м`);
+    if (dims.includes('w')) h += field('Ш', `<input type="number" id="inW" step="0.05" min="${o.kind === 'curtain' ? (o.single === true ? 1 : 2) : o.kind === 'shelf' ? 0.6 : 0.05}" max="${o.kind === 'curtain' ? (o.single === true ? 3 : 6) : o.kind === 'shelf' ? 2 : 20}" value="${o.w}"> м`);
+    if (dims.includes('d')) h += field('Г', `<input type="number" id="inD" step="0.05" min="${o.kind === 'shelf' ? 0.3 : 0.02}" max="${o.kind === 'shelf' ? 1 : 20}" value="${o.d}"> м`);
     if (dims.includes('h')) h += field('В', `<input type="number" id="inHH" step="0.05" min="0.01" max="5" value="${o.h}"> м`);
     h += '</div>';
+    if (o.kind === 'shelf') h += field('Полки', `<input type="number" id="inShelfN" step="1" min="1" max="8" value="${shelfCount(o)}">`);
+    if (o.kind === 'plant') {
+      h += field('Высота', `<input type="number" id="inPlantH" step="0.1" min="0.2" max="2" value="${o.h}"> м`);
+      h += `<div class="plant-grid" role="group" aria-label="Вид растения">${PLANT_VARIANTS.map(([key, name]) => `<button class="plant-choice" data-act="plantvar" data-v="${key}" aria-pressed="${(o.plant || 'monstera') === key}" title="${name}"><img src="models/plants/${key}.png" alt="" draggable="false"><span>${name}</span></button>`).join('')}</div>`;
+    }
+    if (o.kind === 'curtain') {
+      o.d = 0.25;
+      h += `<span class="seg" role="group" aria-label="Створки"><button data-act="cpanels" data-v="double" aria-pressed="${o.single !== true}">Две</button><button data-act="cpanels" data-v="single" aria-pressed="${o.single === true}">Одна</button></span>`;
+      if (o.single !== true) h += `<span class="seg" role="group" aria-label="Состояние шторы"><button data-act="curtain" data-v="closed" aria-pressed="${o.open !== true}">Закрыта</button><button data-act="curtain" data-v="open" aria-pressed="${o.open === true}">Открыта</button></span>`;
+    }
     if (o.kind === 'tv' && (o.wall || supportTop(o) <= 0.1)) h += field(o.wall ? 'Высота' : 'Стойка', `<input type="number" id="inTvH" step="0.05" min="0.3" max="1.8" value="${tvStandH(o)}"> м`);   // высота нижнего края экрана от пола
-    if (FURN_KINDS.includes(o.kind)) h += `<span class="vsep"></span><span class="row" role="group" aria-label="Цвет мебели">${FURN.map(f => `<button class="swatch fc" data-act="fc" data-v="${f[0]}" aria-label="${f[1]}" title="${f[1]}" aria-pressed="${furnOf(o) === f[0]}" style="background:${f[2]}"></button>`).join('')}${customSwatch('inFCol', (furnRow(o) || FURN[0])[2], (furnOf(o) || '')[0] === '#')}</span>`;
+    if (FURN_KINDS.includes(o.kind)) {
+      const table = ['trect', 'tround', 'tcoffee'].includes(o.kind), oak = table ? `<button class="swatch fc" data-act="fc" data-v="oak" aria-label="Бежевый" title="Родной цвет текстуры" aria-pressed="${furnOf(o) === 'oak'}" style="background:#D8B78A"></button>` : '';
+      h += `<span class="vsep"></span><span class="row" role="group" aria-label="Цвет мебели">${FURN.filter(f => !table || f[0] !== 'beige').map(f => `<button class="swatch fc" data-act="fc" data-v="${f[0]}" aria-label="${f[1]}" title="${f[1]}" aria-pressed="${furnOf(o) === f[0]}" style="background:${f[2]}"></button>`).join('')}${oak}${customSwatch('inFCol', (furnRow(o) || FURN[0])[2], (furnOf(o) || '')[0] === '#')}</span>`;
+    }
   } else if (o.x1 !== undefined) {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
     h += o.type === 'wall' ? field('Длина', `<span class="ro">${fx(segOf(o).len, 2)}</span> м`)   // у стены длина только для просмотра — меняется точками на схеме
@@ -8573,9 +8833,14 @@ function renderInspector() {
       h += field('Высота', `<input type="number" id="inWallH" step="0.1" min="2.3" max="10" value="${fx(WALL_H, 2).replace(',', '.')}"> м`);
       const col = wallCol(o).toUpperCase();
       h += field('Отделка', `<select id="inWFin">${Object.keys(WALL_FIN).map(k => `<option value="${k}" ${k === wallFin(o) ? 'selected' : ''}>${WALL_FIN[k].name}</option>`).join('')}</select>`);
-      h += `<span class="row" role="group" aria-label="Цвет стены">${WALL_COLORS.map(c => `<button class="swatch fc" data-act="wcol" data-v="${c[0]}" aria-label="${c[1]}" title="${c[1]}" aria-pressed="${col === c[0]}" style="background:${c[0]}"></button>`).join('')}${customSwatch('inWCol', col, !WALL_COLORS.some(c => c[0] === col))}</span>`;
+      h += `<span class="row" role="group" aria-label="Цвет стены">${WALL_SWATCHES.map(c => `<button class="swatch fc" data-act="wcol" data-v="${c[0]}" aria-label="${c[1]}" title="${c[1]}" aria-pressed="${col === c[0]}" style="background:${c[0]}"></button>`).join('')}${customSwatch('inWCol', col, !WALL_SWATCHES.some(c => c[0] === col))}</span>`;
       const others = objs().filter(w => w.type === 'wall' && w !== o), same = others.every(w => wallFin(w) === wallFin(o) && wallCol(w) === wallCol(o));
       if (others.length) h += same ? `<button class="btn wall-all done" disabled>✓ Все стены с этой отделкой</button>` : `<button class="btn wall-all" data-act="wallall">Применить ко всем стенам</button>`;
+      h += `<label class="chk solo"><input type="checkbox" id="inSkirt" ${S.project.skirt ? 'checked' : ''}> Плинтус</label>`;
+      if (S.project.skirt) {
+        const sc = (S.project.skirtCol || '#F2F0EA').toUpperCase();
+        h += `<span class="row" role="group" aria-label="Цвет плинтуса">${[['#F2F0EA', 'Белый'], ['#232427', 'Чёрный']].map(c => `<button class="swatch fc" data-act="skirtcol" data-v="${c[0]}" aria-label="${c[1]}" title="${c[1]}" aria-pressed="${sc === c[0]}" style="background:${c[0]}"></button>`).join('')}${customSwatch('inSkirtCol', sc, sc !== '#F2F0EA' && sc !== '#232427')}</span>`;
+      }
     }
     if (o.type === 'window') h += field('Высота', `<input type="number" id="inWH" step="0.05" min="0.3" max="${fx(winMaxH(o), 2).replace(',', '.')}" value="${o.h || 1.2}"> м`) + `<label class="chk solo"><input type="checkbox" id="inFloor" ${o.floor ? 'checked' : ''}> Окно в пол</label>`;
     if (o.type === 'window') h += field('Вид из окна', `<select id="inWView">${[['', 'Нет'], ['street', 'Улица'], ['city', 'Город'], ['sunset', 'Закат'], ['park', 'Парк']].map(([v, n]) => `<option value="${v}" ${(o.view || '') === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`);
@@ -8591,7 +8856,7 @@ function renderInspector() {
     const col = floorCol(o).toUpperCase();
     h += `<div class="ins-head"><span class="kind">Пол</span></div>`;
     h += field('Отделка', `<select id="inWFin">${Object.keys(FLOOR_FIN).map(k => `<option value="${k}" ${k === floorFin(o) ? 'selected' : ''}>${FLOOR_FIN[k].name}</option>`).join('')}</select>`);
-    h += `<span class="row" role="group" aria-label="Цвет пола">${WALL_COLORS.map(c => `<button class="swatch fc" data-act="wcol" data-v="${c[0]}" aria-label="${c[1]}" title="${c[1]}" aria-pressed="${col === c[0]}" style="background:${c[0]}"></button>`).join('')}${customSwatch('inWCol', col, !WALL_COLORS.some(c => c[0] === col))}</span>`;
+    h += `<span class="row" role="group" aria-label="Цвет пола">${FLOOR_COLORS.map(c => `<button class="swatch fc" data-act="wcol" data-v="${c[0]}" aria-label="${c[1]}" title="${c[1]}" aria-pressed="${col === c[0]}" style="background:${c[0]}"></button>`).join('')}${customSwatch('inWCol', col, !FLOOR_COLORS.some(c => c[0] === col))}</span>`;
     const faces = roomFaces(objs().filter(x => x.x1 !== undefined)).filter(f => f.area > 0.05), others = faces.map(floorOfFace).filter(f => f !== o);
     if (faces.length > 1) h += others.length === faces.length - 1 && others.every(f => f && floorFin(f) === floorFin(o) && floorCol(f) === floorCol(o)) ? `<button class="btn wall-all done" disabled>✓ Во всех комнатах этот пол</button>` : `<button class="btn wall-all" data-act="floorall">Применить ко всем комнатам</button>`;
   } else if (o.type === 'note') {
@@ -8631,10 +8896,13 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'color') { o.color = +b.dataset.v; delete o.hcol; }
   if (a === 'fc') o.fc = b.dataset.v;
   if (a === 'wcol') o.wcol = b.dataset.v;
+  if (a === 'skirtcol') S.project.skirtCol = b.dataset.v;
   if (a === 'beam') o.beam = +b.dataset.v;
   if (a === 'sbsize') o.size = softboxSize({ size: +b.dataset.v });
   if (a === 'dcol') o.dcol = b.dataset.v;
-  if (a === 'dstate') o.open = b.dataset.v === 'open';
+  if (a === 'dstate' || a === 'curtain') o.open = b.dataset.v === 'open';
+  if (a === 'cpanels') { o.single = b.dataset.v === 'single'; o.w = o.single ? 1.2 : 2.5; if (o.single) o.open = false; }
+  if (a === 'plantvar') plantSetVariant(o, b.dataset.v);
   if (a === 'floorall') { let n = 0; roomFaces(objs().filter(x => x.x1 !== undefined)).filter(f => f.area > 0.05).forEach(f => { let fo = floorOfFace(f); if (fo === o) return; if (!fo) { const [fx, fy] = innerPt(f.poly); fo = { id: uid(), type: 'floor', x: fx, y: fy }; objs().push(fo); } n++; if (o.fin) fo.fin = o.fin; else delete fo.fin; if (o.wcol) fo.wcol = o.wcol; else delete fo.wcol; }); toast(`Пол применён ко всем комнатам (${n + 1})`); }
   if (a === 'wallall') { let n = 0; objs().forEach(w => { if (w.type !== 'wall' || w === o) return; n++; if (o.fin) w.fin = o.fin; else delete w.fin; if (o.wcol) w.wcol = o.wcol; else delete w.wcol; }); toast(`Отделка применена ко всем стенам (${n + 1})`); }
   if (a === 'dswing') { const di = doorInfo(o); if (di.inward !== (b.dataset.v === 'in')) o.swing = -(o.swing || 1); }
@@ -8658,12 +8926,12 @@ function colorEdited(o, t) {
 let editCk = null;
 // свой цвет: значок запоминается вместе с объектом, для которого открыта палитра, и применяется к нему,
 // даже если палитру закрыли щелчком по другому объекту (выделение сменилось раньше, чем пришло change)
-const CUSTOM_COL = ['inWCol', 'inFCol', 'inHCol', 'inDCol'];
+const CUSTOM_COL = ['inWCol', 'inFCol', 'inHCol', 'inDCol', 'inSkirtCol'];
 let colorPending = null;
 function commitColor() {
   const p = colorPending; colorPending = null; if (!p) return false; const o = byId(p.oid); if (!o) return false;
-  const cur = p.id === 'inWCol' ? o.wcol : p.id === 'inFCol' ? o.fc : p.id === 'inDCol' ? o.dcol : o.hcol; if (cur === p.v) return false;
-  checkpoint(); if (p.id === 'inWCol') o.wcol = p.v; else if (p.id === 'inFCol') o.fc = p.v; else if (p.id === 'inDCol') o.dcol = p.v; else o.hcol = p.v;
+  const cur = p.id === 'inSkirtCol' ? (S.project.skirtCol || '#F2F0EA') : p.id === 'inWCol' ? o.wcol : p.id === 'inFCol' ? o.fc : p.id === 'inDCol' ? o.dcol : o.hcol; if (cur === p.v) return false;
+  checkpoint(); if (p.id === 'inSkirtCol') S.project.skirtCol = p.v; else if (p.id === 'inWCol') o.wcol = p.v; else if (p.id === 'inFCol') o.fc = p.v; else if (p.id === 'inDCol') o.dcol = p.v; else o.hcol = p.v;
   save(); return true;
 }
 async function goboUpload(input) {
@@ -8703,11 +8971,13 @@ $('inspector').addEventListener('input', (e) => {
     case 'inHue': case 'inHueN': if (ok) o.hue = ((num % 360) + 360) % 360; colorEdited(o, t); return;
     case 'inSat': case 'inSatN': if (ok) o.sat = Math.max(0, Math.min(100, num)); colorEdited(o, t); return;
     case 'inPw': case 'inPwN': if (ok) o.power = Math.max(0, Math.min(100, num)); colorEdited(o, t); return;
-    case 'inW': if (ok && num > 0) o.w = num; break;
+    case 'inW': if (ok && num > 0) o.w = o.kind === 'curtain' ? Math.max(o.single === true ? 1 : 2, Math.min(o.single === true ? 3 : 6, num)) : o.kind === 'shelf' ? Math.max(0.6, Math.min(2, num)) : num; break;
     case 'inPW': if (ok) o.w = Math.max(0.1, Math.min(2, num)); break;
     case 'inPH': if (ok) o.ph = Math.max(0.1, Math.min(2, num)); break;
-    case 'inD': if (ok && num > 0) o.d = num; break;
+    case 'inD': if (ok && num > 0) o.d = o.kind === 'shelf' ? Math.max(0.3, Math.min(1, num)) : num; break;
     case 'inHH': if (ok && num > 0) o.h = num; break;
+    case 'inPlantH': if (ok) plantSetHeight(o, num); break;
+    case 'inShelfN': if (ok) shelfSetCount(o, num); break;
     case 'inElev': if (ok) o.elev = Math.max(5, Math.min(85, num)); break;
     case 'inWallH': if (ok) { const v = Math.max(WALL_H_MIN, Math.min(10, num)); if (Math.abs(v - 3) < 0.001) delete S.project.wh; else S.project.wh = v; WALL_H = v; } break;
     case 'inTvH': if (ok) o.tvh = Math.max(0.3, Math.min(1.8, num)); break;
@@ -8733,6 +9003,7 @@ $('inspector').addEventListener('input', (e) => {
     case 'inWH': if (ok && num > 0) o.h = Math.max(0.3, Math.min(winMaxH(o), num)); break;
     case 'inWView': { const hw = hostWall(o); objs().forEach(w => { if (w.type !== 'window' || (w !== o && (!hw || hostWall(w) !== hw))) return; if (t.value) w.view = t.value; else delete w.view; }); break; }   // у всех окон одной стены — общий вид
     case 'inFloor': o.floor = t.checked; o.h = o.floor ? Math.max(o.h || 1.2, 2.4) : Math.min(o.h || 1.2, 1.2); o.h = Math.min(o.h, winMaxH(o)); renderInspector(); break;
+    case 'inSkirt': S.project.skirt = t.checked; if (t.checked && !S.project.skirtCol) S.project.skirtCol = '#F2F0EA'; renderInspector(); break;
     case 'inStand': o.stand = t.checked; T3.key = ''; V3.dirty = true; break;
     case 'inGrid': o.grid = t.checked; break;
     case 'inAH': if (ok) { const was = asteraBaseH(o) > 0; o.ah = num <= 0 ? 0 : Math.max(0.5, Math.min(8, Math.round(num * 100) / 100)); o.h = asteraH(o); if (o.ah > 0 && o.stand == null) o.stand = true; if (was !== (o.ah > 0)) renderInspector(); } break;
@@ -8777,8 +9048,8 @@ const CAT = {
   hero: '<circle cx="12" cy="4.4" r="2.4" fill="currentColor" fill-opacity=".4"/><path d="M8.6 9.8c0-1.8 1.5-3 3.4-3s3.4 1.2 3.4 3l-.4 4.2h-6z" fill="currentColor" fill-opacity=".22"/><path d="M8.8 10l-1.6 4.6M15.2 10l1.6 4.6"/><path d="M10.4 14.6l-.8 6M13.6 14.6l.8 6"/><path d="M8.4 20.6h2.2M13.4 20.6h2.2"/>',
   light: '<path d="M4 5h16c0 8-4 13-8 13S4 13 4 5z" fill="currentColor" fill-opacity=".25"/>',
   prac: '<path d="M6.2 3h11.6l2 5.8H4.2z" fill="currentColor" fill-opacity=".25"/><path d="M12 8.8v11.6M8.6 20.4h6.8"/>',
-  prop: '<rect x="5.2" y="2.6" width="13.6" height="18.8" rx=".8" fill="currentColor" fill-opacity=".25"/><path d="M12 2.6v18.8M10.4 11v2.2M13.6 11v2.2"/>',
-  room: '<rect x="4" y="3.6" width="16" height="16.8" rx="2" fill="currentColor" fill-opacity=".25"/><path d="M12 3.6v16.8M4 12h16"/>',
+  prop: '<path d="M7.4 14.6h9.2l-1.1 6.8H8.5z" fill="currentColor" fill-opacity=".25"/><path d="M12 14.6V6.2M12 11.2L7.2 7.4M12 9.6l4.5-3.5"/><path d="M7.2 8.2C3.9 7.7 3.4 4.9 3.6 3.1c3.2-.2 5.5 1.4 5.6 4.5zM11.9 6.8C9.7 4.4 11 1.9 12.7 1.3c2.1 1.8 2.3 4.2-.8 5.5zM13 8.2c.7-3.4 3.6-4.3 6.2-3.5-.1 3.1-2.1 5.3-5.5 4.8z" fill="currentColor" fill-opacity=".32"/>',
+  room: '<path d="M13.2 2.4v19.2L3.4 18.2V5.8z" fill="currentColor" fill-opacity=".22"/><path d="M16.2 3.6h4.4v16.8h-4.4"/><circle cx="10.4" cy="12" r=".9" fill="currentColor" stroke="none"/>',
   note: '<path d="M4.8 3.4h14.4v10.4l-4 4H4.8z" fill="currentColor" fill-opacity=".2"/><path d="M15.2 17.8v-4H19.2"/><path d="M8 7.8h8M8 11.2h5.4"/>',
   pip: '<rect x="2.8" y="5" width="18.4" height="13.2" rx="2.4"/><rect x="5.4" y="7.4" width="7.8" height="5.6" rx="1.2" fill="currentColor" fill-opacity=".3"/>',
 };
@@ -8867,7 +9138,7 @@ function addObject(type, v) {
   if (type === 'camera') { const l = nextLetter(); o = { type, letter: l, cap: l, name: 'Камера ' + l, desc: '', x: cx, y: cy, rot: 0, sensor: v || 'S35', lens: 35, h: 1.4, tilt: 0, aspect: '1.78' }; }
   else if (type === 'hero') { o = { type, name: '', x: cx, y: cy, rot: 180, color: +v || 0, pose: 'stand' }; }
   else if (type === 'light') { const L = LIGHTS[v]; o = { type, kind: v, name: L.name, x: cx, y: cy, rot: LIGHTS[v].rotIcon ? 180 : 0, h: v === 'practical' ? 1.6 : 2.0, power: 100 }; if (v === 'astera') { o.alen = 1; o.ah = 0; o.h = asteraH(o); } if (v === 'softbox') o.size = 90; if (v === 'panel') { o.w = 0.62; o.ph = 0.3; } }
-  else if (type === 'prop') { const P = PROPS[v]; o = { type, kind: v, name: P.name, x: cx, y: cy, rot: 0, w: P.w, d: ON_TABLE.includes(v) ? P.d : Math.max(0.2, P.d), h: P.h }; if (FURN_DEF[v]) o.fc = FURN_DEF[v]; }
+  else if (type === 'prop') { const P = PROPS[v]; o = { type, kind: v, name: P.name, x: cx, y: cy, rot: 0, w: P.w, d: ON_TABLE.includes(v) ? P.d : Math.max(0.2, P.d), h: P.h }; if (v === 'shelf') { o.shelves = 5; o.h = 2.206; } if (FURN_DEF[v]) o.fc = FURN_DEF[v]; }
   else if (ROOM[type]) { const L = ROOM[type].len; if (type === 'wall') { cx = snap(cx, WALL_STEP); cy = snap(cy, WALL_STEP); } o = { type, x1: cx - L / 2, y1: cy, x2: cx + L / 2, y2: cy }; if (type === 'door') o.open = true; }
   else if (type === 'note') { o = { type: 'note', text: 'Заметка', x: cx, y: cy }; }
   o.id = uid(); objs().push(o);
@@ -8880,7 +9151,7 @@ function ghostCss(id, shown) {
   st.textContent = id ? `#plan [data-id="${id}"], #plan [data-lbl="${id}"] { opacity: ${shown ? .6 : 0}; pointer-events: none; }` : '';
 }
 // предметы, которые вешают на стену: при поднесении к стене (ближе 0,3 м) прилипают к ней задней стороной и разворачиваются вдоль
-const WALL_HUNG = ['picture', 'tv'];
+const WALL_HUNG = ['picture', 'tv', 'curtain'];
 function hangSnap(o, x, y) {
   if (o.type !== 'prop' || !WALL_HUNG.includes(o.kind)) return false;
   let best = null, bd = 0.3;
@@ -8888,11 +9159,11 @@ function hangSnap(o, x, y) {
     if (s.type !== 'wall') return; const dx = s.x2 - s.x1, dy = s.y2 - s.y1, len = Math.hypot(dx, dy); if (len < 0.05) return;
     const ux = dx / len, uy = dy / len, tt = (x - s.x1) * ux + (y - s.y1) * uy; if (tt < -0.05 || tt > len + 0.05) return;
     const px = s.x1 + ux * tt, py = s.y1 + uy * tt, d = Math.hypot(x - px, y - py);
-    if (d < bd) { bd = d; best = { ux, uy, tt: Math.max(o.w / 2, Math.min(len - o.w / 2, tt)), s, len }; }
+    if (d < bd) { const margin = o.w / 2 + (o.kind === 'curtain' ? 0.09 : 0); bd = d; best = { ux, uy, tt: Math.max(margin, Math.min(len - margin, tt)), s, len, margin }; }
   });
   if (!best) { if (o.kind === 'tv') o.wall = false; return false; }
   const { ux, uy, s } = best; let nx = -uy, ny = ux; if ((x - s.x1) * nx + (y - s.y1) * ny < 0) { nx = -nx; ny = -ny; }   // нормаль в сторону, где держим предмет
-  const tv = o.kind === 'tv', off = WALL_T / 2 + (tv ? 0.05 : o.d / 2 + 0.005), tt = best.len >= o.w ? best.tt : best.len / 2;
+  const tv = o.kind === 'tv', off = WALL_T / 2 + (tv ? 0.05 : o.d / 2 + 0.005), tt = best.len >= best.margin * 2 ? best.tt : best.len / 2;
   o.x = s.x1 + ux * tt + nx * off; o.y = s.y1 + uy * tt + ny * off;
   // лицевая сторона — от стены (у картины лицо по +z модели, у ТВ экран по −z)
   o.rot = Math.round((((tv ? Math.atan2(nx, -ny) : Math.atan2(-nx, ny)) / RAD) % 360 + 360) % 360);
@@ -9264,6 +9535,8 @@ plan.addEventListener('pointermove', (e) => {
     let nw = drag.sx ? drag.sx * lx : O.w, nd = drag.sy ? drag.sy * ly : O.d;
     if (!e.shiftKey) { if (drag.sx) nw = snap(nw); if (drag.sy) nd = snap(nd); }
     nw = Math.max(0.05, nw); nd = Math.max(0.03, nd);
+    if (o.kind === 'curtain') nw = Math.max(o.single === true ? 1 : 2, Math.min(o.single === true ? 3 : 6, nw));
+    if (o.kind === 'shelf') { nw = Math.max(0.6, Math.min(2, nw)); nd = Math.max(0.3, Math.min(1, nd)); }
     const [c0, c1] = R(drag.sx * nw / 2, drag.sy * nd / 2); o.w = nw; o.d = nd; o.x = Fx + c0; o.y = Fy + c1;
   } else if (drag.mode === 'rot') {
     drag.moved = true; let deg = (Math.atan2(w[0] - o.x, -(w[1] - o.y)) / RAD + 360) % 360;
@@ -9637,7 +9910,7 @@ function renderAll(full) {
 let rzT = 0;
 new ResizeObserver(() => { cancelAnimationFrame(rzT); rzT = requestAnimationFrame(() => { if (!S.fitted && S.view === 'plan' && !S.wallDraw) fit();   /* не подгоняем вид, пока строим стены */ S.view === 'plan' ? renderPlan() : S.view === '3d' ? (V3.dirty = true) : renderCams(); }); }).observe(document.querySelector('.body'));
 applyTheme();
-try { humansLoad(); plantLoad(); chairLoad(); } catch (e) { }
+try { humansLoad(); plantLoad(); chairLoad(); curtainLoad(); cabinetLoad(); } catch (e) { }
 requestAnimationFrame(() => { fit(); renderAll(true); });
 })();
 </script>
