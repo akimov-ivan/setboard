@@ -132,6 +132,15 @@ button { cursor: pointer; }
 .loadbadge { position: absolute; z-index: 6; left: 12px; top: 12px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: var(--surface); color: var(--fg); font-size: 12px; border: 1px solid var(--hair); box-shadow: var(--card-shadow); pointer-events: none; }
 .loadbadge .spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line3); border-top-color: var(--fg); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.view-loading { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 20px; background: color-mix(in srgb, var(--bg) 66%, transparent); backdrop-filter: blur(12px); cursor: wait; }
+.view-loading[hidden] { display: none; }
+.view-load-card { width: min(360px, 100%); box-sizing: border-box; padding: 22px 24px 20px; border: 1px solid var(--hair); border-radius: 16px; background: var(--surface); box-shadow: var(--card-shadow); color: var(--fg); }
+.view-load-title { font-size: 15px; font-weight: 650; text-align: center; }
+.view-load-sub { margin-top: 6px; color: var(--muted); font-size: 12px; text-align: center; }
+.view-load-track { height: 6px; margin-top: 20px; overflow: hidden; border-radius: 6px; background: var(--line2); }
+.view-load-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--brand); transition: width .22s ease; }
+.view-load-pct { margin-top: 8px; color: var(--muted); font: 11px var(--font-data); text-align: right; }
+body.view-loading { overscroll-behavior: none; }
 .planempty { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, calc(100% - 32px)); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); pointer-events: none; }
 .planempty p { margin: 0; } .planempty .t { color: var(--fg); font-weight: 600; font-size: 16px; } .planempty .s { font-size: 12px; } .planempty .btn { pointer-events: auto; margin: 6px 0; }
 #plan:focus, #plan:focus-visible { outline: none; }   /* фокус с клавиатуры виден по подсветке выбранного объекта */
@@ -237,6 +246,10 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 @media (pointer: coarse) { .sld input[type="range"] { height: 32px; } .sld input[type="range"]::-webkit-slider-thumb { width: 24px; height: 24px; margin-top: -8px; } }
 .inspector .fld .ro { font-family: var(--font-data); color: var(--fg); padding: 0 9px; }
 .inspector .note-ta { width: 100%; box-sizing: border-box; min-height: 88px; resize: vertical; padding: 8px; border-radius: 6px; border: none; background: var(--chip); color: var(--fg); font: 13px/1.4 var(--font-ui); }
+.neon-field { display: flex; flex-direction: column; align-items: stretch; gap: 6px; height: auto; padding: 10px; border-radius: 10px; background: var(--chip); }
+.neon-field > span { color: var(--muted); font-size: 12px; }
+.neon-field .note-ta { min-height: 62px; height: 62px; resize: none; background: var(--raised); border: 1px solid var(--line2); }
+.neon-field small { color: var(--muted); font-size: 10px; }
 .inspector .seg { width: 100%; box-sizing: border-box; }
 .inspector .seg button { flex: 1; }
 .plant-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
@@ -867,6 +880,14 @@ select option { background: var(--surface); color: var(--fg); }
   #menus .menu.grid6 .tile svg { width: 30px; height: 30px; }
   .stp svg { width: 14px; height: 14px; }
 }
+
+@media (max-width: 700px) {
+  .top { padding-top: max(6px, env(safe-area-inset-top, 0px)); }
+  body.native-android .top { height: calc(58px + max(28px, env(safe-area-inset-top, 0px))); padding-top: max(28px, env(safe-area-inset-top, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  body.native-android .brand { display: none; }
+  body.native-android .pwrap { margin-left: 4px; }
+  body.native-android .ctrlcard { right: max(20px, env(safe-area-inset-right, 0px)); }
+}
 </style>
 </head>
 <body>
@@ -874,7 +895,7 @@ select option { background: var(--surface); color: var(--fg); }
 <div class="app" id="app">
   <header class="top">
     <div class="brand">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5" stroke="var(--brand)" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="var(--brand)"/></svg>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 9V5h4M15 5h4v4M19 15v4h-4M9 19H5v-4" stroke="#F2A93B" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="12" cy="12" r="2.6" fill="#F2A93B"/></svg>
       <span class="bname">Setboard</span>
     </div>
     <span class="psep" aria-hidden="true"></span>
@@ -969,6 +990,9 @@ select option { background: var(--surface); color: var(--fg); }
     <span class="cellhint plan-only">1 клетка = 1 × 1 м</span>
 
   </div>
+</div>
+<div class="view-loading" id="viewLoading" role="status" aria-live="polite" aria-busy="true" hidden>
+  <div class="view-load-card"><div class="view-load-title">Подготавливаем 3D-вид</div><div class="view-load-sub">Загружаем геометрию, текстуры и освещение</div><div class="view-load-track"><span class="view-load-fill"></span></div><div class="view-load-pct">0%</div></div>
 </div>
 <div id="menus"></div>
 <input type="file" id="fileIn" accept=".setb,.json,.setboard,application/json" hidden>
@@ -4865,12 +4889,15 @@ Object.assign(LIGHTS, {
   p_desk: { name: 'Настольная', prac: true, rotIcon: true, cct: 2900, omni: true, len: 1.4, icon: `<rect x="4" y="19.4" width="9" height="2" rx="1" ${F}/><path d="M8.5 19.4L7 12.5l6.2-5.3"/><path d="M12.4 5.3l3.6-1.8 4.6 7.6-6.2 1.7z" ${F}/>` },
   p_torch: { name: 'Торшер', prac: true, cct: 2900, omni: true, len: 1.8, icon: `<path d="M7.6 3h8.8l2 6.5H5.6z" ${F}/><path d="M12 9.5V20"/><rect x="8" y="19.8" width="8" height="1.8" rx=".9" ${F}/>` },
   p_floor: { name: 'Напольная', prac: true, rotIcon: true, cct: 2900, omni: true, len: 2, icon: `<rect x="2.5" y="19.8" width="7" height="1.8" rx=".9" ${F}/><path d="M6 19.8V8c0-3 2.4-5 5.3-5 2.6 0 4.6 1.6 5.2 4"/><path d="M12.6 11.2a3.9 3.9 0 0 1 7.8 0z" ${F}/>` },
-  p_small: { name: 'Ночник', prac: true, cct: 2700, omni: true, len: 1, icon: `<circle cx="12" cy="11" r="5.6" ${F}/><path d="M8.4 17.8h7.2l-.9 3.2H9.3z" ${F}/>` }
+  p_small: { name: 'Ночник', prac: true, cct: 2700, omni: true, len: 1, icon: `<circle cx="12" cy="11" r="5.6" ${F}/><path d="M8.4 17.8h7.2l-.9 3.2H9.3z" ${F}/>` },
+  p_fabric: { name: 'Мини-торшер', prac: true, cct: 2900, omni: true, len: 1.4, icon: `<path d="M7 3h10l2 8H5zM12 11v8M8 20h8" ${F}/>` },
+  p_neon: { name: 'Неоновая вывеска', prac: true, cct: 2700, omni: true, len: 2.2, icon: `<rect x="2" y="7" width="20" height="10" rx="1.2" ${F}/><text x="12" y="14.4" text-anchor="middle" font-family="sans-serif" font-size="5" fill="currentColor" stroke="none">NEON</text>` },
+  p_candle: { name: 'Свеча', prac: true, cct: 2200, omni: true, len: 0.8, icon: `<path d="M9 10h6v11H9zM12 8V6M12 6c-2-2-1-4 0-5 2 3 2 4 0 5z" ${F}/>` }
 });
 // порядок в меню «Реквизит»: мебель → растения → мелкие предметы
-const PROP_ORDER = ['armchair', 'sofa', 'chair', 'ochair', 'trect', 'tround', 'tcoffee', 'cabinet', 'shelf', 'wardrobe', 'tv', 'carpet', 'curtain', 'plant', 'picture', 'laptop', 'monitor', 'books', 'cup'];
-const PRAC_FIXED = ['p_desk', 'p_torch', 'p_floor', 'p_small'];   // форма фиксирована — высоту не задаём
-const ON_TABLE = ['laptop', 'monitor', 'books', 'cup', 'plant', 'tv', 'p_desk', 'p_small'];   // ставятся на стол/тумбу, если поставить поверх
+const PROP_ORDER = ['armchair', 'sofa', 'chair', 'ochair', 'trect', 'tround', 'tcoffee', 'cabinet', 'shelf', 'wardrobe', 'tv', 'carpet', 'curtain', 'plant', 'picture', 'laptop', 'mic', 'monitor', 'books', 'cup'];
+const PRAC_FIXED = ['p_desk', 'p_torch', 'p_floor', 'p_small', 'p_fabric', 'p_neon', 'p_candle'];
+const ON_TABLE = ['laptop', 'mic', 'monitor', 'books', 'cup', 'plant', 'tv', 'p_desk', 'p_small', 'p_fabric', 'p_candle', 'p_neon'];   // ставятся на стол/тумбу, если поставить поверх
 const PROPS = {
   carpet: { name: 'Ковёр', w: 2, d: 1.4, h: 0.01, icon: `<rect x="3" y="6" width="18" height="12" rx="1" ${F}/>` },
   curtain: { name: 'Штора', w: 2.5, d: .25, h: 3, icon: `<path d="M3 5h18M3 8c.45-1.5 1.35-1.5 1.8 0s1.35 1.5 1.8 0 1.35-1.5 1.8 0 1.35 1.5 1.8 0 1.35-1.5 1.8 0 1.35 1.5 1.8 0 1.35-1.5 1.8 0 1.35 1.5 1.8 0 1.35-1.5 1.8 0 1.35 1.5 1.8 0" ${F}/>` },
@@ -4890,12 +4917,13 @@ const PROPS = {
   tcoffee: { name: 'Журнальный столик', w: 1, d: .55, h: .42, icon: `<rect x="3" y="7.5" width="18" height="9" rx="3" ${F}/>` },
   bed: { name: 'Кровать', w: 1.6, d: 2, h: .9, icon: `<rect x="5" y="3" width="14" height="18" rx="1" ${F}/><rect x="6.5" y="4.6" width="4.6" height="3" rx="1"/><rect x="12.9" y="4.6" width="4.6" height="3" rx="1"/><path d="M5 10h14"/>` },
   laptop: { name: 'Ноутбук', w: .34, d: .24, h: .22, icon: `<rect x="3" y="4.6" width="18" height="1.8" rx=".9" ${F}/><rect x="3" y="7.6" width="18" height="12" rx="1.4" ${F}/>` + [9.6, 11.6].map(y => [6, 8, 10, 12, 14, 16, 18].map(x => `<rect x="${x - .7}" y="${y - .6}" width="1.4" height="1.2" rx=".25" class="d"/>`).join('')).join('') + `<rect x="7.5" y="13" width="9" height="1.2" rx=".3" class="d"/><rect x="9.5" y="15.4" width="5" height="2.8" rx=".5"/>` },
+  mic: { name: 'Микрофон', w: .15, d: .22, h: .26, icon: `<rect x="7" y="2.5" width="10" height="14" rx="5"/><path d="M8 7h3M13 7h3M8 10.5h3M13 10.5h3M8 14h3M13 14h3M4.5 11v3a7.5 7.5 0 0 0 15 0v-3M12 21.5v-3M8.5 21.5h7"/>` },
   monitor: { name: 'Монитор', w: .6, d: .2, h: .45, icon: `<rect x="3" y="12.5" width="18" height="2.4" rx=".8" ${F}/><path d="M12 12.5V8.5M8.5 8h7"/>` },
   books: { name: 'Стопка книг', w: .26, d: .2, h: .15, icon: `<rect x="5.5" y="6.5" width="13" height="11" rx=".8" ${F}/><path d="M5.5 10h13M5.5 13.8h13"/>` },
   cup: { name: 'Чашка', w: .12, d: .09, h: .1, icon: `<circle cx="10.5" cy="12" r="5" ${F}/><path d="M15.5 10.4h1.6a1.6 1.6 0 0 1 0 3.2h-1.6"/>` },
   picture: { name: 'Картина', w: .8, d: .04, h: .6, icon: `<rect x="4" y="5" width="16" height="14" rx=".5" ${F}/><path d="M6.5 16.5l4-4.5 3 3 2-2 2.5 3.5"/><circle cx="9" cy="8.5" r="1.2"/>` }
 };
-const PROP_DIMS = { ochair: [], cup: ['h'], books: ['h'], picture: ['w', 'h'], monitor: ['w', 'h'], tv: ['w', 'h'], curtain: ['w'], plant: [], shelf: ['w', 'd'] };
+const PROP_DIMS = { ochair: [], mic: [], cup: ['h'], books: ['h'], picture: ['w', 'h'], monitor: ['w', 'h'], tv: ['w', 'h'], curtain: ['w'], plant: [], shelf: ['w', 'd'] };
 const propDims = (o) => PROP_DIMS[o.kind] || ['w', 'd', 'h'];
 const CAM_ICON = (s) => `<rect x="3" y="7" width="12" height="10" rx="2" class="bgf"/><rect x="3" y="7" width="12" height="10" rx="2" ${F}/><path d="M15 10l6-3v10l-6-3z" ${F}/>` + (s === 'FF' ? '<rect x="5.6" y="9.8" width="6.8" height="4.4" class="d"/>' : '<rect x="7.2" y="10.8" width="3.6" height="2.4" class="d"/>');
 // у своего цвета героя — тонкий контур цвета текста: белый/светлый не сливается со светлой схемой, чёрный — с тёмной
@@ -4929,6 +4957,7 @@ const projIndex = () => { try { const a = JSON.parse(store.get(PIDX) || '[]'); r
 const projSaveIndex = (a) => store.set(PIDX, JSON.stringify(a));
 const newPid = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 function stripLegacy(p) {   /* точка совместимости формата; гобо — актуальные данные проекта, не удаляем */
+  p.objects = (p.objects || []).filter(o => !(o.type === 'light' && (o.kind === 'hazer' || o.kind === 'p_wall')));
   (p.objects || []).forEach(o => { if (o.type === 'light' && o.cct != null) { if (o.kelvin == null) o.kelvin = o.cct; delete o.cct; } });
   return p;
 }
@@ -5030,10 +5059,15 @@ const _lsz = {};
 // значок вертикальной Astera — вид сверху на трубку на треноге
 const ASTERA_V_ICON = `<circle cx="12" cy="12" r="3.4" ${F}/><path d="M12 8.6V2.5M9 13.8l-5.4 3.4M15 13.8l5.4 3.4"/>`;
 const lightIcon = (o) => {
+  if (o && o.kind === 'p_neon') {
+    const D = neonDims(o), scale = (o.letterH || 25) / 25, len = Math.max(1, ...D.lines.map(l => l.trim().length)), W = Math.max(16, 10 + len * 2.2) * scale, H = 8 * scale;
+    return `<rect x="${12 - W / 2}" y="${12 - H / 2}" width="${W}" height="${H}" rx="1.2" fill="currentColor" fill-opacity=".12"/><text x="12" y="${12 + 1.5 * scale}" text-anchor="middle" font-family="sans-serif" font-size="${4.2 * scale}" fill="currentColor" stroke="none">NEON</text>`;
+  }
   if (o && o.kind === 'astera' && !o.horiz) return ASTERA_V_ICON;
   return (LIGHTS[o.kind] || LIGHTS.fresnel).icon;
 };
 function lightSize(kind, o) {
+  if (kind === 'p_neon' && o) { const bb = iconBox(lightIcon(o)); return neonDims(o).w * 24 / Math.max(bb.w, 1); }
   if (kind === 'astera' && o) { const v = !o.horiz, ic = lightIcon(o), bb = iconBox(ic); return (v ? 0.38 : asteraLen(o)) * 0.85 * 24 / Math.max(bb.w, bb.h, 1); }
   if (kind === 'panel' && o) { const bb = iconBox(LIGHTS.panel.icon); return panelW(o) * 0.85 * 24 / Math.max(bb.w, bb.h, 1); }
   if (kind !== 'softbox' && _lsz[kind]) return _lsz[kind];
@@ -5060,6 +5094,10 @@ function propPaint(body, carpet) {
 function glyph(body, x, y, rot, size, color, cls) {
   const k = size / 24;
   return `<g class="glyph ${cls || ''}" style="color:${color}" transform="translate(${x} ${y}) rotate(${rot}) scale(${k}) translate(-12 -12)" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${body.replace(/class="f"/g, 'fill="currentColor" fill-opacity=".25"').replace(/class="f2"/g, 'fill="currentColor" fill-opacity=".55" stroke="none"').replace(/class="f3"/g, 'fill="currentColor" fill-opacity=".35"').replace(/class="d"/g, 'fill="currentColor" stroke="none"').replace(/class="bgf"/g, 'fill="var(--canvas)" stroke="none"')}</g>`;
+}
+function neonGlyph(o, x, y, rot) {
+  const body = lightIcon(o), bb = iconBox(body), D = neonDims(o), sx = D.w / Math.max(1, bb.w), sy = 0.22 * ((o.letterH || 25) / 25) / Math.max(1, bb.h);
+  return `<g class="glyph" transform="translate(${x} ${y}) rotate(${rot}) scale(${sx} ${sy}) translate(${-bb.x - bb.w / 2} ${-bb.y - bb.h / 2})" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${body}</g>`;
 }
 // ---------- множественное выделение ----------
 // S.multi — набор id при выделении 2+ объектов; при одном объекте используется S.sel
@@ -5110,7 +5148,7 @@ function hostWall(op) {
 // у мебели и бытовых светильников «перёд» — вниз по значку, ручка поворота смотрит туда же
 // предметы без выраженной «лицевой» стороны: направление и ручка поворота не нужны
 const NO_DIR = ['plant', 'tree', 'stool', 'cup', 'books'];   /* круглый стол снова можно поворачивать */
-function backRot(o) { return (o.type === 'prop' && o.kind !== 'tv') || (o.type === 'light' && LIGHTS[o.kind] && LIGHTS[o.kind].prac && LIGHTS[o.kind].rotIcon); }
+function backRot(o) { return (o.type === 'prop' && o.kind !== 'tv') || (o.type === 'light' && o.kind === 'p_neon') || (o.type === 'light' && LIGHTS[o.kind] && LIGHTS[o.kind].prac && LIGHTS[o.kind].rotIcon); }
 const tvStandH = (o) => o.tvh != null ? o.tvh : (o.wall ? 1.0 : 0.8);   // высота нижнего края экрана: на стойке 0,8 м, на стене 1 м   // ТВ на полу — на стойке: высота нижнего края экрана
 // солнце: направление по горизонтали — от значка солнца к ближайшему окну (если окон нет — по повороту), высота над горизонтом в градусах
 const sunElev = (o) => Math.max(5, Math.min(85, o.elev != null ? o.elev : 35));
@@ -5253,10 +5291,11 @@ function renderPlan() {
       const P = PROPS[o.kind] || PROPS.cabinet; const bb = iconBox(P.icon);
       // зона захвата не меньше ~28 px, чтобы тонкие предметы (картина, ТВ) можно было сразу тащить
       const hw = Math.max(o.w, 28 / s), hd = Math.max(o.d, 28 / s);
-      geo += `<g data-id="${o.id}" class="${g}" style="color:var(--prop)" transform="translate(${o.x} ${o.y}) rotate(${o.rot})"><rect x="${-hw / 2}" y="${-hd / 2}" width="${hw}" height="${hd}" fill="transparent"/><g class="glyph" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(${o.w / bb.w} ${o.d / bb.h}) translate(${-bb.x - bb.w / 2} ${-bb.y - bb.h / 2})">${propPaint(P.icon, o.kind === 'carpet')}</g></g>`;
+      geo += `<g data-id="${o.id}" class="${g}" style="color:var(--prop)" transform="translate(${o.x} ${o.y}) rotate(${o.kind === 'mic' ? 0 : o.rot})"><rect x="${-hw / 2}" y="${-hd / 2}" width="${hw}" height="${hd}" fill="transparent"/><g class="glyph" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(${o.w / bb.w} ${o.d / bb.h}) translate(${-bb.x - bb.w / 2} ${-bb.y - bb.h / 2})">${propPaint(P.icon, o.kind === 'carpet')}</g></g>`;
     } else if (o.type === 'light') {
       const L = LIGHTS[o.kind] || LIGHTS.fresnel;
-      const lsz = lightSize(o.kind, o); geo += `<g data-id="${o.id}" class="${g}" style="color:${lightCss(o) || 'var(--light)'}"><circle cx="${o.x}" cy="${o.y}" r="${Math.max(0.2, lsz * 0.35)}" fill="transparent"/>${glyph(lightIcon(o), o.x, o.y, ((L.omni && !L.rotIcon) || o.kind === 'sun' || L.prac) ? 0 : o.rot, lsz, (lightCss(o) || 'var(--light)'))}</g>`;
+      let ix = o.x, iy = o.y; if (o.kind === 'p_neon' && o.wall) { const [fx, fy] = dirOf(o.rot), off = neonDims(o).h / 2 + 0.04; ix -= fx * off; iy -= fy * off; }
+      const lsz = lightSize(o.kind, o); geo += `<g data-id="${o.id}" class="${g}" style="color:${lightCss(o) || 'var(--light)'}"><circle cx="${ix}" cy="${iy}" r="${Math.max(0.2, lsz * 0.35)}" fill="transparent"/>${o.kind === 'p_neon' ? neonGlyph(o, ix, iy, o.rot) : glyph(lightIcon(o), ix, iy, ((L.omni && !L.rotIcon) || o.kind === 'sun' || L.prac) ? 0 : o.rot, lsz, (lightCss(o) || 'var(--light)'))}</g>`;
     } else if (o.type === 'hero') {
       geo += `<g data-id="${o.id}" class="${g}" style="color:${heroCss(o)}"><ellipse cx="${o.x}" cy="${o.y}" rx=".18" ry=".14" transform="rotate(${o.rot} ${o.x} ${o.y})" fill="transparent"/>${glyph(o.hcol ? HERO_ICON + HERO_EDGE : HERO_ICON, o.x, o.y, o.rot, 0.46, heroCss(o))}</g>`;
     } else if (o.type === 'camera') {
@@ -5345,7 +5384,7 @@ function renderPlan() {
   if (so && !so.locked) {
     if (so.x1 !== undefined) {
       [[so.x1, so.y1, 'p1'], [so.x2, so.y2, 'p2']].forEach(([x, y, h]) => { const [sx, sy] = W2S(x, y); scr += `<circle class="handle" data-handle="${h}" cx="${sx}" cy="${sy}" r="8" fill="var(--wall)" stroke="var(--canvas)" stroke-width="2"/>`; });
-    } else if (so.type !== 'note' && so.type !== 'stroke' && so.type !== 'floor' && !(so.kind === 'sun' && sunAim(so).win) && !(so.type === 'light' && (LIGHTS[so.kind] || {}).omni && !(LIGHTS[so.kind] || {}).rotIcon)) {
+    } else if (so.type !== 'note' && so.type !== 'stroke' && so.type !== 'floor' && !(so.kind === 'sun' && sunAim(so).win) && !(so.type === 'light' && (LIGHTS[so.kind] || {}).omni && !(LIGHTS[so.kind] || {}).rotIcon && so.kind !== 'p_neon')) {
       if (so.type === 'prop') {
         const a = so.rot * RAD, c = Math.cos(a), sn = Math.sin(a);
         const corner = (lx, ly) => W2S(so.x + lx * c - ly * sn, so.y + lx * sn + ly * c);
@@ -5666,7 +5705,7 @@ function t3compile(r, sc, cam) {
   if (!r.userData) r.userData = {};
   if (!r.compileAsync || r.userData.compileAsyncFailed || T3.compiledVer === T3.ver) return true;
   if (T3.compileBusy) return false;
-  const ver = T3.ver; T3.compileVer = ver; T3.compileBusy = true;
+  const ver = T3.ver; T3.compileVer = ver; T3.compileBusy = true; viewLoadProgress(62);
   let to, timedOut = false;
   const timeout = new Promise(resolve => { to = setTimeout(() => { timedOut = true; resolve(); }, 4000); });
   Promise.race([r.compileAsync(sc, cam), timeout]).then(() => {
@@ -6012,7 +6051,7 @@ const WALL_FIN = {
   concrete: { name: 'Бетон', col: '#8A8A88', sx: 2.4, sy: 1.2, rough: 0.9 },
   brick: { name: 'Кирпич', col: '#94695A', sx: 1.04, sy: 1.05, rough: 0.92 },
   wood: { name: 'Дерево', col: '#C2A27C', sx: 2.4, sy: 3, rough: 0.92, px: 1024 },
-  laminate: { name: 'Ламинат', col: '#FBF3E4', sx: 3.6, sy: 3, rough: 0.96, px: 1280 },   // повтор рисунка не чаще чем через 3,6 × 3 м — сучки не выстраиваются в линию
+  laminate: { name: 'Ламинат', col: '#FBF3E4', sx: 1.8, sy: 1.5, rough: 0.96, px: 1280 },   // повтор рисунка не чаще чем через 3,6 × 3 м — сучки не выстраиваются в линию
   porcelain: { name: 'Керамогранит', col: '#C6C7C3', sx: 2.4, sy: 1.2, rough: 0.32, px: 1024 }
 };
 // в ряду кружков есть цвета по умолчанию всех отделок
@@ -6473,7 +6512,9 @@ function drawWindowScene(x, w, h, kind) {
   }
 }
 // Детализированные процедурные виды за окном; текстуры создаются локально и кэшируются.
+const PHOTO_VIEWS = ['street', 'park', 'city', 'sunset', 'night', 'country'];
 function viewTex(kind) {
+  if (PHOTO_VIEWS.includes(kind)) return finishTex('window-photo-' + kind, 'models/views/' + kind + '.webp', true, false);
   return canvasTex('view6-' + kind, 1024, 512, (x, w, h) => drawWindowScene(x, w, h, kind));
 }
 const DOOR_COLORS = [['#E8E6E1', 'Белый'], ['#B4B4B2', 'Светло-серый'], ['#8A8A88', 'Серый'], ['#4A4C50', 'Графит'], ['#232427', 'Чёрный'], ['#CDBFA6', 'Бежевый'], ['#6B4E38', 'Дерево'], ['#3D5778', 'Синий'], ['#3F5A4C', 'Зелёный']];
@@ -6497,7 +6538,7 @@ function buildOpening(sc, o, lit) {
     if (o.view && !T3.vw[wkey]) {
       T3.vw[wkey] = 1; const W = byId(hw), ws = W ? segOf(W) : sg, wl = W ? ws.len : sg.len;
       const ocx = (o.x1 + o.x2) / 2, ocy = (o.y1 + o.y2) / 2, bmx = W ? (W.x1 + W.x2) / 2 : ocx, bmy = W ? (W.y1 + W.y2) / 2 : ocy, along = (bmx - ocx) * sg.ux + (bmy - ocy) * sg.uy;
-      const vw = wl + 16, bd = mesh(g, new THREE.PlaneGeometry(vw, 8), mat('view4|' + o.view + (lit ? 1 : 0), '#FFFFFF', { map: viewTex(o.view), emissive: c3('#FFFFFF'), emissiveMap: viewTex(o.view), emissiveIntensity: lit ? 0.95 : 0.6, roughness: 1, transparent: true, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp }), along, 2.5, side * 4, true);
+      const vw = (wl + 16) * 0.86, vh = vw / (1584 / 672), bd = mesh(g, new THREE.PlaneGeometry(vw, vh), mat('view4|' + o.view + (lit ? 1 : 0), '#FFFFFF', { map: viewTex(o.view), emissive: c3('#FFFFFF'), emissiveMap: viewTex(o.view), emissiveIntensity: lit ? 0.95 : 0.6, roughness: 1, transparent: true, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc, stencilFail: THREE.KeepStencilOp, stencilZPass: THREE.KeepStencilOp }), along, 2.5, side * 4, true);
       bd.rotation.y = side > 0 ? Math.PI : 0; bd.receiveShadow = false; bd.renderOrder = 2;
     }
     const sill = winSill(o), top = winTop(o), WH = top - sill, cy = sill + WH / 2, n = winPanes(sg.len);
@@ -6910,13 +6951,14 @@ function buildProp(g, o) {
     mbox(g, w * 0.38, 0.001, d * 0.3, mat('laptpad', '#A8ACB2', { roughness: 0.25, metalness: 0.4 }), 0, 0.0165, -hd + 0.035 + kbD + d * 0.17, true);   // тачпад
     const lid = new THREE.Group(); lid.position.set(0, 0.016, -hd); lid.rotation.x = -0.25; g.add(lid);
     mbox(lid, w, d * 0.95, 0.008, alu, 0, d * 0.475, 0); mbox(lid, w - 0.02, d * 0.95 - 0.02, 0.002, scr, 0, d * 0.475, 0.005, true);
+  } else if (k === 'mic') {
+    buildSM7B(g, o);
   } else if (k === 'monitor') {   // монитор: подставка, ножка, тонкий экран лицом вперёд
     const blk = mat('monblk', '#1B1C1F', { roughness: 0.4, metalness: 0.3 }), scr = mat('monscr', '#2C3A4A', { emissive: c3('#3E5874'), emissiveIntensity: 0.45, roughness: 0.15 });
     mbox(g, 0.22, 0.012, 0.16, blk, 0, 0.006, -0.02); mbox(g, 0.04, 0.12, 0.025, blk, 0, 0.07, -0.05);
     const sh = Math.max(0.2, h - 0.1); mbox(g, w, sh, 0.025, blk, 0, 0.1 + sh / 2, -0.02); mbox(g, w - 0.02, sh - 0.02, 0.002, scr, 0, 0.1 + sh / 2, -0.006, true);
-  } else if (k === 'books') {   // стопка книг: несколько обложек разных цветов, слегка развёрнутых
-    seed = 4; const cols = ['#8A3B32', '#2F4F6B', '#C9A24A', '#4E6B45', '#6B4E6E', '#D8D2C4']; let y = 0;
-    while (y < h - 0.02) { const th = 0.025 + rnd() * 0.02, b = mbox(g, w * (0.85 + rnd() * 0.15), th, d * (0.85 + rnd() * 0.15), mat('book' + Math.floor(rnd() * 6), cols[Math.floor(rnd() * 6)], { roughness: 0.7 }), 0, y + th / 2, 0); b.rotation.y = (rnd() - 0.5) * 0.4; y += th; }
+  } else if (k === 'books') {
+    detailedBookStack(g, o);
   } else if (k === 'cup') {   // чашка с ручкой
     const cf = furnRow(o), cc = cf ? cf[2] : '#F1EFEA', cer = mat('ceramic|' + cc, cc, { roughness: 0.35 });
     mesh(g, new THREE.CylinderGeometry(0.042, 0.034, h, 24, 1, true), mat('ceramic2|' + cc, cc, { roughness: 0.35, side: THREE.DoubleSide }), -0.012, h / 2, 0);
@@ -7168,6 +7210,86 @@ function buildCurtain(g, o) {
       const band = rbox(g, pw * 0.39, 0.014, 0.025, rope, cx, bandY, 0.055, 0.005); band.rotation.z = side * 0.08;
       mrod(g, V(cx, bandY, 0.06), V(side * (w / 2 + 0.025), bandY + 0.01, -0.03), 0.003, rope, true);
     }
+  }
+}
+function buildSM7B(g, o) {
+  const q = new THREE.Group();
+  const body = mat('sm7b-body', '#17191B', { roughness: 0.48, metalness: 0.48 });
+  const edge = mat('sm7b-edge', '#090A0B', { roughness: 0.62, metalness: 0.28 });
+  const foam = mat('sm7b-foam', '#151617', { map: canvasTex('sm7b-foam', 512, 512, (c, w, h) => {
+    const im = c.createImageData(w, h), d = im.data; let s = 71;
+    for (let i = 0; i < w * h; i++) { s = s * 16807 % 2147483647; const v = 24 + Math.round((s / 2147483647) * 28); d[i * 4] = v; d[i * 4 + 1] = v + 1; d[i * 4 + 2] = v + 2; d[i * 4 + 3] = 255; } c.putImageData(im, 0, 0);
+  }, true), bumpMap: wallBump('micro'), bumpScale: 0.0015, roughness: 0.98 });
+  const labelMap = canvasTex('sm7b-label', 512, 128, (c, w, h) => { c.clearRect(0, 0, w, h); c.fillStyle = '#E7E8E8'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '600 60px sans-serif'; c.fillText('SHURE', w / 2, 47); c.font = '32px sans-serif'; c.fillText('SM7B', w / 2, 101); }, true);
+  const labelMat = mat('sm7b-label', '#FFFFFF', { map: labelMap, transparent: true, depthWrite: false, roughness: 0.7 });
+  const lathe = (profile, material, y) => {
+    const geo = new THREE.LatheGeometry(profile.map(([r, z]) => new THREE.Vector2(r, z)), 64); geo.rotateX(Math.PI / 2);
+    return mesh(q, geo, material, 0, y, 0);
+  };
+  lathe([[0, -0.118], [0.022, -0.117], [0.035, -0.111], [0.042, -0.096], [0.044, -0.074], [0.044, 0.008], [0.043, 0.016], [0, 0.016]], body, 0.35);
+  lathe([[0, -0.004], [0.046, -0.004], [0.052, 0.005], [0.054, 0.02], [0.054, 0.072], [0.052, 0.095], [0.044, 0.112], [0.026, 0.121], [0, 0.124]], foam, 0.35);
+  lathe([[0.0445, -0.01], [0.046, -0.008], [0.046, 0.003], [0.0445, 0.005]], edge, 0.35);
+  lathe([[0.043, -0.085], [0.045, -0.083], [0.045, -0.077], [0.043, -0.075]], edge, 0.35);
+  const label = mesh(q, new THREE.PlaneGeometry(0.064, 0.016), labelMat, 0, 0.3935, -0.033, true); label.rotation.x = -Math.PI / 2;
+  const base = mcyl(q, 0.112, 0.118, 0.024, edge, 0, 0.012, 0, 64); base.scale.z = 0.86;
+  mcyl(q, 0.083, 0.105, 0.008, body, 0, 0.028, 0, 64).scale.z = 0.86;
+  mcyl(q, 0.014, 0.014, 0.23, body, 0, 0.145, -0.025, 32);
+  mcyl(q, 0.023, 0.023, 0.034, edge, 0, 0.215, -0.025, 32);
+  for (const sx of [-1, 1]) {
+    const arm = rbox(q, 0.012, 0.17, 0.027, body, sx * 0.065, 0.285, -0.012, 0.005); arm.rotation.z = -sx * 0.09;
+    const pivot = mcyl(q, 0.019, 0.019, 0.018, edge, sx * 0.063, 0.35, -0.006, 40); pivot.rotation.z = Math.PI / 2;
+    const knob = mcyl(q, 0.014, 0.014, 0.008, body, sx * 0.075, 0.35, -0.006, 32); knob.rotation.z = Math.PI / 2;
+    mrod(q, V(sx * 0.06, 0.203, -0.025), V(sx * 0.065, 0.225, -0.012), 0.008, body);
+  }
+  mrod(q, V(-0.063, 0.202, -0.025), V(0.063, 0.202, -0.025), 0.008, body);
+  const cable = new THREE.CatmullRomCurve3([V(0, 0.35, -0.117), V(0, 0.3, -0.15), V(0.018, 0.2, -0.15), V(0.035, 0.06, -0.12), V(0.09, 0.009, -0.04)]);
+  mesh(q, new THREE.TubeGeometry(cable, 48, 0.003, 8, false), edge, 0, 0, 0);
+  q.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(q), s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+  const W = 0.15, D = 0.22, H = 0.26; o.w = W; o.d = D; o.h = H;
+  q.scale.set(W / Math.max(0.001, s.x), H / Math.max(0.001, s.y), D / Math.max(0.001, s.z)); q.position.set(-c.x * q.scale.x, -b.min.y * q.scale.y, -c.z * q.scale.z); g.add(q);
+}
+const BOOK_DESIGNS = [
+  ['#243E36', '#C7B681', 'ВОЙНА', 'И МИР', 'Л. Толстой'], ['#732F2C', '#E2C99A', 'ПРЕСТУПЛЕНИЕ', 'И НАКАЗАНИЕ', 'Ф. Достоевский'],
+  ['#263B54', '#C3D0D7', 'МАСТЕР', 'И МАРГАРИТА', 'М. Булгаков'], ['#B99452', '#2C302F', 'ТИШИНА', '', 'Э. Хемингуэй'],
+  ['#D4CCB8', '#4D5350', 'СТИХИ', '', 'А. Ахматова'], ['#3B343D', '#C1A976', 'ЗАМОК', '', 'Ф. Кафка']
+];
+function bookCoverTex(i) {
+  const D = BOOK_DESIGNS[i % BOOK_DESIGNS.length];
+  return canvasTex('book-cover-detailed-' + i, 512, 700, (c, w, h) => {
+    c.fillStyle = D[0]; c.fillRect(0, 0, w, h); c.strokeStyle = D[1]; c.lineWidth = 3; c.strokeRect(25, 25, w - 50, h - 50); c.lineWidth = 1; c.strokeRect(35, 35, w - 70, h - 70);
+    c.fillStyle = D[1]; c.textAlign = 'center'; c.font = '22px serif'; c.fillText('БИБЛИОТЕКА', w / 2, 105);
+    c.beginPath(); c.moveTo(155, 137); c.lineTo(357, 137); c.stroke();
+    c.font = '600 52px serif'; c.fillText(D[2], w / 2, 290); if (D[3]) c.fillText(D[3], w / 2, 355);
+    c.beginPath(); c.arc(w / 2, 455, 35, 0, Math.PI * 2); c.stroke(); c.beginPath(); c.moveTo(w / 2 - 60, 455); c.lineTo(w / 2 + 60, 455); c.stroke();
+    c.font = '28px serif'; c.fillText(D[4], w / 2, 600);
+  }, true);
+}
+function bookSpineTex(i) {
+  const D = BOOK_DESIGNS[i % BOOK_DESIGNS.length];
+  return canvasTex('book-spine-detailed-' + i, 512, 96, (c, w, h) => {
+    c.fillStyle = D[0]; c.fillRect(0, 0, w, h); c.strokeStyle = D[1]; c.lineWidth = 2; c.strokeRect(4, 4, w - 8, h - 8);
+    c.fillStyle = D[1]; c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '30px serif'; c.fillText((D[2] + ' ' + D[3] + ' · ' + D[4]).toUpperCase(), w / 2, h / 2);
+  }, true);
+}
+function bookPagesMat() {
+  return mat('book-pages-detailed', '#E4DCC8', { map: canvasTex('book-pages-detailed', 512, 512, (c, w, h) => {
+    c.fillStyle = '#E8E0CD'; c.fillRect(0, 0, w, h); let s = 19;
+    for (let y = 0; y < h; y += 3) { s = s * 16807 % 2147483647; c.strokeStyle = 'rgba(105,91,68,' + (0.12 + s / 2147483647 * 0.16) + ')'; c.lineWidth = 1; c.beginPath(); c.moveTo(0, y + 0.5); c.lineTo(w, y + 0.5); c.stroke(); }
+  }, true), roughness: 0.92 });
+}
+function detailedBookStack(g, o) {
+  seed = 4; let y = 0, i = 0;
+  const pages = bookPagesMat();
+  while (y < o.h - 0.012 && i < 12) {
+    const th = Math.min(0.022 + rnd() * 0.013, o.h - y); if (th < 0.01) break;
+    const bw = o.w * (0.88 + rnd() * 0.12), bd = o.d * (0.86 + rnd() * 0.14), b = new THREE.Group();
+    b.position.set((rnd() - 0.5) * 0.014, y + th / 2, (rnd() - 0.5) * 0.01); b.rotation.y = (rnd() - 0.5) * 0.22; g.add(b);
+    mbox(b, bw - 0.008, th - 0.006, bd - 0.008, pages, 0.002, 0, 0);
+    const cover = mat('book-cover-' + i, '#FFFFFF', { map: bookCoverTex(i), roughness: 0.58 });
+    const spine = mat('book-spine-' + i, '#FFFFFF', { map: bookSpineTex(i), roughness: 0.6 });
+    mbox(b, bw, 0.003, bd, cover, 0, th / 2 - 0.0015, 0); mbox(b, bw, 0.003, bd, cover, 0, -th / 2 + 0.0015, 0);
+    mbox(b, 0.005, th, bd, spine, -bw / 2 + 0.0025, 0, 0);
+    y += th + 0.0015; i++;
   }
 }
 // герои появляются только когда готовы и модель, и перекрашенные футболки — без «мигания» цвета
@@ -7561,7 +7683,7 @@ function buildUrsaCamera(g, o) {
 function brassContact() { return mat('brass-contact', '#C6A75A', { roughness: 0.25, metalness: 0.85 }); }
 // бытовые светильники: геометрия от пола (или от столешницы), лампа — точечный источник у абажура
 function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
-  const k = o.kind, e = ON_TABLE.includes(k) ? supportTop(o) : 0;
+  const k = o.kind, e = ON_TABLE.includes(k) && !o.wall ? supportTop(o) : 0;
   const metal = mat('pmetal', '#3A3C40', { roughness: 0.35, metalness: 0.7 }), brass = mat('pbrass', '#B08D57', { roughness: 0.35, metalness: 0.75 });
   const shade = ownMat({ color: col, emissive: col, emissiveIntensity: lit ? 0.55 : 0.12, roughness: 0.9, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
   const bulb = V(0, 0, 0);
@@ -7590,6 +7712,20 @@ function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
     mrod(g, prev, V(0, 1.6, 0.2), 0.012, metal);
     const dm = mesh(g, new THREE.SphereGeometry(0.17, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), metal, 0, 1.45, 0.25, true); dm.material = metal;
     msph(g, 0.04, emi, 0, 1.43, 0.25, true); bulb.set(0, 1.4, 0.25);
+  } else if (k === 'p_fabric') {
+    mcyl(g, 0.085, 0.095, 0.022, brass, 0, e + 0.011, 0, 40); mcyl(g, 0.009, 0.009, 0.24, brass, 0, e + 0.13, 0, 20);
+    mesh(g, new THREE.CylinderGeometry(0.09, 0.135, 0.17, 48, 1, true), shade, 0, e + 0.29, 0, true); msph(g, 0.028, emi, 0, e + 0.275, 0, true); bulb.set(0, e + 0.28, 0);
+  } else if (k === 'p_neon') {
+    const D = neonDims(o), text = o.neonText == null ? '' : o.neonText, cy = o.wall ? (o.h || 1.5) : e + D.h / 2 + 0.02; o.w = D.w;
+    const tex = neonTextTex(text, col, D.w / D.h), nm = ownMat({ color: c3('#FFFFFF'), map: tex, emissive: c3('#FFFFFF'), emissiveMap: tex, emissiveIntensity: lit ? 3.2 : 0.25, transparent: true, depthWrite: false, side: THREE.DoubleSide, roughness: 0.5, blending: THREE.AdditiveBlending, toneMapped: false });
+    const acrylic = ownMat({ color: c3('#EAF3F4'), transparent: true, opacity: 0.025, roughness: 0.08, metalness: 0, depthWrite: false, side: THREE.DoubleSide });
+    mesh(g, new THREE.PlaneGeometry(D.w, D.h), nm, 0, cy, 0.021, true); bulb.set(0, cy, 0.05);
+    if (!o.wall) {
+      rbox(g, Math.max(0.2, D.w * 0.55), 0.012, 0.085, acrylic, 0, e + 0.006, 0, 0.004); rbox(g, 0.018, Math.max(0.04, D.h / 2), 0.012, acrylic, 0, e + D.h / 4 + 0.012, -0.008, 0.003);
+    }
+  } else if (k === 'p_candle') {
+    const wax = mat('candle-prop-wax', '#E8DFC8', { roughness: 0.88 }); mcyl(g, 0.034, 0.036, 0.12, wax, 0, e + 0.06, 0, 40); mrod(g, V(0, e + 0.116, 0), V(0, e + 0.128, 0), 0.0015, metal, true);
+    const flame = msph(g, 0.013, ownMat({ color: c3('#FFD590'), emissive: c3('#FFAD45'), emissiveIntensity: lit ? 2.4 : 0.3, roughness: 0.5 }), 0, e + 0.143, 0, true); flame.scale.set(0.65, 1.5, 0.65); bulb.set(0, e + 0.14, 0);
   } else {   // ночник: латунное основание и светящийся шар
     mcyl(g, 0.05, 0.06, 0.04, brass, 0, e + 0.02, 0, 20); msph(g, 0.085, shade, 0, e + 0.13, 0, true); bulb.set(0, e + 0.13, 0);
   }
@@ -7611,7 +7747,20 @@ function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
   } else if (k === 'p_floor') {   // напольная: купол закрыт сверху — светит только вниз
     withShadow(spot(1.5, 5, 58, 0.8, Wp(0, bulb.y + 0.05, bulb.z), Wp(0, bulb.y - 3, bulb.z)));
     glow(0.12, 1.2, Wp(0, bulb.y - 0.08, bulb.z));
-  } else {   // ночник: маленький и тусклый, светит только вокруг себя
+  } else if (k === 'p_fabric') {
+    spot(0.65, 3.5, 62, 1, Wp(0, bulb.y, 0), Wp(0, bulb.y - 2, 0)); glow(0.35, 2.5, Wp(0, bulb.y, 0));
+  } else if (k === 'p_neon') {
+    if (THREE.RectAreaLight && THREE.RectAreaLightUniformsLib) {
+      if (!T3.rectInit) { THREE.RectAreaLightUniformsLib.init(); T3.rectInit = true; }
+      const D = neonDims(o), intensity = Math.min(8, 0.73 / Math.max(0.04, D.w * D.h));
+      for (const dir of [-1, 1]) {
+        const ra = new THREE.RectAreaLight(col, intensity * (o.wall && dir === -1 ? 0.18 : 1), D.w, D.h);
+        ra.position.copy(Wp(0, bulb.y, bulb.z)); ra.lookAt(Wp(0, bulb.y, bulb.z + dir * 3)); ra.userData.soft = 0.5; sc.add(ra);
+      }
+    } else glow(0.35, 3.5, Wp(0, bulb.y, bulb.z));
+  }
+  else if (k === 'p_candle') { glow(0.32, 1.7, Wp(0, bulb.y, 0)); }
+  else {   // ночник: маленький и тусклый, светит только вокруг себя
     glow(0.28, 2.2, Wp(0, bulb.y, 0));
   }
 }
@@ -8136,6 +8285,29 @@ async function goboImageFile(file) {
     return { image: cv.toDataURL('image/webp', 0.94), gain: goboGain(cv), name: file.name };
   } finally { bmp.close(); }
 }
+let NEON_MEASURE = null;
+function neonDims(o) {
+  const lines = String(o && o.neonText != null ? o.neonText : '').split(/\r?\n/).slice(0, 2), letterH = Math.max(10, Math.min(50, o && o.letterH || 25)) / 100;
+  if (!NEON_MEASURE) NEON_MEASURE = document.createElement('canvas').getContext('2d');
+  NEON_MEASURE.font = '500 100px sans-serif';
+  const ratio = Math.max(0.8, ...lines.map(l => NEON_MEASURE.measureText(l.trim()).width / 100));
+  return { w: (ratio * letterH + 0.02) * 0.7, h: letterH * (lines.length > 1 ? 1.8 : 1) + 0.02, lines };
+}
+function neonTextTex(text, col, aspect) {
+  const key = 'neon-text-v8|' + text + '|' + col.getHexString() + '|' + aspect.toFixed(3);
+  return canvasTex(key, 1024, Math.max(64, Math.round(1024 / Math.max(0.1, aspect))), (c, w, h) => {
+    c.clearRect(0, 0, w, h); const lines = String(text == null ? '' : text).split(/\r?\n/).slice(0, 2), css = '#' + col.getHexString();
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round'; c.lineCap = 'round';
+    lines.forEach((line, i) => {
+      let size = lines.length > 1 ? h * 0.38 : h * 0.78; c.font = '500 ' + size + 'px sans-serif';
+      const tw = c.measureText(line).width; if (tw > w * 0.88) { size *= w * 0.88 / tw; c.font = '500 ' + size + 'px sans-serif'; }
+      const y = lines.length === 1 ? h / 2 : h * (0.28 + i * 0.44);
+      c.strokeStyle = css; c.shadowColor = css; c.shadowBlur = Math.max(40, h * 0.14); c.lineWidth = Math.max(12, h * 0.065); c.globalAlpha = 0.22; c.strokeText(line, w / 2, y);
+      c.strokeStyle = '#FFF4D4'; c.shadowBlur = Math.max(24, h * 0.08); c.lineWidth = Math.max(5, h * 0.026); c.globalAlpha = 1; c.strokeText(line, w / 2, y);
+    });
+    c.globalAlpha = 1; c.shadowBlur = 0;
+  }, true);
+}
 // какие приборы получат тени (их число ограничено): сначала те, что сильнее всего светят на героев —
 // яркость прибора × близость к герою × попадание героя в луч. Без героев — по яркости и близости к центру площадки.
 const SHADOW_KINDS_OFF = ['sun', 'astera', 'china', 'reflector'];   // у этих тени устроены иначе или их нет
@@ -8353,19 +8525,17 @@ function t3bounceRun(sc) {
     cand.push({ p: hit.point.clone().addScaledVector(n, 0.45), n: n.clone(), col, I: E * Math.sqrt(Math.max(0.04, lum)) * 0.42 });
   });
   cand.sort((a, b) => b.I - a.I).slice(0, 1).forEach(b => {   // один самый заметный отскок; остальное даёт общее заполнение сцены
-    /* отскок — линия точечных источников вдоль стены: пятна сливаются в мягкую подсветку,
-       края затухают колоколом (cos), суммарная яркость вдвое ниже прежней */
-    /* нормаль пола/потолка — тангенс берём по X, иначе получается нулевой вектор и позиции NaN */
-    const tg = Math.abs(b.n.y) > 0.85 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(-b.n.z, 0, b.n.x).normalize();
-    const N = 1, STEP = 0.22, TOT = Math.min(0.6, Math.max(0.14, b.I * 0.5));
-    const W = [];
-    for (let i = 0; i < N; i++) { const tt = (i - (N - 1) / 2) / Math.max(1, (N - 1) / 2); W.push(0.5 + 0.5 * Math.cos(tt * Math.PI / 2)); }
-    const WS = W.reduce((a, c) => a + c, 0);
-    for (let i = 0; i < N; i++) {
-      const pl = new THREE.PointLight(b.col, TOT * W[i] / WS, 6, 1.5);
-      pl.position.copy(b.p).addScaledVector(b.n, -0.05).addScaledVector(tg, (i - (N - 1) / 2) * STEP);
-      pl.userData.bounce = true; sc.add(pl);
-    }
+    const power = Math.min(0.6, Math.max(0.14, b.I * 0.5));
+    let l;
+    if (THREE.RectAreaLight && THREE.RectAreaLightUniformsLib) {
+      if (!T3.rectInit) { THREE.RectAreaLightUniformsLib.init(); T3.rectInit = true; }
+      const w = 2.6, h = 1.4;
+      l = new THREE.RectAreaLight(b.col, power / (w * h), w, h);
+      l.userData.soft = 1.3;
+    } else l = new THREE.PointLight(b.col, power, 6, 1.5);
+    l.position.copy(b.p).addScaledVector(b.n, -0.05);
+    if (l.isRectAreaLight) l.lookAt(l.position.clone().add(b.n));
+    l.userData.bounce = true; sc.add(l);
   });
 }
 function t3aim(cam, c) {
@@ -8482,6 +8652,36 @@ function renderFrame3(cv, cam, opts) {
 function renderFrame(cv, cam, opts) {
   if (t3init()) { try { return renderFrame3(cv, cam, opts); } catch (e) { console.error(e); T3.failed = true; } }
   renderFrameLegacy(cv, cam, opts); return true;
+}
+const VIEW_LOAD = { active: false, view: null, progress: 0, gen: 0, hideT: 0 };
+function viewLoadStart(view) {
+  const el = $('viewLoading'); if (!el) return;
+  clearTimeout(VIEW_LOAD.hideT); VIEW_LOAD.active = true; VIEW_LOAD.view = view; VIEW_LOAD.gen++; VIEW_LOAD.progress = 0;
+  el.hidden = false; el.setAttribute('aria-busy', 'true'); document.body.classList.add('view-loading');
+  const label = el.querySelector('.view-load-title'); if (label) label.textContent = view === 'cams' ? 'Подготавливаем вид с камеры' : 'Подготавливаем 3D-вид';
+  viewLoadProgress(5);
+}
+function viewLoadProgress(value) {
+  if (!VIEW_LOAD.active) return;
+  VIEW_LOAD.progress = Math.max(VIEW_LOAD.progress, Math.min(100, value));
+  const el = $('viewLoading'); if (!el) return;
+  const bar = el.querySelector('.view-load-fill'); if (bar) bar.style.width = VIEW_LOAD.progress + '%';
+  const pct = el.querySelector('.view-load-pct'); if (pct) pct.textContent = Math.round(VIEW_LOAD.progress) + '%';
+}
+function viewLoadFinish(view) {
+  if (!VIEW_LOAD.active || view && VIEW_LOAD.view !== view) return;
+  viewLoadProgress(100);
+  const gen = VIEW_LOAD.gen;
+  clearTimeout(VIEW_LOAD.hideT); VIEW_LOAD.hideT = setTimeout(() => {
+    if (gen !== VIEW_LOAD.gen) return;
+    const el = $('viewLoading'); if (el) { el.hidden = true; el.setAttribute('aria-busy', 'false'); }
+    document.body.classList.remove('view-loading'); VIEW_LOAD.active = false;
+  }, 180);
+}
+function viewLoadCancel() {
+  VIEW_LOAD.gen++; VIEW_LOAD.active = false; clearTimeout(VIEW_LOAD.hideT);
+  const el = $('viewLoading'); if (el) { el.hidden = true; el.setAttribute('aria-busy', 'false'); }
+  document.body.classList.remove('view-loading');
 }
 // ---------- 3D view ----------
 const V3 = { r: null, az: 0.9, el: 0.62, dist: 10, tgt: null, dirty: true, raf: 0, lit: true, drag: null, fullFrame: false, fastStart: false, fastHoldUntil: 0 };
@@ -8610,7 +8810,7 @@ function draw3(quiet) {
   const moving = !!V3.drag;
   const r = V3.r, ratio = T3.quality === 'high' && !moving ? Math.min(2, window.devicePixelRatio || 1) : Math.min(1, window.devicePixelRatio || 1); t3size(r, W, H, ratio);
   r.setScissorTest(false); r.setViewport(0, 0, W, H);
-  const sc = t3build(V3.lit); if (T3.helpers) T3.helpers.visible = false;
+  viewLoadProgress(32); const sc = t3build(V3.lit); if (T3.helpers) T3.helpers.visible = false;
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200); const t = V3.tgt;
   cam.position.set(t.x + V3.dist * Math.cos(V3.el) * Math.cos(V3.az), t.y + V3.dist * Math.sin(V3.el), t.z + V3.dist * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
   setCuts(cam.position, v3Near(W / H)); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
@@ -8628,6 +8828,7 @@ function draw3(quiet) {
   setCuts(cam.position, v3Near(W / H));
   r.render(sc, cam); V3.fullFrame = true;
   if (T3.expKey !== ek) { r.toneMappingExposure = viewExposure(r, sc, V3.lit); V3.dirty = Math.abs(r.toneMappingExposure - 1.05) > 0.01; }
+  if (!quiet) viewLoadFinish('3d');
   if (quiet) {   // высокий LOD загружаем в GPU заранее; крошечный scissor не тратит время на лишние пиксели
     const states = [];
     sc.traverse(l => { if (l.isLOD && l.userData.humanLOD && l.levels[0] && !l.levels[0].object.visible) { states.push([l, l.autoUpdate, l.levels.map(x => x.object.visible)]); l.autoUpdate = false; l.levels.forEach((x, i) => x.object.visible = i === 0); } });
@@ -8788,6 +8989,11 @@ function renderInspector() {
   } else if (o.type === 'light') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
     if (o.kind === 'astera') { h += field('Длина', `<input type="number" id="inALen" step="0.1" min="0.3" max="2.5" value="${asteraLen(o)}"> м`); h += field('Высота', `<input type="number" id="inAH" step="0.1" min="0" max="8" value="${asteraBaseH(o)}"> м`); h += `<span class="seg" role="group" aria-label="Положение"><button data-act="horiz" data-v="v" aria-pressed="${!o.horiz}">Вертикально</button><button data-act="horiz" data-v="h" aria-pressed="${!!o.horiz}">Горизонтально</button></span>`; }
+    if (o.kind === 'p_neon') {
+      h += `<label class="neon-field"><span>Надпись</span><textarea id="inNeonText" class="note-ta" rows="2" aria-label="Текст неоновой вывески" placeholder="До двух строк">${esc(o.neonText == null ? '' : o.neonText)}</textarea><small>Не больше двух строк</small></label>`;
+      h += field('Высота букв', `<input type="number" id="inNeonSize" step="5" min="10" max="50" value="${o.letterH || 25}"> см`);
+      if (o.wall) h += field('Высота', `<input type="number" id="inNeonWallH" step="0.1" min="0.3" max="8" value="${o.h || 1.5}"> м`);
+    }
     if (o.kind === 'softbox') h += `<span class="seg" role="group" aria-label="Размер софтбокса">${SOFTBOX_SIZES.map(s => `<button data-act="sbsize" data-v="${s}" aria-pressed="${softboxSize(o) === s}">${s} см</button>`).join('')}</span>`;
     if (o.kind === 'panel') { h += field('Ш', `<input type="number" id="inPW" step="0.05" min="0.1" max="2" value="${panelW(o)}"> м`); h += field('В', `<input type="number" id="inPH" step="0.05" min="0.1" max="2" value="${panelH(o)}"> м`); }
     if (o.kind === 'sun') h += field('Высота солнца', `<input type="number" id="inElev" step="5" min="5" max="85" value="${sunElev(o)}"> °`);
@@ -8843,7 +9049,7 @@ function renderInspector() {
       }
     }
     if (o.type === 'window') h += field('Высота', `<input type="number" id="inWH" step="0.05" min="0.3" max="${fx(winMaxH(o), 2).replace(',', '.')}" value="${o.h || 1.2}"> м`) + `<label class="chk solo"><input type="checkbox" id="inFloor" ${o.floor ? 'checked' : ''}> Окно в пол</label>`;
-    if (o.type === 'window') h += field('Вид из окна', `<select id="inWView">${[['', 'Нет'], ['street', 'Улица'], ['city', 'Город'], ['sunset', 'Закат'], ['park', 'Парк']].map(([v, n]) => `<option value="${v}" ${(o.view || '') === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`);
+    if (o.type === 'window') h += field('Вид из окна', `<select id="inWView">${[['street', 'Улица'], ['park', 'Парк'], ['city', 'Город'], ['sunset', 'Закат'], ['night', 'Ночной город'], ['country', 'Загородный дом'], ['', 'Нет']].map(([v, n]) => `<option value="${v}" ${(o.view || '') === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`);
     if (o.type === 'door') {
       const di = doorInfo(o);
       h += `<span class="seg" role="group" aria-label="Состояние двери"><button data-act="dstate" data-v="closed" aria-pressed="${o.open === false}">Закрыта</button><button data-act="dstate" data-v="open" aria-pressed="${o.open !== false}">Открыта</button></span>`;
@@ -8996,6 +9202,9 @@ $('inspector').addEventListener('input', (e) => {
       const count = $('goboLines'); if (count) count.textContent = `${lines.length}/4 строки`;
       V3.dirty = true; if (window.THREE && T3.scene) t3lightUpdate(o); break;
     }
+    case 'inNeonText': { const value = t.value.split(/\r?\n/).slice(0, 2).join('\n'); if (t.value !== value) t.value = value; o.neonText = value; o.w = neonDims(o).w; T3.key = ''; V3.dirty = true; break; }
+    case 'inNeonSize': if (ok) { o.letterH = Math.max(10, Math.min(50, num)); o.w = neonDims(o).w; T3.key = ''; V3.dirty = true; } break;
+    case 'inNeonWallH': if (ok) { o.h = Math.max(0.3, Math.min(8, num)); T3.key = ''; V3.dirty = true; } break;
     case 'inText': o.text = t.value; break;
     case 'inCap': if (o.type === 'camera') o.cap = t.value; else o.name = t.value; t.rows = Math.max(1, t.value.split('\n').length); break;
     case 'inShow': o.showLbl = t.checked; break;
@@ -9137,9 +9346,9 @@ function addObject(type, v) {
   let o;
   if (type === 'camera') { const l = nextLetter(); o = { type, letter: l, cap: l, name: 'Камера ' + l, desc: '', x: cx, y: cy, rot: 0, sensor: v || 'S35', lens: 35, h: 1.4, tilt: 0, aspect: '1.78' }; }
   else if (type === 'hero') { o = { type, name: '', x: cx, y: cy, rot: 180, color: +v || 0, pose: 'stand' }; }
-  else if (type === 'light') { const L = LIGHTS[v]; o = { type, kind: v, name: L.name, x: cx, y: cy, rot: LIGHTS[v].rotIcon ? 180 : 0, h: v === 'practical' ? 1.6 : 2.0, power: 100 }; if (v === 'astera') { o.alen = 1; o.ah = 0; o.h = asteraH(o); } if (v === 'softbox') o.size = 90; if (v === 'panel') { o.w = 0.62; o.ph = 0.3; } }
+  else if (type === 'light') { const L = LIGHTS[v]; o = { type, kind: v, name: L.name, x: cx, y: cy, rot: LIGHTS[v].rotIcon ? 180 : 0, h: v === 'practical' ? 1.6 : 2.0, power: 100 }; if (v === 'astera') { o.alen = 1; o.ah = 0; o.h = asteraH(o); } if (v === 'softbox') o.size = 90; if (v === 'panel') { o.w = 0.62; o.ph = 0.3; } if (v === 'p_fabric') o.h = 0.42; if (v === 'p_neon') { o.h = 1.5; o.neonText = 'NEON'; o.letterH = 25; o.w = neonDims(o).w; o.d = 0.04; o.name = ''; o.showLbl = false; } if (v === 'p_candle') o.h = 0.14; }
   else if (type === 'prop') { const P = PROPS[v]; o = { type, kind: v, name: P.name, x: cx, y: cy, rot: 0, w: P.w, d: ON_TABLE.includes(v) ? P.d : Math.max(0.2, P.d), h: P.h }; if (v === 'shelf') { o.shelves = 5; o.h = 2.206; } if (FURN_DEF[v]) o.fc = FURN_DEF[v]; }
-  else if (ROOM[type]) { const L = ROOM[type].len; if (type === 'wall') { cx = snap(cx, WALL_STEP); cy = snap(cy, WALL_STEP); } o = { type, x1: cx - L / 2, y1: cy, x2: cx + L / 2, y2: cy }; if (type === 'door') o.open = true; }
+  else if (ROOM[type]) { const L = ROOM[type].len; if (type === 'wall') { cx = snap(cx, WALL_STEP); cy = snap(cy, WALL_STEP); } o = { type, x1: cx - L / 2, y1: cy, x2: cx + L / 2, y2: cy }; if (type === 'door') o.open = true; if (type === 'window') o.view = 'street'; }
   else if (type === 'note') { o = { type: 'note', text: 'Заметка', x: cx, y: cy }; }
   o.id = uid(); objs().push(o);
   // режим установки: объект следует за курсором, клик по схеме ставит его, Esc — отмена
@@ -9151,23 +9360,22 @@ function ghostCss(id, shown) {
   st.textContent = id ? `#plan [data-id="${id}"], #plan [data-lbl="${id}"] { opacity: ${shown ? .6 : 0}; pointer-events: none; }` : '';
 }
 // предметы, которые вешают на стену: при поднесении к стене (ближе 0,3 м) прилипают к ней задней стороной и разворачиваются вдоль
-const WALL_HUNG = ['picture', 'tv', 'curtain'];
+const WALL_HUNG = ['picture', 'tv', 'curtain', 'p_neon'];
 function hangSnap(o, x, y) {
-  if (o.type !== 'prop' || !WALL_HUNG.includes(o.kind)) return false;
+  if (!WALL_HUNG.includes(o.kind) || (o.type !== 'prop' && o.kind !== 'p_neon')) return false;
   let best = null, bd = 0.3;
   objs().forEach(s => {
     if (s.type !== 'wall') return; const dx = s.x2 - s.x1, dy = s.y2 - s.y1, len = Math.hypot(dx, dy); if (len < 0.05) return;
     const ux = dx / len, uy = dy / len, tt = (x - s.x1) * ux + (y - s.y1) * uy; if (tt < -0.05 || tt > len + 0.05) return;
     const px = s.x1 + ux * tt, py = s.y1 + uy * tt, d = Math.hypot(x - px, y - py);
-    if (d < bd) { const margin = o.w / 2 + (o.kind === 'curtain' ? 0.09 : 0); bd = d; best = { ux, uy, tt: Math.max(margin, Math.min(len - margin, tt)), s, len, margin }; }
+    if (d < bd) { const margin = (o.w || 0.64) / 2 + (o.kind === 'curtain' ? 0.09 : 0); bd = d; best = { ux, uy, tt: Math.max(margin, Math.min(len - margin, tt)), s, len, margin }; }
   });
-  if (!best) { if (o.kind === 'tv') o.wall = false; return false; }
-  const { ux, uy, s } = best; let nx = -uy, ny = ux; if ((x - s.x1) * nx + (y - s.y1) * ny < 0) { nx = -nx; ny = -ny; }   // нормаль в сторону, где держим предмет
-  const tv = o.kind === 'tv', off = WALL_T / 2 + (tv ? 0.05 : o.d / 2 + 0.005), tt = best.len >= best.margin * 2 ? best.tt : best.len / 2;
+  if (!best) { if (o.kind === 'tv' || o.kind === 'p_neon') o.wall = false; return false; }
+  const { ux, uy, s } = best; let nx = -uy, ny = ux; if ((x - s.x1) * nx + (y - s.y1) * ny < 0) { nx = -nx; ny = -ny; }
+  const tv = o.kind === 'tv', off = WALL_T / 2 + (tv ? 0.05 : (o.d || 0.04) / 2 + 0.005), tt = best.len >= best.margin * 2 ? best.tt : best.len / 2;
   o.x = s.x1 + ux * tt + nx * off; o.y = s.y1 + uy * tt + ny * off;
-  // лицевая сторона — от стены (у картины лицо по +z модели, у ТВ экран по −z)
   o.rot = Math.round((((tv ? Math.atan2(nx, -ny) : Math.atan2(-nx, ny)) / RAD) % 360 + 360) % 360);
-  if (tv) o.wall = true;
+  if (tv || o.kind === 'p_neon') o.wall = true;
   return true;
 }
 function placeAt(o, w) {
@@ -9793,7 +10001,10 @@ function setView(v) {
   $('helpBtn').disabled = v !== 'plan';   /* справка по клавишам нужна только на схеме */
   document.body.dataset.view = v;
   if (v === 'cams' && !S.activeCam) { const so = byId(S.sel); S.activeCam = so && so.type === 'camera' ? so.id : (cams()[0] || {}).id || null; }
-  renderAll(true);
+  if (v === '3d' || v === 'cams') {
+    viewLoadStart(v);
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (S.view === v) { viewLoadProgress(18); renderAll(true); } }));
+  } else { viewLoadCancel(); renderAll(true); }
   if (v === 'plan' && !S.fitted && !S.wallDraw) requestAnimationFrame(() => { fit(); renderPlan(); });   // схема была скрыта при открытии проекта
 }
 const THUMB = {}; let THUMB_T = 0, THUMB_G = 0, CAMD = 0;
@@ -9801,7 +10012,7 @@ function renderCams() {
   if (S.view !== 'cams') return;
   const list = cams(); const cl = $('camlist');
   const none = !list.length; cl.hidden = none; $('stage').hidden = none; $('camEmpty').hidden = !none;   // без камер — только подсказка по центру
-  if (none) { cl.innerHTML = ''; return; }
+  if (none) { cl.innerHTML = ''; viewLoadFinish('cams'); return; }
   let c = byId(S.activeCam); if (!c || c.type !== 'camera') { c = list[0]; S.activeCam = c.id; }
   cl.innerHTML = list.map(k => `<button class="camcard" data-cam="${k.id}" aria-current="${k.id === c.id}"><canvas width="440" height="184" aria-hidden="true"></canvas><span class="t">${esc(camName(k))}</span></button>`).join('');
   // миниатюры: берём из кэша; если сцена изменилась — перерисовываем с задержкой, а не на каждое действие
@@ -9831,7 +10042,7 @@ function renderCams() {
   const mc = $('mainCanvas'); sizeCanvas(mc, w, h, 1.5); clearTimeout(CAMD);   /* плотность пикселей не выше 1,5 — на экранах ×2 кадр в 1,8 раза дешевле */
   if (!waitHumans) CAMD = setTimeout(() => {
     if (S.view !== 'cams' || S.activeCam !== c.id || !byId(c.id)) return;
-    if (renderFrame(mc, c, { lit: S.ov.lit }) === false) { if (!firstFrameDone) loadingFrame(mc); } else { firstFrameDone = true; stopLoadingFrame(mc); }
+    if (renderFrame(mc, c, { lit: S.ov.lit }) === false) { if (!firstFrameDone) loadingFrame(mc); } else { firstFrameDone = true; stopLoadingFrame(mc); viewLoadFinish('cams'); }
   }, 30);
 }
 $('camlist').addEventListener('click', (e) => { const b = e.target.closest('[data-cam]'); if (!b) return; S.activeCam = b.dataset.cam; S.sel = S.activeCam; renderCams(); });
@@ -9913,6 +10124,12 @@ applyTheme();
 try { humansLoad(); plantLoad(); chairLoad(); curtainLoad(); cabinetLoad(); } catch (e) { }
 requestAnimationFrame(() => { fit(); renderAll(true); });
 })();
+if (window.Capacitor && window.Capacitor.getPlatform) document.body.classList.add('native-' + window.Capacitor.getPlatform());
+if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar) {
+  const bar = window.Capacitor.Plugins.StatusBar;
+  if (bar.setOverlaysWebView) bar.setOverlaysWebView({ overlay: false }).catch(() => {});
+  if (bar.setBackgroundColor) bar.setBackgroundColor({ color: '#F7F7F5' }).catch(() => {});
+}
 </script>
 
 </body>
