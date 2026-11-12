@@ -230,11 +230,12 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
 .inspector .stp { width: 32px; height: 32px; flex: none; display: grid; place-items: center; padding: 0; border-radius: 6px; border: 1px solid var(--line2); background: var(--raised); color: var(--fg); }
 .inspector .stp:hover { border-color: var(--muted); } .inspector .stp:active { background: var(--active); }
 .cblock { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 2px; border-top: 1px solid var(--line); margin-top: 2px; }
-.cb-top { display: flex; align-items: center; justify-content: space-between; }
+.cb-top { display: flex; align-items: center; gap: 8px; }
+.cb-top .seg { flex: 1; min-width: 0; }
 .tilt-row { display: flex; align-items: center; gap: 10px; }
 .tiltv { width: 96px; height: 54px; flex: none; border-radius: 6px; background: var(--raised); border: 1px solid var(--line); }
 .tilt-q { display: flex; gap: 4px; margin-top: 4px; } .tilt-q button { flex: 1; height: 24px; padding: 0; font-size: 11px; border-radius: 6px; border: 1px solid var(--line2); background: var(--raised); color: var(--fg); cursor: pointer; } .tilt-q button:hover { border-color: var(--muted); }
-.cswatch { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line2); box-shadow: inset 0 0 0 2px var(--panel); }
+.cswatch { flex: 0 0 26px; box-sizing: border-box; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line2); box-shadow: inset 0 0 0 2px var(--panel); }
 .sld { display: flex; flex-direction: column; gap: 2px; }
 .sld-h { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); }
 .sld-v { display: flex; align-items: center; gap: 2px; color: var(--fg); font-family: var(--font-data); font-size: 12px; }
@@ -555,7 +556,7 @@ body.ptouch .inspector, body.ptouch #menus { pointer-events: none; }
   .inspector .ins-x { position: sticky; top: 24px; align-self: flex-end; flex: none; width: 36px; height: 32px; margin-bottom: -32px; z-index: 5; }
   .inspector .ins-head { position: sticky; top: 24px; z-index: 2; display: flex; align-items: center; min-height: 32px; background: transparent; }
   .inspector.compact { max-height: 72px; overflow: hidden; padding-bottom: 8px; }
-  .inspector.compact > :not(.sheet-grip):not(.ins-x):not(.ins-head):not(.ins-name) { display: none; }
+  .inspector.compact > :not(.sheet-grip):not(.ins-x):not(.ins-head):not(.ins-name):not(.ins-summary) { display: none; }
   .frow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .frow .fld { padding: 0 6px; gap: 2px; } .frow .stp { display: none; } .frow .fld input[type="number"] { width: 4.5ch; padding: 2px 4px; }
   .sld { display: grid; grid-template-columns: 88px 1fr auto; align-items: center; column-gap: 8px; }
@@ -821,7 +822,7 @@ select option { background: var(--surface); color: var(--fg); }
 .wallhint .btn.ghost { background: var(--surface); border: 1px solid var(--hair); box-shadow: var(--card-shadow); }
 
 /* ---------- единая система скруглений и отступов ---------- */
-:root { --r-card: 16px; --r-btn: 12px; --r-in: 10px; }
+:root { --r-card: 16px; --r-btn: 8px; --r-in: 8px; }
 
 .menu, .dlg, .inspector, .pip, .camshelf, .camview .camshelf, .tabs { border-radius: var(--r-card); }
 .rtool, .cbtn, .iconbtn, .mbtn, .btn, .ibtn, .camadd, .ins-x, .sub-back, .menu-x, .ctrlcard .rtool, .top .btn.primary { border-radius: var(--r-btn); }
@@ -886,6 +887,8 @@ select option { background: var(--surface); color: var(--fg); }
 
 body.native-android .top { height: calc(60px + max(28px, env(safe-area-inset-top, 0px))); padding-top: max(28px, env(safe-area-inset-top, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
 @media (min-width: 701px) {
+  body[data-view="plan"] .ctrlcard { flex-direction: row; }
+  .inspector { max-height: calc(100% - 88px); }
   body.native-android .layerbar, body.native-android .ctrlcard, body.native-android .cellhint { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 700px) {
@@ -894,6 +897,112 @@ body.native-android .top { height: calc(60px + max(28px, env(safe-area-inset-top
   body.native-android .brand { display: none; }
   body.native-android .pwrap { margin-left: 4px; }
   body.native-android .ctrlcard { right: max(20px, env(safe-area-inset-right, 0px)); }
+}
+
+/* Общие размеры рабочих панелей и состояний. */
+:root {
+  --workspace-gutter: 16px;
+  --panel-padding: 12px;
+  --item-gap: 8px;
+  --section-gap: 16px;
+  --r-media: 4px;
+  --light-label: #ffc66b;
+  --focus-ring: #8ac0f5;
+}
+:root[data-theme="light"] { --light-label: #835316; --focus-ring: #1859ad; }
+:focus-visible { outline-color: var(--focus-ring); }
+#plan:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.top { padding-inline: max(var(--workspace-gutter), env(safe-area-inset-left, 0px)) max(var(--workspace-gutter), env(safe-area-inset-right, 0px)); }
+.tab, .top .btn.primary, .pname { font-size: 14px; }
+.top .tabs { --tab-inset: 3px; padding: var(--tab-inset); border-radius: calc(var(--r-in) + var(--tab-inset)); }
+.saved, .cellhint { font-size: 12px; }
+.tools { left: var(--workspace-gutter); top: var(--workspace-gutter); }
+.ctrlcard {
+  right: var(--workspace-gutter); bottom: var(--workspace-gutter); gap: 4px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--hair); border-radius: var(--r-card); box-shadow: var(--card-shadow);
+}
+.ctrlcard .rtool { width: 44px; height: 44px; background: transparent; border: 1px solid transparent; box-shadow: none; }
+.ctrlcard .rtool[aria-pressed="true"] { background: var(--active); border-color: var(--hair2); color: var(--fg); }
+.ctrlcard #zFit { margin-top: 0; }
+.ctrlcard .d3-only { align-self: stretch; width: auto; min-width: 44px; padding-inline: 8px; display: flex; justify-content: flex-start; gap: 8px; font-size: 12px; }
+.ctrlcard .d3-only svg { width: 20px; height: 20px; }
+.ctrlcard .rtool svg, .tools .rtool svg { stroke-width: 1.7; }
+.lbl { stroke-width: 2px; }
+#plan .sel-glow { filter: drop-shadow(0 0 var(--selection-near) currentColor) drop-shadow(0 0 var(--selection-far) currentColor) brightness(1.18); }
+
+.inspector { top: var(--workspace-gutter); right: var(--workspace-gutter); padding: var(--panel-padding); gap: var(--item-gap); width: 288px; scrollbar-width: thin; }
+.inspector .ins-x { display: grid; place-items: center; }
+.inspector .ins-head, .inspector > .ins-name { min-height: 32px; padding-right: 36px; }
+.inspector .kind { color: var(--fg); font-size: 16px; letter-spacing: 0; text-transform: none; font-weight: 600; }
+.inspector .fld { padding-inline: 0; background: transparent; font-size: 14px; }
+.inspector .sld-h, .inspector .chk { font-size: 12px; }
+.inspector .cblock { padding-top: 0; border-top: 0; gap: var(--item-gap); }
+.ins-section { margin: 8px 0 0; padding-top: var(--item-gap); border-top: 1px solid var(--hair); font-size: 14px; font-weight: 600; }
+.capb:has(.chks) { gap: 12px; }
+.capb:has(.chks) + :is(.ins-section, .cblock) { margin-top: 4px; }
+.capb:has(.chks) + .cblock > .ins-section { margin-top: 0; }
+.inspector .field-unit { flex: 0 0 2ch; text-align: left; }
+.ins-summary { display: none; }
+
+#menus .menu { padding: var(--panel-padding); }
+#menus .menu.grid6 { gap: 4px; max-height: min(62dvh, 540px); overflow-y: auto; }
+.catalog-group { grid-column: 1 / -1; padding: 8px 4px 4px; border-top: 1px solid var(--hair); color: var(--muted); font-size: 12px; font-weight: 600; }
+#menus .tile { font-size: 12px; overflow-wrap: anywhere; }
+@media (min-width: 701px) {
+  .menu .sub-head { display: flex; grid-column: 1 / -1; flex-basis: 100%; padding: 4px; font-size: 16px; }
+  .menu .sub-head .sub-back, .menu .sub-head .menu-x { display: none; }
+  .menu.row:has(.sub-head) { flex-wrap: wrap; }
+}
+.dlg { position: relative; }
+.dlg h2 { padding-right: 40px; font-size: 20px; }
+.dlg-close { position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border: 0; border-radius: var(--r-btn); background: transparent; color: var(--muted); font-size: 24px; line-height: 1; }
+.dlg-close:hover { background: var(--active); color: var(--fg); }
+
+.camview { padding: var(--workspace-gutter); gap: var(--section-gap); }
+.cam-shelf-heading { display: flex; justify-content: space-between; align-items: baseline; padding: var(--panel-padding) var(--panel-padding) 0; font-size: 16px; }
+.cam-shelf-heading span, .cam-meta span { color: var(--muted); font-size: 12px; }
+.camview .camlist { padding: var(--panel-padding); gap: var(--item-gap); scrollbar-width: thin; }
+.camview .camcard { padding: 4px; }
+.camview .camcard canvas, #camView #frame { border-radius: var(--r-media); }
+.camview .camcard[aria-current="true"] { border-width: 1px; outline: 1px solid var(--cam); outline-offset: 0; }
+.camview .camcard:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.cam-meta { box-sizing: border-box; width: 100%; max-width: 100%; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--item-gap); padding: 8px 0; }
+.cam-meta strong { font-size: 14px; overflow-wrap: anywhere; }
+.cam-meta .cam-position { margin-left: auto; white-space: nowrap; }
+
+@media (max-width: 700px) {
+  :root { --workspace-gutter: 8px; }
+  .top, body.native-android .top { flex-wrap: wrap; height: auto; padding-bottom: 6px; }
+  .top .pwrap { flex: 1 1 90px; }
+  .top .pname { max-width: min(32vw, 100%); }
+  .top .spacer { display: none; }
+  .top .tabs { order: 10; width: 100%; justify-content: space-between; }
+  .top .tab { flex: 1; justify-content: center; height: 44px; gap: 6px; padding-inline: 4px; }
+  .top .tab span { display: inline; }
+  .top .tab svg { width: 16px; height: 16px; }
+  #exportBtn { width: auto; min-width: 44px; padding-inline: 8px; }
+  #exportBtn::after { content: 'Экспорт'; font-size: 12px; }
+  .tools { top: auto; left: 0; }
+  .ctrlcard { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
+  .inspector { top: auto; width: auto; max-width: none; max-height: min(56dvh, 520px); }
+  .inspector .ins-head { position: static; }
+  .inspector .ins-x { top: 0; margin-bottom: calc(-32px - var(--item-gap)); background: var(--surface); }
+  .inspector .frow .fld { padding-inline: 4px; }
+  .inspector.compact { max-height: none; padding-block: 4px; }
+  body:has(.inspector.compact:not([hidden])) .ctrlcard { bottom: calc(138px + env(safe-area-inset-bottom, 0px)); }
+  body:has(.inspector:not(.compact):not([hidden])) .ctrlcard { visibility: hidden; }
+  .inspector.compact:has(.ins-summary) > :not(.ins-summary):not(.ins-x) { display: none; }
+  .inspector.compact:has(.ins-summary) .ins-x { position: absolute; top: 10px; right: 8px; margin: 0; }
+  .inspector.compact .ins-summary { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding-right: 36px; text-align: left; border: 0; background: transparent; }
+  .ins-summary strong { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ins-summary span { color: var(--muted); font-size: 12px; }
+  #menus .menu.grid6 { grid-template-columns: repeat(auto-fit, minmax(74px, 1fr)) !important; max-height: 62dvh; }
+  #menus .menu.grid6 .tile { font-size: 12px; padding: 6px 3px; }
+  .camview .camlist { scrollbar-width: thin; }
+  .camview .camlist::-webkit-scrollbar { display: block; height: 5px; }
+  .camview .camcard { flex: 0 0 min(40vw, 180px); }
+  #camView .stage { place-items: start center; }
+  .dlg-close { width: 44px; height: 44px; }
 }
 </style>
 </head>
@@ -918,7 +1027,7 @@ body.native-android .top { height: calc(60px + max(28px, env(safe-area-inset-top
     <span class="spacer"></span>
     <nav class="tabs" role="tablist" aria-label="Режимы">
       <button class="tab" role="tab" id="tab-plan" aria-selected="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 3v18"/></svg><span>Схема</span></button>
-      <button class="tab" role="tab" id="tab-3d" aria-selected="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg><span>3D-вид</span></button>
+      <button class="tab" role="tab" id="tab-3d" aria-selected="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg><span>3D</span></button>
       <button class="tab" role="tab" id="tab-cams" aria-selected="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 10l6-3v10l-6-3z"/></svg><span>Камеры</span></button>
     </nav>
     <span class="spacer"></span>
@@ -928,9 +1037,9 @@ body.native-android .top { height: calc(60px + max(28px, env(safe-area-inset-top
 
   <div class="body">
     <div class="tools" role="toolbar" aria-orientation="vertical" aria-label="Добавить объект">
-      <button class="rtool type" id="rtCam" title="Камера" aria-label="Камера" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="6.8" width="12.6" height="10.4" rx="2.6" fill="currentColor" fill-opacity=".25"/><path d="M15.2 10.8l6.2-3.4v9.2l-6.2-3.4"/></svg></button>
+      <button class="rtool type" id="rtCam" title="Добавить камеру" aria-label="Добавить камеру" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="6.8" width="12.6" height="10.4" rx="2.6" fill="currentColor" fill-opacity=".25"/><path d="M15.2 10.8l6.2-3.4v9.2l-6.2-3.4"/></svg></button>
       <button class="rtool type" id="rtLight" title="Свет" aria-label="Свет" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16c0 8-4 13-8 13S4 13 4 5z" fill="currentColor" fill-opacity=".25"/></svg></button>
-      <button class="rtool type" id="rtPrac" title="Практикал" aria-label="Практикал" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3h11.6l2 5.8H4.2z" fill="currentColor" fill-opacity=".25"/><path d="M12 8.8v11.6M8.6 20.4h6.8"/></svg></button>
+      <button class="rtool type" id="rtPrac" title="Свет в кадре" aria-label="Свет в кадре" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.2 3h11.6l2 5.8H4.2z" fill="currentColor" fill-opacity=".25"/><path d="M12 8.8v11.6M8.6 20.4h6.8"/></svg></button>
       <button class="rtool type" id="rtProp" title="Реквизит" aria-label="Реквизит" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.4 14.6h9.2l-1.1 6.8H8.5z" fill="currentColor" fill-opacity=".25"/><path d="M12 14.6V6.2M12 11.2L7.2 7.4M12 9.6l4.5-3.5"/><path d="M7.2 8.2C3.9 7.7 3.4 4.9 3.6 3.1c3.2-.2 5.5 1.4 5.6 4.5zM11.9 6.8C9.7 4.4 11 1.9 12.7 1.3c2.1 1.8 2.3 4.2-.8 5.5zM13 8.2c.7-3.4 3.6-4.3 6.2-3.5-.1 3.1-2.1 5.3-5.5 4.8z" fill="currentColor" fill-opacity=".32"/></svg></button>
       <button class="rtool type" id="rtHero" title="Герой" aria-label="Герой" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4.4" r="2.4" fill="currentColor" fill-opacity=".4"/><path d="M8.6 9.8c0-1.8 1.5-3 3.4-3s3.4 1.2 3.4 3l-.4 4.2h-6z" fill="currentColor" fill-opacity=".25"/><path d="M8.8 10l-1.6 4.6M15.2 10l1.6 4.6"/><path d="M10.4 14.6l-.8 6M13.6 14.6l.8 6"/><path d="M8.4 20.6h2.2M13.4 20.6h2.2"/></svg></button>
       <button class="rtool type" id="rtRoom" title="Объекты комнаты" aria-label="Объекты комнаты" aria-haspopup="menu" aria-expanded="false"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.2 2.4v19.2L3.4 18.2V5.8z" fill="currentColor" fill-opacity=".22"/><path d="M16.2 3.6h4.4v16.8h-4.4"/><circle cx="10.4" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></button>
@@ -961,10 +1070,12 @@ body.native-android .top { height: calc(60px + max(28px, env(safe-area-inset-top
 
     <section class="camview" id="camView" hidden>
       <aside class="camshelf" aria-label="Список камер">
+        <div class="cam-shelf-heading"><strong>Камеры</strong><span id="camCount"></span></div>
         <div class="camlist" id="camlist" aria-label="Камеры"></div>
       </aside>
       <div class="main">
         <div class="framebox">
+          <div class="cam-meta" id="camMeta" aria-live="polite" hidden></div>
           <div class="camempty" id="camEmpty" hidden><p>На схеме нет камер.</p><button class="btn primary" id="toPlanBtn">Перейти к схеме</button></div>
           <div class="stage" id="stage">
             <div class="frame" id="frame">
@@ -978,12 +1089,12 @@ body.native-android .top { height: calc(60px + max(28px, env(safe-area-inset-top
 
     <div class="ctrlcard" aria-label="Слои и вид">
       <button class="rtool plan-only" id="lyGrid" aria-pressed="true" title="Сетка" aria-label="Сетка"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3.4v17.2M15 3.4v17.2M3.4 9h17.2M3.4 15h17.2"/></svg></button>
-      <button class="rtool plan-only" id="lyCones" aria-pressed="false" title="Углы обзора" aria-label="Углы обзора"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="13.2" y="7.2" width="8.2" height="9.6" rx="2" fill="currentColor" fill-opacity=".22"/><path d="M8.6 8.4L13.2 12l-4.6 3.6z" fill="currentColor" fill-opacity=".22"/><path d="M5.8 7.4L2.4 5M5.6 12H1.4M5.8 16.6L2.4 19"/></svg></button>
+      <button class="rtool plan-only" id="lyCones" aria-pressed="false" title="Углы обзора" aria-label="Углы обзора"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12L20 4a17 17 0 0 1 0 16Z" fill="currentColor" fill-opacity=".18"/><circle cx="4" cy="12" r="1.4" fill="currentColor"/></svg></button>
       <button class="rtool plan-only" id="lyLight" aria-pressed="false" title="Лучи света" aria-label="Лучи света"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.4 5A9.9 6.8 0 0 1 10.4 18.8Z" fill="currentColor" fill-opacity=".22"/><path d="M7.2 7.8L3.8 5.4M7 12H2.8M7.2 16.2L3.8 18.6"/></svg></button>
       <button class="rtool plan-only" id="helpBtn" title="Подсказки (?)" aria-label="Подсказки"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5 .9c0 1.8-2.5 2.3-2.5 3.8"/><circle cx="12" cy="16.9" r=".95" fill="currentColor" stroke="none"/></svg></button>
-      <button class="rtool d3-only" id="v3Lit" aria-pressed="true" title="Освещение" aria-label="Освещение"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.1 14.1a6.2 6.2 0 1 1 7.8 0c-.8.7-1.2 1.5-1.2 2.4H9.3c0-.9-.4-1.7-1.2-2.4z" fill="currentColor" fill-opacity=".2"/><path d="M9.4 19h5.2M10.2 21h3.6"/><path d="M9.7 10.2l2.3 2.3 2.3-2.3M12 12.5v4"/></svg></button>
+      <button class="rtool d3-only" id="v3Lit" aria-pressed="true" title="Освещение" aria-label="Освещение"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.1 14.1a6.2 6.2 0 1 1 7.8 0c-.8.7-1.2 1.5-1.2 2.4H9.3c0-.9-.4-1.7-1.2-2.4z" fill="currentColor" fill-opacity=".2"/><path d="M9.4 19h5.2M10.2 21h3.6"/><path d="M9.7 10.2l2.3 2.3 2.3-2.3M12 12.5v4"/></svg><span>Освещение</span></button>
       <button class="rtool plan-only" id="zFit" title="Показать всё" aria-label="Показать всё"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 9V3.8H9M15 3.8h5.2V9M20.2 15v5.2H15M9 20.2H3.8V15"/></svg></button>
-      <button class="rtool d3-only" id="v3Home" title="Исходный вид" aria-label="Исходный вид"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 9V3.8H9M15 3.8h5.2V9M20.2 15v5.2H15M9 20.2H3.8V15"/></svg></button>
+      <button class="rtool d3-only" id="v3Home" title="Вписать сцену" aria-label="Вписать сцену"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.8 9V3.8H9M15 3.8h5.2V9M20.2 15v5.2H15M9 20.2H3.8V15"/></svg><span>Вписать сцену</span></button>
     </div>
 
     <div class="wallhint" id="wallHint" hidden>
@@ -4875,10 +4986,28 @@ const customSwatch = (id, hex, on) => `<label class="swatch fc wpick" title="С�
 const F = 'class="f"';
 const SOFTBOX_SIZES = [60, 90, 120, 150];
 const softboxSize = (o) => SOFTBOX_SIZES.includes(o && o.size) ? o.size : 90;
+const STRIPBOX_SIZES = ['30x120', '30x180', '60x90', '80x120'];
+const stripboxSize = (o) => STRIPBOX_SIZES.includes(o?.size) ? o.size : '80x120';
+function stripboxDims(o) {
+  const [w, h] = stripboxSize(o).split('x').map(cm => Number(cm) / 100);
+  const depth = 0.28 + 0.14 * h;
+  return o?.horiz ? { w: h, h: w, depth } : { w, h, depth };
+}
+function stripboxIcon(front = 8.5, rear = 18) {
+  return `<path d="M3 ${front}H21L14.5 ${rear}h-5Z" ${F}/>` +
+    `<rect x="3" y="${front - 2.2}" width="18" height="2.2" rx=".5" fill="none"/>`;
+}
 const panelW = (o) => Math.max(0.1, Math.min(2, o && o.w || 0.62));
 const panelH = (o) => Math.max(0.1, Math.min(2, o && o.ph || 0.3));
 const LIGHTS = {
-  softbox: { name: 'Софтбокс', half: 85, len: 3, icon: `<path d="M4 5h16c0 8-4 13-8 13S4 13 4 5z" ${F}/>` },
+  softbox: {
+    name: 'Софтбокс', half: 85, len: 3,
+    icon: `<path d="M3.5 6.5C3.9 12.8 5.8 21 12 21S20.1 12.8 20.5 6.5A8.5 2.8 0 0 1 3.5 6.5Z" ${F}/><path d="M3.5 6.5A8.5 1.5 0 0 1 20.5 6.5" fill="none"/>`
+  },
+  stripbox: {
+    name: 'Стрипбокс', half: 85, len: 3,
+    icon: stripboxIcon()
+  },
   mat: { name: 'Ковёр', half: 70, len: 2.5, icon: `<rect x="5" y="5" width="14" height="14" rx="1.5" ${F}/>` + [8.5, 12, 15.5].map(y => [8.5, 12, 15.5].map(x => `<circle cx="${x}" cy="${y}" r=".9" class="d"/>`).join('')).join('') },
   pot: { name: 'Горшок', half: 60, len: 3.5, icon: `<path d="M4 7h16l-5 7v4H9v-4z" ${F}/>` },
   astera: { name: 'Astera', half: 45, len: 2.5, icon: `<rect x=".5" y="11" width="23" height="2.2" rx="1.1" ${F}/>` },
@@ -4888,7 +5017,7 @@ const LIGHTS = {
   practical: { name: 'Подвесной', prac: true, cct: 2900, omni: true, len: 1.6, icon: `<path d="M12 2v5"/><path d="M8.6 7h6.8l3.4 8H5.2z" ${F}/><circle cx="12" cy="17.2" r="1.5" ${F}/>` },
   reflector: { name: 'Отражатель', half: 55, len: 2.5, icon: `<path d="M3 10h18l-2 3H5z" ${F}/>` },
   panel: { name: 'LED-панель', half: 40, len: 3, icon: `<rect x="2" y="9" width="20" height="6" rx="1" ${F}/>` },
-  kino: { name: 'Kino Flo', half: 45, len: 3, icon: `<rect x="4" y="11" width="16" height="5" ${F}/><path d="M5 12.6h14M5 14.4h14M4 11L2 8M20 11l2-3"/>` },
+  kino: { name: 'Kino Flo', legacy: true, half: 45, len: 3, icon: `<rect x="4" y="11" width="16" height="5" ${F}/><path d="M5 12.6h14M5 14.4h14M4 11L2 8M20 11l2-3"/>` },
   sun: { name: 'Солнце', half: 12, len: 9, icon: `<circle cx="12" cy="12" r="4" ${F}/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>` }
 };
 // практикалы — бытовые светильники в кадре (отдельный раздел меню «Добавить»), тёплые 2900 K
@@ -5052,12 +5181,13 @@ const plan = $('plan');
 const W2S = (x, y) => [x * S.vp.s + S.vp.ox, y * S.vp.s + S.vp.oy];
 const S2W = (x, y) => [(x - S.vp.ox) / S.vp.s, (y - S.vp.oy) / S.vp.s];
 // соты (grid) у мягких приборов сужают луч до ~40°; у Spotlight — сменная линза 19° или 36°
-const GRID_KINDS = ['softbox', 'mat', 'panel', 'kino'];
+const GRID_KINDS = ['softbox', 'stripbox', 'mat', 'panel', 'kino'];
 function lightHalf(o) {
   const L = LIGHTS[o.kind] || LIGHTS.fresnel;
   if (o.kind === 'spot') return (o.beam === 36 ? 36 : 19) / 2;
   if (o.grid && GRID_KINDS.includes(o.kind)) return 37;
   if (o.kind === 'softbox') return Math.min(89, 75 + softboxSize(o) / 9);
+  if (o.kind === 'stripbox') return Math.min(89, 75 + emitOf(o.kind, o) * 100 / 9);
   if (o.kind === 'panel') return 89;
   return L.half;
 }
@@ -5066,6 +5196,10 @@ const _lsz = {};
 // значок вертикальной Astera — вид сверху на трубку на треноге
 const ASTERA_V_ICON = `<circle cx="12" cy="12" r="3.4" ${F}/><path d="M12 8.6V2.5M9 13.8l-5.4 3.4M15 13.8l5.4 3.4"/>`;
 const lightIcon = (o) => {
+  if (o?.kind === 'stripbox') {
+    const { w, depth } = stripboxDims(o);
+    return stripboxIcon(12 - 18 * depth / w, 12);
+  }
   if (o && o.kind === 'p_neon') {
     const D = neonDims(o), scale = (o.letterH || 25) / 25, len = Math.max(1, ...D.lines.map(l => l.trim().length)), W = Math.max(16, 10 + len * 2.2) * scale, H = 8 * scale;
     return `<rect x="${12 - W / 2}" y="${12 - H / 2}" width="${W}" height="${H}" rx="1.2" fill="currentColor" fill-opacity=".12"/><text x="12" y="${12 + 1.5 * scale}" text-anchor="middle" font-family="sans-serif" font-size="${4.2 * scale}" fill="currentColor" stroke="none">NEON</text>`;
@@ -5074,6 +5208,7 @@ const lightIcon = (o) => {
   return (LIGHTS[o.kind] || LIGHTS.fresnel).icon;
 };
 function lightSize(kind, o) {
+  if (kind === 'stripbox') return stripboxDims(o).w * 24 / 18;
   if (kind === 'p_neon' && o) { const bb = iconBox(lightIcon(o)); return neonDims(o).w * 24 / Math.max(bb.w, 1); }
   if (kind === 'astera' && o) { const v = !o.horiz, ic = lightIcon(o), bb = iconBox(ic); return (v ? 0.38 : asteraLen(o)) * 0.85 * 24 / Math.max(bb.w, bb.h, 1); }
   if (kind === 'panel' && o) { const bb = iconBox(LIGHTS.panel.icon); return panelW(o) * 0.85 * 24 / Math.max(bb.w, bb.h, 1); }
@@ -5232,10 +5367,12 @@ function renderPlan() {
   const r = plan.getBoundingClientRect();
   plan.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
   const s = S.vp.s;
+  plan.style.setProperty('--selection-near', `${1 / s}px`);
+  plan.style.setProperty('--selection-far', `${3.5 / s}px`);
   const t = `matrix(${s} 0 0 ${s} ${S.vp.ox} ${S.vp.oy})`;
   let bg = '', geo = '', top = '', scr = '';
   // grid
-  if (S.layers.grid) bg += `<defs><pattern id="gp" width="${s}" height="${s}" patternUnits="userSpaceOnUse" x="${S.vp.ox}" y="${S.vp.oy}"><path d="M${s} 0H0V${s}" fill="none" stroke="var(--gridline)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(#gp)" data-bg="1"/>`;
+  if (S.layers.grid) bg += `<defs><pattern id="gp" width="${s}" height="${s}" patternUnits="userSpaceOnUse" x="${S.vp.ox}" y="${S.vp.oy}"><path d="M${s} 0H0V${s}" fill="none" stroke="var(--gridline)" stroke-opacity="${Math.min(1, Math.max(.24, s / 70)).toFixed(2)}" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(#gp)" data-bg="1"/>`;
   else bg += `<rect width="100%" height="100%" fill="transparent" data-bg="1"/>`;
   // пол комнаты заливается только внутри замкнутых контуров из стен/окон/дверей
   roomFaces(objs().filter(o => o.x1 !== undefined)).forEach(f => { if (f.area <= 0.05) return;   // пол комнаты: щелчок выделяет «Пол»
@@ -5259,15 +5396,16 @@ function renderPlan() {
       if (L.omni) { beams += grad(id, o.x, o.y, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11) + `<circle cx="${o.x}" cy="${o.y}" r="${R}" fill="url(#${id})" pointer-events="none"/>`; }
       else {
         // луч начинается от передней (светящей) плоскости прибора и имеет её ширину — у софтбокса от рассеивающего полотна
-        const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85, half = Math.min(lightHalf(o), o.kind === 'softbox' || o.kind === 'panel' ? 89 : 80);
+        const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85, half = Math.min(lightHalf(o), o.kind === 'softbox' || o.kind === 'stripbox' || o.kind === 'panel' ? 89 : 80);
         const [fx, fy] = dirOf(o.rot), cx = o.x + fx * fo, cy = o.y + fy * fo, [lx, ly] = dirOf(o.rot - 90), [ax, ay] = dirOf(o.rot - half), [bx, by] = dirOf(o.rot + half);
         const p1 = [cx + lx * hw, cy + ly * hw], p2 = [cx - lx * hw, cy - ly * hw];
         beams += grad(id, cx, cy, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11);
         beams += `<path d="M${p1[0]} ${p1[1]}L${p1[0] + ax * R} ${p1[1] + ay * R}A${R} ${R} 0 ${half > 90 ? 1 : 0} 1 ${p2[0] + bx * R} ${p2[1] + by * R}L${p2[0]} ${p2[1]}Z" fill="url(#${id})" pointer-events="none"/>`;
       }
     }
-    if (o.type === 'camera' && S.layers.cones) {
-      const on = isSel(o.id) || (S.view === 'cams' && o.id === S.activeCam), R = 4, id = 'cc' + o.id;
+    const previewing = o.type === 'camera' && S.view === 'plan' && S.project.pip?.cam === o.id;
+    if (o.type === 'camera' && (S.layers.cones || previewing)) {
+      const on = previewing || isSel(o.id) || (S.view === 'cams' && o.id === S.activeCam), R = 4, id = 'cc' + o.id;
       cones += grad(id, o.x, o.y, R, 'var(--cam)', on ? 0.28 : 0.14) + grad(id + 's', o.x, o.y, R, 'var(--cam)', on ? 0.95 : 0.55);
       cones += `<path d="${sector(o.x, o.y, o.rot, hfov(o) / RAD / 2, R)}" fill="url(#${id})" stroke="url(#${id}s)" stroke-width="1" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
     }
@@ -5362,7 +5500,7 @@ function renderPlan() {
       LBLPOS[o.id] = off; hard.push(Object.assign({ id: 'lbl' + o.id }, rect(lx, ly)));
       if (Math.hypot(off.dx, off.dy) > 1.5) scr += `<line x1="${x}" y1="${y}" x2="${lx}" y2="${ly - 4}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3" pointer-events="none"/>`;
       const cls = o.type === 'camera' ? 'lbl cam' : 'lbl';
-      const st = o.type === 'light' ? 'fill:var(--light);' : o.type === 'prop' ? 'fill:var(--prop);' : room ? 'fill:var(--muted);' : '';
+      const st = o.type === 'light' ? 'fill:var(--light-label);' : o.type === 'prop' ? 'fill:var(--prop);' : room ? 'fill:var(--muted);' : '';
       // многострочная подпись — блок с выравниванием по левому краю (сам блок по-прежнему центрирован под объектом), одна строка — по центру
       const multi = lines.length > 1, tx = multi ? lx - (tw - 6) / 2 : lx;
       scr += `<text class="${cls} drag" data-lbl="${o.id}" x="${tx}" y="${ly}" text-anchor="${multi ? 'start' : 'middle'}" style="${st}">${lines.map((l, i) => `<tspan x="${tx}" ${i ? 'dy="' + LH + '"' : ''}>${esc(l) || ' '}</tspan>`).join('')}</text>`;
@@ -5413,9 +5551,7 @@ function renderPlan() {
       }
     }
   }
-  const gw = (n) => (n / s).toFixed(4);
-  const css = `<style>#plan .sel-glow{filter:drop-shadow(0 0 ${gw(1)}px currentColor) drop-shadow(0 0 ${gw(3.5)}px currentColor) brightness(1.18)}</style>`;   // чёткая узкая подсветка
-  plan.innerHTML = css + bg + `<g transform="${t}">${geo}${top}</g>` + scr;
+  plan.innerHTML = bg + `<g transform="${t}">${geo}${top}</g>` + scr;
   // сенсорный экран: у мелких значков (свет, камеры, герои, мелкий реквизит) — невидимая зона касания не меньше ~44 px
   // зоны лежат отдельным верхним слоем, чтобы героя на стуле или прибор у стола можно было взять, даже если рядом крупный предмет
   const hitL = COARSE ? document.createElementNS('http://www.w3.org/2000/svg', 'g') : null;
@@ -5523,6 +5659,7 @@ function buildScene(exceptId) {
       if (o.kind === 'china') cylFaces(o.x, o.y, 0.45, o.h - 0.4, o.h + 0.42, '#F3E6CF', out, 12);
       else if (o.kind === 'practical') cylFaces(o.x, o.y, 0.2, o.h - 0.12, o.h + 0.1, '#D9B37A', out, 10);
       else if (o.kind === 'softbox') { const sr = softboxSize(o) / 200, ss = sr / 0.45; boxFaces(o, -sr, -0.1 * ss, sr, 0.25 * ss, o.h - sr, o.h + sr, '#E8E4DA', out); }
+      else if (o.kind === 'stripbox') { const { w, h, depth } = stripboxDims(o); boxFaces(o, -w / 2, -depth, w / 2, 0.12, o.h - h / 2, o.h + h / 2, '#E8E4DA', out); }
       else if (o.kind === 'kino') boxFaces(o, -0.66, -0.05, 0.66, 0.05, o.h - 0.155, o.h + 0.155, '#2E3138', out);
       else if (o.kind === 'mat' || o.kind === 'panel') { const pw = o.kind === 'panel' ? panelW(o) / 2 : 0.3, ph = o.kind === 'panel' ? panelH(o) / 2 : 0.3; boxFaces(o, -pw, -0.04, pw, 0.04, o.h - ph, o.h + ph, '#2E3138', out); }
       else if (o.kind === 'astera') { const al = asteraLen(o) / 2, ab = asteraBaseH(o), ae = ab > 0 ? 0 : supportTop(o), ac = ab > 0 ? ab : o.horiz ? ae + 0.03 : ae + 0.07 + al; if (o.horiz) boxFaces(o, -al, -0.02, al, 0.02, ac - 0.025, ac + 0.025, '#E8E4DA', out); else boxFaces(o, -0.02, -0.02, 0.02, 0.02, ac - al, ac + al, '#E8E4DA', out); }
@@ -5701,8 +5838,20 @@ function t3lightUpdate(o, quiet) {
     V3.dirty = true; if (S.view === 'cams') renderCams(); if (S.sel) positionPreview(); const pc = document.querySelector('#pip canvas'); if (pc) { pc._k = ''; schedPipDraw(); } }, 350);   // экспозицию пересчитываем, когда закончили двигать ползунок
   V3.dirty = true; return true;
 }
+// Мягкое плечо в светах после ACES, до преобразования в sRGB.
+// Общий множитель RGB сохраняет оттенок, значения ниже порога не меняются.
+THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(
+  'vec3 CustomToneMapping( vec3 color ) { return color; }',
+  `vec3 CustomToneMapping( vec3 color ) {
+    vec3 mapped = ACESFilmicToneMapping( color );
+    float luminance = dot( mapped, vec3( 0.2126, 0.7152, 0.0722 ) );
+    float over = max( luminance - 0.55, 0.0 );
+    float reduction = 0.30 * over * over / ( over + 0.2 );
+    return mapped * ( 1.0 - reduction / max( luminance, 0.00001 ) );
+  }`
+);
 function t3setup(r) {
-  r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.05;
+  r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.CustomToneMapping; r.toneMappingExposure = 1.05;
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFShadowMap;   // VSM давал пятна на стенах и не пропускал солнце через окна
 }
 function t3size(r, w, h, ratio) {
@@ -5966,7 +6115,7 @@ let WALL_H = 3; const WALL_T = 0.08, WALL_H_MIN = 2.3, wallH = () => WALL_H;   /
    Полутень: несколько выборок по углу, ширина зависит от размера прибора (SOFT_R) и расстояний до стены. */
 const WOCC = { AN: 512, HITS: 4, SLOTS: 80, list: [], ver: 0, key: '', C: [], nc: 0, pt: new Float32Array(32), sp: new Float32Array(32), ra: new Float32Array(16) };   /* слоты карты: точечные 0–31, прожекторы 32–63, площадные 64–79 (по порядку источников в шейдере) */
 /* радиус («размер») источника по типу прибора: чем больше светящая поверхность, тем мягче тень */
-const SOFT_R = { china: 0.7, softbox: 0.55, kino: 0.5, panel: 0.45, astera: 0.35, mat: 0.3, reflector: 0.5, practical: 0.2, pot: 0.12, p_floor: 0.18, p_torch: 0.15, p_desk: 0.1, p_small: 0.05, fresnel: 0.06, spot: 0.04 }, softR2 = (kind) => SOFT_R[kind] !== undefined ? SOFT_R[kind] : 0.2;
+const SOFT_R = { china: 0.7, softbox: 0.55, stripbox: 0.55, kino: 0.5, panel: 0.45, astera: 0.35, mat: 0.3, reflector: 0.5, practical: 0.2, pot: 0.12, p_floor: 0.18, p_torch: 0.15, p_desk: 0.1, p_small: 0.05, fresnel: 0.06, spot: 0.04 }, softR2 = (kind) => SOFT_R[kind] !== undefined ? SOFT_R[kind] : 0.2;
 WOCC.tex = new THREE.DataTexture(new Float32Array(WOCC.AN * WOCC.SLOTS * WOCC.HITS * 4), WOCC.AN, WOCC.SLOTS * WOCC.HITS, THREE.RGBAFormat, THREE.FloatType);
 WOCC.tex.magFilter = WOCC.tex.minFilter = THREE.NearestFilter; WOCC.tex.generateMipmaps = false; WOCC.tex.needsUpdate = true;
 for (let i = 0; i < 16; i++) WOCC.C.push(new THREE.Vector4());   /* потолок: рамки (minx, minz, maxx, maxz) над каждой комнатой */
@@ -6054,7 +6203,12 @@ float wallVis( const in mat4 iv, const in vec3 pv, const in vec3 nv, const in ve
 })();
 // размер светящей поверхности (м) → мягкость тени
 const EMIT = { p_desk: 0.25, p_torch: 0.45, p_floor: 0.4, p_small: 0.15, softbox: 0.9, mat: 0.6, kino: 1.2, reflector: 1.0, china: 0.6, panel: 0.5, astera: 0.35, practical: 0.35, pot: 0.4, fresnel: 0.15, spot: 0.05, sun: 0.02 };
-const emitOf = (kind, o) => kind === 'softbox' ? softboxSize(o) / 100 : kind === 'panel' ? Math.max(panelW(o), panelH(o)) : EMIT[kind] == null ? 0.3 : EMIT[kind];
+function emitOf(kind, o) {
+  if (kind === 'stripbox') { const { w, h } = stripboxDims(o); return Math.sqrt(w * h); }
+  if (kind === 'softbox') return softboxSize(o) / 100;
+  if (kind === 'panel') return Math.max(panelW(o), panelH(o));
+  return EMIT[kind] ?? 0.3;
+}
 /* карта теней: чем шире конус, тем больше текселей нужно, иначе край тени «пилится» */
 const shadowMapFor = (kind, hq, angRad) => {
   const sharp = kind === 'fresnel' || kind === 'spot', deg = angRad * 180 / Math.PI;
@@ -6562,6 +6716,39 @@ function viewTex(kind) {
 }
 const DOOR_COLORS = [['#E8E6E1', 'Белый'], ['#B4B4B2', 'Светло-серый'], ['#8A8A88', 'Серый'], ['#4A4C50', 'Графит'], ['#232427', 'Чёрный'], ['#CDBFA6', 'Бежевый'], ['#6B4E38', 'Дерево'], ['#3D5778', 'Синий'], ['#3F5A4C', 'Зелёный']];
 const doorCol = (o) => o.dcol || '#E8E6E1';
+const windowViewMask = new THREE.MeshBasicMaterial({
+  transparent: true, colorWrite: false, depthWrite: false,
+  stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp
+});
+const windowViewGlass = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+  uniforms: { tint: { value: c3('#B6D0E2') }, sheen: { value: c3('#F0F6FB') } },
+  vertexShader: `
+    varying vec2 glassUv;
+    varying vec3 glassNormal;
+    varying vec3 glassPosition;
+    void main() {
+      glassUv = uv;
+      glassNormal = normalMatrix * normal;
+      vec4 positionInView = modelViewMatrix * vec4(position, 1.0);
+      glassPosition = positionInView.xyz;
+      gl_Position = projectionMatrix * positionInView;
+    }`,
+  fragmentShader: `
+    uniform vec3 tint;
+    uniform vec3 sheen;
+    varying vec2 glassUv;
+    varying vec3 glassNormal;
+    varying vec3 glassPosition;
+    void main() {
+      float facing = abs(dot(normalize(glassNormal), normalize(glassPosition)));
+      float grazing = pow(1.0 - clamp(facing, 0.0, 1.0), 2.0);
+      float band = 1.0 - smoothstep(0.02, 0.23, abs(glassUv.y - 0.78 + glassUv.x * 0.24));
+      float reflection = clamp(0.76 * grazing + band * (0.28 + 0.16 * grazing), 0.0, 1.0);
+      gl_FragColor = vec4(mix(tint, sheen, reflection), 0.15 + 0.33 * reflection);
+      #include <colorspace_fragment>
+    }`
+});
 function buildOpening(sc, o, lit) {
   const sg = segOf(o); const ang = -Math.atan2(sg.uy, sg.ux); const cx = (o.x1 + o.x2) / 2, cy = (o.y1 + o.y2) / 2;
   const g = new THREE.Group(); g.position.set(cx, 0, cy); g.rotation.y = ang; sc.add(g); g.userData.id = o.id; T3.byId[o.id] = g;
@@ -6576,7 +6763,7 @@ function buildOpening(sc, o, lit) {
     mbox(corr, W, 0.02, D, cw, 0, WALL_H, side * D / 2, true);
   }
   if (o.type === 'window') {
-    const glass = o.view ? mat('glassv', '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: 0.3, transparent: true, opacity: 0.2, roughness: 0.05, depthWrite: false, stencilWrite: true, stencilRef: 1, stencilFunc: THREE.AlwaysStencilFunc, stencilZPass: THREE.ReplaceStencilOp }) : mat('glass' + (lit ? 1 : 0), '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: lit ? 1.1 : 0.35, transparent: true, opacity: 0.55, roughness: 0.1 });
+    const glass = o.view ? windowViewMask : mat('glass' + (lit ? 1 : 0), '#DDEBF7', { emissive: c3('#AFC9E2'), emissiveIntensity: lit ? 1.1 : 0.35, transparent: true, opacity: 0.55, roughness: 0.1 });
     const hw = hostWall(o), wkey = hw || o.id;
     if (o.view && !T3.vw[wkey]) {
       T3.vw[wkey] = 1; const W = byId(hw), ws = W ? segOf(W) : sg, wl = W ? ws.len : sg.len;
@@ -6585,7 +6772,12 @@ function buildOpening(sc, o, lit) {
       bd.rotation.y = side > 0 ? Math.PI : 0; bd.receiveShadow = false; bd.renderOrder = 2;
     }
     const sill = winSill(o), top = winTop(o), WH = top - sill, cy = sill + WH / 2, n = winPanes(sg.len);
-    const gm = mbox(g, sg.len, WH, 0.01, glass, 0, cy, 0, true); if (o.view) gm.renderOrder = 1;
+    const gm = mbox(g, sg.len, WH, 0.01, glass, 0, cy, 0, true);
+    if (o.view) {
+      gm.renderOrder = 1;
+      const pane = mesh(g, new THREE.PlaneGeometry(sg.len, WH), windowViewGlass, 0, cy, 0, true);
+      pane.name = 'window-glass-overlay'; pane.receiveShadow = false; pane.renderOrder = 3;
+    }
     if (o.floor) mbox(g, sg.len, 0.04, 0.1, frame, 0, 0.02, 0);
     else mbox(g, sg.len + 0.04, 0.05, 0.16, frame, 0, WIN_SILL, 0);
     mbox(g, sg.len, 0.04, 0.1, frame, 0, top, 0);
@@ -7425,9 +7617,11 @@ function shirtTex(hex) {
   ctx.drawImage(SHIRT.mask, 0, 0, W, H); const md = ctx.getImageData(0, 0, W, H).data;
   ctx.drawImage(SHIRT.base, 0, 0, W, H); const img = ctx.getImageData(0, 0, W, H); const d = img.data;
   const cr = parseInt(hex.slice(1, 3), 16), cg = parseInt(hex.slice(3, 5), 16), cb = parseInt(hex.slice(5, 7), 16);
+  // У светлых оттенков оставляем запас для рисунка исходной ткани.
+  const reference = Math.max(208, Math.max(cr, cg, cb) * 0.96);
   for (let i = 0; i < d.length; i += 4) {
     const a = md[i] / 255; if (a <= 0) continue;
-    const f = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 208;
+    const f = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / reference;
     d[i] = d[i] * (1 - a) + Math.min(255, cr * f) * a; d[i + 1] = d[i + 1] * (1 - a) + Math.min(255, cg * f) * a; d[i + 2] = d[i + 2] * (1 - a) + Math.min(255, cb * f) * a;
   }
   ctx.putImageData(img, 0, 0);
@@ -7847,7 +8041,7 @@ function buildCStand(g, h) {
   });
 }
 // наклон прибора в градусах: задан в свойствах, иначе — автоматически «смотрит» на уровень лица (1,2 м) на расстоянии 3 м
-const TILT_KINDS = ['softbox', 'mat', 'fresnel', 'astera', 'spot', 'pot', 'panel', 'kino'];
+const TILT_KINDS = ['softbox', 'stripbox', 'mat', 'fresnel', 'astera', 'spot', 'pot', 'panel', 'kino'];
 const tiltable = (o) => TILT_KINDS.includes(o.kind) && !(o.kind === 'astera' && !o.horiz);   // вертикальная Astera не наклоняется
 const lightTilt = (o) => o.kind === 'astera' && !o.horiz ? 0 : o.ltilt != null ? o.ltilt : (o.kind === 'astera' ? 0 : -Math.round(Math.atan2((o.h || 2) - 1.2, 3) / RAD));
 function buildAstera(sc, g, o, L, lit, col, emi, budget, hq) {
@@ -7972,6 +8166,38 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     const rim = mesh(head, new THREE.RingGeometry(R1 - 0.005, R1 + 0.012, N), rib, 0, AY, Z0 - DEPTH - 0.003, true); rim.rotation.y = Math.PI;
     const ring = mcyl(head, 0.085, 0.085, 0.035, dark, 0, AY, Z0 + 0.0125, 24, true); ring.rotation.x = Math.PI / 2;   // байонет
     head.userData.custom = true;
+  } else if (k === 'stripbox') {
+    const { w, h: height, depth } = stripboxDims(o);
+    const { AY, z0, dk } = cobBody(head), rearZ = z0 - 0.03, frontZ = rearZ - depth;
+    const mount = mcyl(head, 0.09, 0.09, 0.042, dk, 0, AY, (z0 + rearZ) / 2, 24, true);
+    mount.rotation.x = Math.PI / 2;
+    const recess = 0.04, gridDepth = 0.035, gridGap = 0.004;
+    const insetZ = frontZ + recess;
+    const diffuserZ = insetZ + (o.grid ? gridDepth + gridGap : 0);
+    const corners = (width, height, z) => [
+      [-width / 2, AY - height / 2, z], [width / 2, AY - height / 2, z],
+      [width / 2, AY + height / 2, z], [-width / 2, AY + height / 2, z]
+    ];
+    const rear = corners(0.16, 0.16, rearZ);
+    const diffuserEdge = corners(w, height, diffuserZ);
+    const front = corners(w, height, frontZ);
+    const vertices = [];
+    const join = (back, edge) => {
+      for (let i = 0; i < 4; i++) {
+        const j = (i + 1) % 4;
+        vertices.push(...back[i], ...back[j], ...edge[j], ...back[i], ...edge[j], ...edge[i]);
+      }
+    };
+    join(rear, diffuserEdge);
+    join(diffuserEdge, front);
+    const hood = new THREE.BufferGeometry();
+    hood.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3)); hood.computeVertexNormals();
+    const fabric = mat('sbfab', '#1C1D20', { roughness: 0.85, side: THREE.DoubleSide });
+    mesh(head, hood, fabric, 0, 0, 0, true);
+    const face = mesh(head, new THREE.PlaneGeometry(w, height), emi, 0, AY, diffuserZ, true);
+    face.name = 'stripbox-diffuser'; face.rotation.y = Math.PI;
+    if (o.grid) eggCrate(head, { w: w - 0.016, h: height - 0.016 }, 0, AY, insetZ + gridDepth, 0.06, gridDepth);
+    head.userData.custom = true;
   } else if (k === 'fresnel') {
     // COB-корпус + френелевская насадка (как Aputure Fresnel 2X): чёрный двухступенчатый тубус с рёбрами, спереди линза с концентрическими кольцами
     const { AY, z0, dk } = cobBody(head);
@@ -8082,7 +8308,7 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     mesh(head, new THREE.CylinderGeometry(0.12, 0.22, 0.22, 28, 1, true), ownMat({ color: col, emissive: col, emissiveIntensity: lit ? 0.35 + 0.6 * I : 0.15, roughness: 0.9, side: THREE.DoubleSide }), 0, 0, 0, true);
     msph(head, 0.045, emi, 0, -0.04, 0, true);
   }
-  if (o.grid && GRID_KINDS.includes(k)) {   // соты перед светящейся поверхностью
+  if (o.grid && k !== 'stripbox' && GRID_KINDS.includes(k)) {   // соты перед светящейся поверхностью
     if (k === 'softbox') { const fr = head.children.find(c => c.geometry && c.geometry.type === 'CircleGeometry'); if (fr) eggCrate(head, { r: softboxSize(o) / 200 }, fr.position.x, fr.position.y, fr.position.z - 0.004, 0.06, 0.035); }
     else if (k === 'kino') eggCrate(head, { w: 1.24, h: 0.28 }, 0, 0, -0.052, 0.045, 0.03);
     else { const W = k === 'mat' ? 0.6 : panelW(o), H = k === 'mat' ? 0.6 : panelH(o); eggCrate(head, { w: W - 0.02, h: H - 0.02 }, 0, 0, k === 'mat' ? -0.035 : -0.008, 0.042, 0.03); }
@@ -8126,8 +8352,9 @@ function buildLight(sc, g, o, lit, shadowBudget) {
   } else {
     const hf = lightHalf(o), grid = o.grid && GRID_KINDS.includes(k);
     // софтбокс светит почти полусферой; его пятно расширяется с диаметром; Spotlight — жёсткое сфокусированное пятно с резким краем; соты — узкий луч с мягким краем
-    const ang = (k === 'spot' ? hf * 1.12 : grid ? hf + 8 : k === 'softbox' || k === 'panel' ? hf : Math.min(hf + 12, 85)) * RAD;
-    const sp = new THREE.SpotLight(col, (k === 'spot' ? 3.2 : 2.6) * I, L.len * 3.2, ang, k === 'spot' ? 0.1 : grid ? 0.35 : k === 'softbox' ? 0.85 : k === 'panel' && !grid ? 1 : 0.7, 1.3);
+    const softbox = k === 'softbox' || k === 'stripbox';
+    const ang = (k === 'spot' ? hf * 1.12 : grid ? hf + 8 : softbox || k === 'panel' ? hf : Math.min(hf + 12, 85)) * RAD;
+    const sp = new THREE.SpotLight(col, (k === 'spot' ? 3.2 : 2.6) * I, L.len * 3.2, ang, k === 'spot' ? 0.1 : grid ? 0.35 : softbox ? 0.85 : k === 'panel' && !grid ? 1 : 0.7, 1.3);
     // источник — прямо перед светящейся поверхностью прибора, направлен вдоль его оси
     g.updateWorldMatrix(true, true); const fz = (head.userData.front || -0.2) - 0.06;
     const ay = head.userData.ay || 0; sp.position.copy(head.localToWorld(V(0, ay, fz))); sp.target.position.copy(head.localToWorld(V(0, ay, fz - 3))); sc.add(sp.target);
@@ -8495,7 +8722,7 @@ function t3obj(sc, o, lit, budget) {
     else if (o.type === 'light') {
       const n0 = sc.children.length; buildLight(sc, g, o, lit, budget);
       const nodes = sc.children.slice(n0); (T3.nodesOf || (T3.nodesOf = {}))[o.id] = nodes;   // источники, их цели и солнечный диск живут в корне сцены — удаляем вместе с прибором
-      const ls = nodes.filter(l => l.isLight); ls.forEach(l => { l.userData.base = l.intensity; l.userData.oid = o.id; l.userData.soft = softR2(o.kind) * (o.kind === 'softbox' ? softboxSize(o) / 90 : o.kind === 'panel' ? Math.max(panelW(o), panelH(o)) / 0.5 : 1); if (l.castShadow && l.shadow) l.shadow.normalBias = l.userData.sun ? 0.01 : 0.03; });
+      const ls = nodes.filter(l => l.isLight); ls.forEach(l => { l.userData.base = l.intensity; l.userData.oid = o.id; l.userData.soft = softR2(o.kind) * (o.kind === 'softbox' || o.kind === 'stripbox' ? emitOf(o.kind, o) / 0.9 : o.kind === 'panel' ? Math.max(panelW(o), panelH(o)) / 0.5 : 1); if (l.castShadow && l.shadow) l.shadow.normalBias = l.userData.sun ? 0.01 : 0.03; });
       if ((o.h || 0) < WALL_H) ls.forEach(l => { if (l.position.y > WALL_H - 0.03) l.position.y = WALL_H - 0.03; });   /* источник прибора (например, поднятый над шаром) не должен оказаться «над потолком» — иначе потолок закроет весь его свет */
       if (!T3.lightsOf) T3.lightsOf = {}; T3.lightsOf[o.id] = ls; (T3.pwOf || (T3.pwOf = {}))[o.id] = lightPower(o);   /* яркость, с которой построен прибор: с ней сравнивается правка */
       g.traverse(m => { const mm = m.material; if (mm) (Array.isArray(mm) ? mm : [mm]).forEach(x => { if (x.userData && x.userData.own && x.emissive && x.userData.ei == null) x.userData.ei = x.emissiveIntensity; }); });
@@ -8718,7 +8945,8 @@ function viewExposure(r, sc, lit) {
   const ek = expoKey(lit); if (T3.expKey === ek && T3.exposure) return T3.exposure;
   let power = 0;
   sc.traverse(l => { if (!l.isLight || l.isHemisphereLight || l.intensity <= 0) return; power += l.intensity * (l.isRectAreaLight ? Math.max(0.1, l.width * l.height) : 1); });
-  const E = Math.max(0.55, Math.min(1.12, 1.05 * Math.pow(18 / Math.max(6, power), 0.12)));
+  // Запас до ACES, чтобы сохранить градации ярко освещённых поверхностей.
+  const E = 0.67 * Math.max(0.55, Math.min(1.12, 1.05 * Math.pow(18 / Math.max(6, power), 0.12)));
   T3.exposure = E; T3.expKey = ek; return E;
 }
 function renderFrame3(cv, cam, opts) {
@@ -8927,10 +9155,9 @@ function draw3(quiet) {
   }
   if (!t3compile(r, sc, cam)) { if (busy && !quiet) busy.hidden = false; return false; }
   if (busy) busy.hidden = true;
-  const ek = expoKey(V3.lit); r.toneMappingExposure = T3.expKey === ek && T3.exposure ? T3.exposure : 1.05; shadowSync(r);
+  r.toneMappingExposure = viewExposure(r, sc, V3.lit); shadowSync(r);
   setCuts(cam.position, v3Near(W / H));
   r.render(sc, cam); V3.fullFrame = true;
-  if (T3.expKey !== ek) { r.toneMappingExposure = viewExposure(r, sc, V3.lit); V3.dirty = Math.abs(r.toneMappingExposure - 1.05) > 0.01; }
   if (!quiet) viewLoadFinish('3d');
   if (quiet) {   // высокий LOD загружаем в GPU заранее; крошечный scissor не тратит время на лишние пиксели
     const states = [];
@@ -8997,7 +9224,7 @@ const camName = (c) => capOf(c).split('\n').map(s => s.trim()).filter(Boolean).j
 const capOf = (o) => o.type === 'camera' ? (o.cap ? o.cap : (o.letter || '')) : (o.name || '');
 function typeName(o) {
   if (o.type === 'camera') return 'Камера'; if (o.type === 'hero') return 'Герой';
-  if (o.type === 'light') return ((LIGHTS[o.kind] || {}).prac ? 'Practical · ' : 'Свет · ') + ((LIGHTS[o.kind] || {}).name || '');
+  if (o.type === 'light') return ((LIGHTS[o.kind] || {}).prac ? 'Свет в кадре · ' : 'Свет · ') + ((LIGHTS[o.kind] || {}).name || '');
   if (o.type === 'prop') return 'Реквизит · ' + ((PROPS[o.kind] || {}).name || '');
   if (ROOM[o.type]) return ROOM[o.type].name; if (o.type === 'note') return 'Заметка'; if (o.type === 'floor') return 'Пол'; return 'Рисунок';
 }
@@ -9028,7 +9255,7 @@ function tiltBlock(o) {
 }
 function colorBlock(o) {
   const hsi = o.mode === 'hsi';
-  let h = `<div class="cblock"><div class="cb-top"><span class="seg" role="group" aria-label="Режим цвета"><button data-act="lmode" data-v="cct" aria-pressed="${!hsi}">CCT</button><button data-act="lmode" data-v="hsi" aria-pressed="${hsi}">HSI</button></span><span class="cswatch" id="cSw" style="background:${lightSwatch(o)}"></span></div>`;
+  let h = `<div class="cblock"><h3 class="ins-section">Свет</h3><div class="cb-top"><span class="seg" role="group" aria-label="Режим цвета"><button data-act="lmode" data-v="cct" aria-pressed="${!hsi}">CCT</button><button data-act="lmode" data-v="hsi" aria-pressed="${hsi}">HSI</button></span><span class="cswatch" id="cSw" style="background:${lightSwatch(o)}"></span></div>`;
   if (!hsi) {
     h += slider('inK', 'Температура', 2700, 7000, 100, Math.max(2700, Math.min(7000, lightKelvin(o))), ' K', 'linear-gradient(90deg,#ffb264 0%,#ffc48c 11.6%,#ffe3cb 37.2%,#ffffff 67.4%,#e6f4ff 88.4%,#d6e4ff 100%)');
   } else {
@@ -9040,8 +9267,12 @@ function colorBlock(o) {
 }
 // цвет образца в панели: тот же цвет, что светит прибор (в sRGB для экрана)
 function lightSwatch(o) { if (!window.THREE) return '#fff'; const c = lightColor(o).clone().convertLinearToSRGB(); const m = Math.max(c.r, c.g, c.b, 1e-3); return '#' + new THREE.Color(c.r / m, c.g / m, c.b / m).getHexString(); }
-function field(label, inner) { return `<label class="fld"><span>${label}</span><span class="v">${inner}</span></label>`; }
-const INS_CHROME = () => `<button class="sheet-grip" data-act="inscompact" aria-label="${S.insCompact ? 'Развернуть свойства' : 'Свернуть свойства'}" aria-expanded="${!S.insCompact}"></button>`;
+function field(label, inner) {
+  const content = inner.replace(/^(<input type="number"[^>]*>)\s*([^<]*)$/, '$1<span class="field-unit">$2</span>');
+  return `<label class="fld"><span>${label}</span><span class="v">${content}</span></label>`;
+}
+const INS_CHROME = () => `<button class="sheet-grip" data-act="inscompact" aria-label="${S.insCompact ? 'Развернуть свойства' : 'Свернуть свойства'}" aria-expanded="${!S.insCompact}"></button><button class="ins-x" type="button" data-act="insclose" aria-label="Закрыть свойства" title="Закрыть свойства"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>`;
+const INS_DELETE = `<button class="del" data-act="del" title="Можно отменить через Ctrl+Z">Удалить</button>`;
 const GOBO_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M3.5 12h17"/></svg>';
 const GOBO_UPLOAD_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v5h14v-5"/></svg>';
 function goboBlock(o) {
@@ -9069,28 +9300,34 @@ function goboBlock(o) {
 function renderInspector() {
   if (commitColor()) renderPlanSoon();
   const el = $('inspector'); const o = S.sel && byId(S.sel);
+  if (S.insCompact == null && matchMedia('(max-width: 700px)').matches) S.insCompact = true;
   el.classList.toggle('compact', !!S.insCompact);
   if (S.multi.size > 1 && S.view === 'plan') {
     const allL = [...S.multi].every(id => (byId(id) || {}).locked);
-    el.innerHTML = `${INS_CHROME()}<span class="ins-name"><strong>Выбрано объектов: ${S.multi.size}</strong></span><button class="btn" data-act="${allL ? 'unlockall' : 'lockall'}">${allL ? 'Открепить все' : 'Закрепить все'}</button><button class="del" data-act="del" title="Delete">Удалить</button>`; el.hidden = false; return;
+    el.innerHTML = `${INS_CHROME()}<span class="ins-name"><strong>Выбрано объектов: ${S.multi.size}</strong></span><button class="btn" data-act="${allL ? 'unlockall' : 'lockall'}">${allL ? 'Открепить все' : 'Закрепить все'}</button>${INS_DELETE}`; el.hidden = false; return;
   }
   if (!o || S.view !== 'plan') { el.hidden = true; el.innerHTML = ''; return; }
   let h = '';
   if (o.type === 'camera') {
     h += `<div class="ins-head"><span class="kind">Камера</span></div>`;
     h += capBlock(o);
+    h += '<h3 class="ins-section">Кадр</h3>';
     h += `<canvas id="insCanvas" aria-label="Вид с камеры"></canvas>`;
+    h += field('Формат', `<select id="inAspect">${ASPECTS.map(a => `<option value="${a[0]}" ${a[0] === o.aspect ? 'selected' : ''}>${a[1]}</option>`).join('')}</select>`);
+    h += '<h3 class="ins-section">Оптика</h3>';
     h += `<span class="seg" role="group" aria-label="Тип">${['S35', 'FF'].map(k => `<button data-act="sensor" data-v="${k}" aria-pressed="${o.sensor === k}">${k === 'FF' ? 'Full Frame' : 'S35'}</button>`).join('')}</span>`;
     h += field('Объектив', `<select id="inLens">${LENSES.map(l => `<option value="${l}" ${l === o.lens ? 'selected' : ''}>${l} мм</option>`).join('')}</select>`);
+    h += '<h3 class="ins-section">Положение</h3>';
     h += field('Высота', `<input type="number" id="inH" step="0.05" min="0.1" max="5" value="${o.h}"> м`);
     h += field('Наклон', `<input type="number" id="inTilt" step="1" min="-60" max="60" value="${o.tilt}">°`);
-    h += field('Формат', `<select id="inAspect">${ASPECTS.map(a => `<option value="${a[0]}" ${a[0] === o.aspect ? 'selected' : ''}>${a[1]}</option>`).join('')}</select>`);
   } else if (o.type === 'hero') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
     h += `<span class="row" role="group" aria-label="Цвет">${HERO_COLORS.map((c, i) => `<button class="swatch" data-act="color" data-v="${i}" aria-label="Цвет ${i + 1}" aria-pressed="${!o.hcol && (o.color || 0) === i}" style="background:var(--${c})"></button>`).join('')}${customSwatch('inHCol', hero3d(o), !!o.hcol)}</span>`;
     h += `<span class="seg" role="group" aria-label="Поза"><button data-act="pose" data-v="stand" aria-pressed="${o.pose !== 'sit'}">Стоит</button><button data-act="pose" data-v="sit" aria-pressed="${o.pose === 'sit'}">Сидит</button></span>`;
   } else if (o.type === 'light') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
+    if (!NO_COLOR.includes(o.kind)) h += colorBlock(o);
+    h += '<h3 class="ins-section">Положение</h3>';
     if (o.kind === 'astera') { h += field('Длина', `<input type="number" id="inALen" step="0.1" min="0.3" max="2.5" value="${asteraLen(o)}"> м`); h += field('Высота', `<input type="number" id="inAH" step="0.1" min="0" max="8" value="${asteraBaseH(o)}"> м`); h += `<span class="seg" role="group" aria-label="Положение"><button data-act="horiz" data-v="v" aria-pressed="${!o.horiz}">Вертикально</button><button data-act="horiz" data-v="h" aria-pressed="${!!o.horiz}">Горизонтально</button></span>`; }
     if (o.kind === 'p_neon') {
       h += `<label class="neon-field"><span>Надпись</span><textarea id="inNeonText" class="note-ta" rows="2" aria-label="Текст неоновой вывески" placeholder="До двух строк">${esc(o.neonText == null ? '' : o.neonText)}</textarea><small>Не больше двух строк</small></label>`;
@@ -9098,13 +9335,17 @@ function renderInspector() {
       if (o.wall) h += field('Высота', `<input type="number" id="inNeonWallH" step="0.1" min="0.3" max="8" value="${o.h || 1.5}"> м`);
     }
     if (o.kind === 'softbox') h += `<span class="seg" role="group" aria-label="Размер софтбокса">${SOFTBOX_SIZES.map(s => `<button data-act="sbsize" data-v="${s}" aria-pressed="${softboxSize(o) === s}">${s} см</button>`).join('')}</span>`;
+    if (o.kind === 'stripbox') {
+      h += `<span class="seg" role="group" aria-label="Размер стрипбокса, см">${STRIPBOX_SIZES.map(s => `<button data-act="stripboxsize" data-v="${s}" aria-pressed="${stripboxSize(o) === s}">${s.replace('x', '×')}</button>`).join('')}</span>`;
+      h += `<span class="seg" role="group" aria-label="Ориентация стрипбокса"><button data-act="horiz" data-v="v" aria-pressed="${!o.horiz}">Вертикально</button><button data-act="horiz" data-v="h" aria-pressed="${!!o.horiz}">Горизонтально</button></span>`;
+    }
     if (o.kind === 'panel') { h += field('Ш', `<input type="number" id="inPW" step="0.05" min="0.1" max="2" value="${panelW(o)}"> м`); h += field('В', `<input type="number" id="inPH" step="0.05" min="0.1" max="2" value="${panelH(o)}"> м`); }
     if (o.kind === 'sun') h += field('Высота солнца', `<input type="number" id="inElev" step="5" min="5" max="85" value="${sunElev(o)}"> °`);
     if (!PRAC_FIXED.includes(o.kind) && o.kind !== 'astera' && o.kind !== 'sun') h += field('Высота', `<input type="number" id="inH" step="0.1" min="0" max="8" value="${o.h}"> м`);
     if (!SHADOW_KINDS_OFF.includes(o.kind)) { const hq = T3.quality === 'high', picks = shadowPicks(hq ? 7 : 3, hq);
       if (!picks.has(o.id)) h += `<span class="hint" style="font-family:var(--font-ui)">В 3D без тени: тени получают приборы, сильнее всего освещающие героев (не больше ${hq ? 7 : 3})</span>`; }
     if (tiltable(o)) h += tiltBlock(o);
-    if (!NO_COLOR.includes(o.kind)) h += colorBlock(o);
+    if (o.kind === 'spot' || GRID_KINDS.includes(o.kind) || !((LIGHTS[o.kind] || {}).omni || (LIGHTS[o.kind] || {}).prac || o.kind === 'sun')) h += '<h3 class="ins-section">Дополнительно</h3>';
     if (o.kind === 'spot') {
       h += `<span class="seg" role="group" aria-label="Угол луча"><button data-act="beam" data-v="19" aria-pressed="${o.beam !== 36}">19°</button><button data-act="beam" data-v="36" aria-pressed="${o.beam === 36}">36°</button></span>`;
       h += goboBlock(o);
@@ -9174,22 +9415,24 @@ function renderInspector() {
   } else if (o.type === 'stroke') {
     h += `<span class="ins-name">Рисунок</span>`;
   }
-  if (o.type !== 'floor') h += `<button class="del" data-act="del" title="Delete">Удалить</button>`;
-  el.innerHTML = INS_CHROME() + h; el.hidden = false;
+  if (o.type !== 'floor') h += INS_DELETE;
+  const detail = o.type === 'camera' ? `${o.lens} мм · ${(ASPECTS.find(a => a[0] === o.aspect) || ASPECTS[0])[1]}` : o.type === 'light' && !NO_COLOR.includes(o.kind) ? `${Math.round(lightPower(o) * 100)}%${o.mode === 'hsi' ? '' : ` · ${lightKelvin(o)} K`}` : typeName(o);
+  const compact = `<button class="ins-summary" data-act="inscompact"><strong>${esc(capOf(o).replace(/\n/g, ' ') || typeName(o))}</strong><span>${esc(detail)}</span><span aria-hidden="true">⌃</span></button>`;
+  el.innerHTML = INS_CHROME() + compact + h; el.hidden = false;
   // крупные кнопки −/+ вместо мелких стрелок браузера
   el.querySelectorAll('input[type="number"]:not(.nostp)').forEach(inp => {
     const mk = (d, txt, lab) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'stp'; b.dataset.step = d; b.setAttribute('aria-label', lab); b.innerHTML = txt; return b; };
     inp.before(mk(-1, '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>', 'Уменьшить'));
     inp.after(mk(1, '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6h7M6 2.5v7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>', 'Увеличить'));
   });
-  positionPreview();
+  if (!S.insCompact || !matchMedia('(max-width: 700px)').matches) positionPreview();
 }
 $('inspector').addEventListener('click', (e) => {
   const sb = e.target.closest('.stp');
   if (sb) { const inp = sb.parentElement.querySelector('input[type="number"]'); if (inp) { if (inp.id === 'inAH') { const d = +sb.dataset.step, cur = parseFloat(inp.value) || 0; inp.value = d > 0 ? Math.min(8, cur < 0.5 ? 0.5 : Math.round((cur + 0.1) * 10) / 10) : cur <= 0.5 ? 0 : Math.round((cur - 0.1) * 10) / 10; } else sb.dataset.step > 0 ? inp.stepUp() : inp.stepDown(); inp.dispatchEvent(new Event('input', { bubbles: true })); } return; }
   const b = e.target.closest('[data-act]'); if (!b) return;
   if (b.dataset.act === 'inscompact') { S.insCompact = !S.insCompact; renderInspector(); return; }
-  if (b.dataset.act === 'insclose') { S.insCompact = false; setSel([]); renderAll(true); return; }
+  if (b.dataset.act === 'insclose') { setSel([]); renderAll(true); plan.focus({ preventScroll: true }); return; }
   if (S.multi.size > 1 && (b.dataset.act === 'lockall' || b.dataset.act === 'unlockall')) { checkpoint(); S.multi.forEach(id => { const x = byId(id); if (x) x.locked = b.dataset.act === 'lockall'; }); renderAll(true); save(); return; }
   if (S.multi.size > 1 && b.dataset.act === 'del') { checkpoint(); const del = new Set(S.multi); S.project.objects = objs().filter(x => !del.has(x.id)); setSel([]); renderAll(true); save(); return; }
   const o = byId(S.sel); if (!o) return;
@@ -9208,6 +9451,7 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'skirtcol') S.project.skirtCol = b.dataset.v;
   if (a === 'beam') o.beam = +b.dataset.v;
   if (a === 'sbsize') o.size = softboxSize({ size: +b.dataset.v });
+  if (a === 'stripboxsize') o.size = stripboxSize({ size: b.dataset.v });
   if (a === 'dcol') o.dcol = b.dataset.v;
   if (a === 'dstate' || a === 'curtain') o.open = b.dataset.v === 'open';
   if (a === 'cpanels') { o.single = b.dataset.v === 'single'; o.w = o.single ? 1.2 : 2.5; if (o.single) o.open = false; }
@@ -9219,7 +9463,7 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'pose') o.pose = b.dataset.v;
   if (a === 'ltilt') { if (b.dataset.v === 'auto') delete o.ltilt; else o.ltilt = +b.dataset.v; }
   if (a === 'lmode') { o.mode = b.dataset.v; if (o.mode === 'hsi') { if (o.hue == null) o.hue = 200; if (o.sat == null) o.sat = 100; } if (window.THREE && T3.scene) t3lightUpdate(o); }
-  if (a === 'horiz') { o.horiz = b.dataset.v === 'h'; o.h = asteraH(o); }
+  if (a === 'horiz') { o.horiz = b.dataset.v === 'h'; if (o.kind === 'astera') o.h = asteraH(o); }
   if ((a === 'goboMode' || a === 'goboPreset') && window.THREE && T3.scene) { t3lightUpdate(o, true); T3.expKey = ''; }
 
   renderAll(true); save();
@@ -9384,7 +9628,7 @@ function renderMenus() {
   if (S.pop === 'menu' || S.pop === 'menu-exp') {
     h += `<div class="menu" role="menu" style="left:132px;top:64px;min-width:236px">
       <button class="mi" role="menuitem" data-m="new">${MI.new}Новый проект</button>
-      <button class="mi" role="menuitem" data-m="savefile">${MI.save}Сохранить как…</button>
+      <button class="mi" role="menuitem" data-m="savefile">${MI.save}Скачать проект</button>
       <button class="mi" role="menuitem" data-m="open">${MI.open}Открыть…</button>
       <button class="mi" role="menuitem" data-m="projects">${MI.projects}Мои проекты…</button>
       <div class="sep"></div>
@@ -9392,6 +9636,16 @@ function renderMenus() {
     h += `</div>`;
   }
   if (S.pop && S.pop.startsWith('add')) {
+    const propGroups = [
+      ['Мебель', ['chair', 'ochair', 'sofa', 'armchair', 'trect', 'tround', 'tcoffee', 'cabinet', 'shelf', 'wardrobe']],
+      ['Техника', ['tv', 'laptop', 'mic', 'monitor']],
+    ];
+    const propTile = k => `<button class="tile" role="menuitem" data-add="prop" data-v="${k}">${ICO(PROPS[k].icon, 36, 'var(--prop)')}${PROPS[k].name}</button>`;
+    const groups = propGroups.concat([['Декор и предметы', PROP_ORDER.filter(k => !propGroups.some(([, keys]) => keys.includes(k)) )]]);
+    const propTiles = groups.map(([label, keys]) => {
+      const visible = PROP_ORDER.filter(k => keys.includes(k) && PROPS[k]);
+      return visible.length ? `<div class="catalog-group" role="presentation">${label}</div>${visible.map(propTile).join('')}` : '';
+    }).join('');
     const subHead = (label) => `<div class="sub-head"><button class="sub-back" data-sub="add" aria-label="Назад к категориям"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><strong>${label}</strong><button class="menu-x" data-close-menu aria-label="Закрыть"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
     const T = {
       'add-cam': { head: 'Тип камеры', cls: 'row', top: 30,
@@ -9399,11 +9653,11 @@ function renderMenus() {
       'add-hero': { head: 'Цвет героя', cls: 'row', top: 72,
         tiles: HERO_COLORS.map((c, i) => `<button class="tile sq" role="menuitem" data-add="hero" data-v="${i}" aria-label="Герой, цвет ${i + 1}">${ICO(HERO_ICON, 34, `var(--${c})`)}</button>`).join('') },
       'add-light': { head: 'Свет', cls: 'grid6', top: 114,
-        tiles: Object.keys(LIGHTS).filter(k => !LIGHTS[k].prac).map(k => `<button class="tile" role="menuitem" data-add="light" data-v="${k}">${ICO(LIGHTS[k].icon, 36, 'var(--light)')}${LIGHTS[k].name}</button>`).join('') },
-      'add-prac': { head: 'Практикал', cls: 'grid6', top: 156, cols: 5,
+        tiles: Object.keys(LIGHTS).filter(k => !LIGHTS[k].prac && !LIGHTS[k].legacy).map(k => `<button class="tile" role="menuitem" data-add="light" data-v="${k}">${ICO(LIGHTS[k].icon, 36, 'var(--light)')}${LIGHTS[k].name}</button>`).join('') },
+      'add-prac': { head: 'Свет в кадре', cls: 'grid6', top: 156, cols: 5,
         tiles: Object.keys(LIGHTS).filter(k => LIGHTS[k].prac).map(k => `<button class="tile" role="menuitem" data-add="light" data-v="${k}">${ICO(LIGHTS[k].icon, 36, 'var(--light)')}${LIGHTS[k].name}</button>`).join('') },
       'add-prop': { head: 'Реквизит', cls: 'grid6', top: 198,
-        tiles: PROP_ORDER.filter(k => PROPS[k]).map(k => `<button class="tile" role="menuitem" data-add="prop" data-v="${k}">${ICO(PROPS[k].icon, 36, 'var(--prop)')}${PROPS[k].name}</button>`).join('') },
+        tiles: propTiles },
       'add-room': { head: 'Объекты комнаты', cls: 'row', top: 240,
         tiles: Object.keys(ROOM).map(k => `<button class="tile" role="menuitem" data-add="${k}">${ICO(ROOM[k].icon, 36, 'var(--prop)')}${ROOM[k].name}</button>`).join('') },
     };
@@ -9418,7 +9672,7 @@ function renderMenus() {
         ${it('add-cam', 'Камера', ci('cam'))}
         ${it('add-hero', 'Герой', ci('hero'))}
         ${it('add-light', 'Свет', ci('light'))}
-        ${it('add-prac', 'Practical', ci('prac'))}
+        ${it('add-prac', 'Свет в кадре', ci('prac'))}
         ${it('add-prop', 'Реквизит', ci('prop'))}
         ${it('add-room', 'Комната', ci('room'))}
         <button class="mi" role="menuitem" data-add="note">${ci('note')}Заметка</button>
@@ -9439,8 +9693,12 @@ $('menus').addEventListener('click', (e) => {
 function addObject(type, v) {
   if (type === 'pip') {   // окно «Вид с камеры» поверх схемы
     S.pop = null; if (!cams().length) { toast('Сначала добавьте камеру'); renderMenus(); return; }
-    if (!S.project.pip) S.project.pip = { cam: (byId(S.activeCam) || cams()[0]).id, w: matchMedia('(max-width: 700px)').matches ? 200 : 320 };
-    if (S.view !== 'plan') setView('plan'); renderAll(true); save(); return;
+    const opening = !S.project.pip;
+    if (opening) S.project.pip = { cam: cams()[0].id };
+    if (S.view !== 'plan') setView('plan');
+    renderAll(true);
+    if (opening) focusPipArea();
+    save(); return;
   }
   if (S.wallDraw) endWallDraw(); if (S.placing) endPlacing(false);
   if (type === 'wall') { S.pop = null; if (S.view !== 'plan') setView('plan'); S.sel = null; S.wallDraw = { pts: [], cur: null, single: roomFaces(objs().filter(x => x.x1 !== undefined)).some(f => f.area > 0.05) };   /* комната уже есть — по умолчанию перегородка: стена кончается на второй точке */ plan.classList.add('placing'); renderAll(true); if (!matchMedia('(pointer: coarse)').matches) toast(S.wallDraw.single ? 'Перегородка: клик — точка, повторный клик в последнюю точку или Esc — завершить' : 'Клик — точка · Esc или двойной клик — завершить');  return; }
@@ -9453,6 +9711,10 @@ function addObject(type, v) {
   else if (type === 'prop') { const P = PROPS[v]; o = { type, kind: v, name: P.name, x: cx, y: cy, rot: 0, w: P.w, d: ON_TABLE.includes(v) ? P.d : Math.max(0.2, P.d), h: P.h }; if (v === 'shelf') { o.shelves = 5; o.h = 2.206; } if (FURN_DEF[v]) o.fc = FURN_DEF[v]; }
   else if (ROOM[type]) { const L = ROOM[type].len; if (type === 'wall') { cx = snap(cx, WALL_STEP); cy = snap(cy, WALL_STEP); } o = { type, x1: cx - L / 2, y1: cy, x2: cx + L / 2, y2: cy }; if (type === 'door') o.open = true; if (type === 'window') o.view = 'street'; }
   else if (type === 'note') { o = { type: 'note', text: 'Заметка', x: cx, y: cy }; }
+  if (type === 'light' && v === 'stripbox') {
+    o.size = stripboxSize();
+    o.horiz = true;
+  }
   o.id = uid(); objs().push(o);
   // режим установки: объект следует за курсором, клик по схеме ставит его, Esc — отмена
   if (S.view !== 'plan') setView('plan');
@@ -9543,8 +9805,11 @@ function endPlacing(ok) {
 
 // ---------- dialogs ----------
 function dialog(html, onMount) {
-  const sc = document.createElement('div'); sc.className = 'scrim'; sc.innerHTML = `<div class="dlg" role="dialog" aria-modal="true">${html}</div>`;
-  document.body.appendChild(sc); const close = () => sc.remove();
+  const prevFocus = document.activeElement;
+  const sc = document.createElement('div'); sc.className = 'scrim'; sc.innerHTML = `<div class="dlg" role="dialog" aria-modal="true"><button class="dlg-close" type="button" data-close aria-label="Закрыть окно">×</button>${html}</div>`;
+  const panel = sc.querySelector('.dlg'), heading = panel.querySelector('h2');
+  if (heading) { heading.id ||= uid(); panel.setAttribute('aria-labelledby', heading.id); }
+  document.body.appendChild(sc); const close = () => { sc.remove(); if (prevFocus?.isConnected) prevFocus.focus(); else $('menuBtn').focus(); };
   sc.addEventListener('click', (e) => { if (e.target === sc || e.target.closest('[data-close]')) close(); });
   sc.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
   onMount && onMount(sc.querySelector('.dlg'), close);
@@ -9575,7 +9840,8 @@ function projectsDialog() {
   if (S.pid) projWrite(S.pid, S.project);
   const fmt = (ts) => new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const rows = () => projIndex().map(x => `<div class="prow${x.id === S.pid ? ' cur' : ''}"${x.id === S.pid ? '' : ` data-open="${x.id}" role="button" tabindex="0" title="Открыть проект"`}><div class="pinfo"><b>${esc(x.name)}</b><small>${fmt(x.updated)} · объектов: ${x.count}${x.id === S.pid ? ' · открыт' : ''}</small></div><button class="btn ghost" data-del="${x.id}" aria-label="Удалить ${esc(x.name)}">Удалить</button></div>`).join('');
-  dialog(`<h2>Мои проекты</h2><p>Проекты хранятся в этом браузере и сохраняются автоматически. Чтобы передать проект или не потерять его при очистке браузера, сохраняйте файл: Меню → «Сохранить как…».</p><div class="plist">${rows()}</div>`, (d, close) => {
+  dialog(`<h2>Мои проекты</h2><p>Проекты сохраняются в этом браузере.</p><div class="plist">${rows()}</div><div class="acts"><button class="btn" data-download-project>Скачать открытый проект</button></div>`, (d, close) => {
+    d.querySelector('[data-download-project]').onclick = saveProjectFile;
     d.querySelector('.plist').addEventListener('keydown', (e) => { const o = e.target.closest('[data-open]'); if (o && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); o.click(); } });
     d.querySelector('.plist').addEventListener('click', (e) => {
       const del = e.target.closest('[data-del]');
@@ -9652,7 +9918,7 @@ plan.addEventListener('pointerdown', (e) => {
 }, true);
 plan.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'touch' || !TOUCH.has(e.pointerId)) return; const r = plan.getBoundingClientRect(); TOUCH.set(e.pointerId, { x: e.clientX - r.left, y: e.clientY - r.top });
-  if (GEST && TOUCH.size === 2) { e.stopImmediatePropagation(); const c = tc(), g = GEST; const s = Math.max(20, Math.min(400, g.s0 * c.d / g.c.d)); const wx = (g.c.x - g.ox) / g.s0, wy = (g.c.y - g.oy) / g.s0; S.vp.s = s; S.vp.ox = c.x - wx * s; S.vp.oy = c.y - wy * s; renderPlanSoon(); }
+  if (GEST && TOUCH.size === 2) { e.stopImmediatePropagation(); const c = tc(), g = GEST; const s = Math.max(S.vp.minScale || 20, Math.min(400, g.s0 * c.d / g.c.d)); const wx = (g.c.x - g.ox) / g.s0, wy = (g.c.y - g.oy) / g.s0; S.vp.s = s; S.vp.ox = c.x - wx * s; S.vp.oy = c.y - wy * s; renderPlanSoon(); }
 }, true);
 const touchEnd = (e) => { if (e.pointerType !== 'touch') return; TOUCH.delete(e.pointerId); if (!TOUCH.size) document.body.classList.remove('ptouch'); if (GEST) { e.stopImmediatePropagation(); if (TOUCH.size < 2) GEST = TOUCH.size ? GEST : null; } };
 plan.addEventListener('pointerup', touchEnd, true); plan.addEventListener('pointercancel', touchEnd, true);
@@ -9673,7 +9939,13 @@ function rulerSnap(w, free) {
   objs().forEach(o => { (o.x1 !== undefined ? [[o.x1, o.y1], [o.x2, o.y2]] : o.type === 'stroke' || o.type === 'note' || o.type === 'floor' ? [] : [[o.x, o.y]]).forEach(q => { const d = Math.hypot(q[0] - w[0], q[1] - w[1]); if (d < bd) { bd = d; best = q; } }); });
   return best ? [best[0], best[1]] : [snap(w[0]), snap(w[1])];
 }
-function setRuler(on) { S.ruler = on ? { a: null, b: null } : null; $('rulerBtn').setAttribute('aria-pressed', !!on); plan.classList.toggle('placing', !!on); if (on && S.draw) $('drawBtn').click(); renderPlan(); }
+function setDraw(on) {
+  if (on && S.ruler) setRuler(false);
+  S.draw = on;
+  $('drawBtn').setAttribute('aria-pressed', on);
+  plan.classList.toggle('draw', on);
+}
+function setRuler(on) { if (on && S.draw) setDraw(false); S.ruler = on ? { a: null, b: null } : null; $('rulerBtn').setAttribute('aria-pressed', !!on); plan.classList.toggle('placing', !!on); renderPlan(); }
 $('rulerBtn').onclick = () => { setRuler(!S.ruler); if (S.ruler && S.view !== 'plan') setView('plan'); };
 // линейка: касание/клик — точка начала, следующее — точка конца, третье — новый замер; протяжка двигает схему (и пальцем, и мышью)
 let RP = null;
@@ -9890,7 +10162,7 @@ plan.addEventListener('dblclick', (e) => {
 plan.addEventListener('dblclick', (e) => { const lb = e.target.closest('[data-lbl]'); if (!lb) return; const o = byId(lb.dataset.lbl); if (o && o.lbl) { checkpoint(); delete o.lbl; renderPlan(); save(); } });
 plan.addEventListener('pointerup', endDrag); plan.addEventListener('pointercancel', endDrag);
 plan.addEventListener('wheel', (e) => { e.preventDefault(); const pp = ptr(e); zoomAt(pp[0], pp[1], Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
-function zoomAt(x, y, k) { const ns = Math.max(20, Math.min(400, S.vp.s * k)); const [wx, wy] = S2W(x, y); S.vp.s = ns; S.vp.ox = x - wx * ns; S.vp.oy = y - wy * ns; renderPlan(); }
+function zoomAt(x, y, k) { const ns = Math.max(S.vp.minScale || 20, Math.min(400, S.vp.s * k)); const [wx, wy] = S2W(x, y); S.vp.s = ns; S.vp.ox = x - wx * ns; S.vp.oy = y - wy * ns; renderPlan(); }
 // новый/открытый проект: схема вписывается в экран, 3D-вид — камера заново наводится на помещение
 function recenter() { S.fitted = false; setSel([]); fit(); V3.tgt = null; V3.az = 0.9; V3.el = 0.62; V3.dirty = true; T3.key = ''; }
 function fit() {
@@ -9901,8 +10173,13 @@ function fit() {
   minx -= 0.6; miny -= 0.6; maxx += 0.6; maxy += 0.6;
   // поля в пикселях под подписи по краям и сверху — под плавающие кнопки слоёв/масштаба (на телефоне они в две строки)
   const ov = plan.parentElement && plan.parentElement.querySelector('.ovl-tr'), top = ov ? Math.max(0, ov.getBoundingClientRect().bottom - r.top) : 0;
-  const mx = r.width < 700 ? 34 : 24, mt = Math.max(mx, top + 6), mb = r.width < 700 ? 30 : 24, W = r.width - 2 * mx, H = r.height - mt - mb;
-  const s = Math.max(20, Math.min(300, Math.min(W / (maxx - minx), H / (maxy - miny))));
+  const mobile = matchMedia('(max-width: 700px)').matches;
+  const controls = document.querySelector('.ctrlcard').getBoundingClientRect();
+  const mx = mobile ? 34 : 24, mt = Math.max(mx, top + 6);
+  const mb = mobile && controls.height ? Math.max(30, r.bottom - controls.top + 12) : 24;
+  const W = Math.max(1, r.width - 2 * mx), H = Math.max(1, r.height - mt - mb);
+  const s = Math.min(300, W / (maxx - minx), H / (maxy - miny));
+  S.vp.minScale = Math.min(20, s);
   S.vp.s = s; S.vp.ox = mx + (W - (maxx - minx) * s) / 2 - minx * s; S.vp.oy = mt + (H - (maxy - miny) * s) / 2 - miny * s; S.fitted = true;
 }
 $('zFit').onclick = () => { fit(); renderPlan(); };
@@ -9912,7 +10189,7 @@ $('zFit').onclick = () => { fit(); renderPlan(); };
 $('menuBtn').onclick = () => { S.pop = S.pop && S.pop.startsWith('menu') ? null : 'menu'; renderMenus(); };
 $('addBtn').onclick = () => { S.pop = S.pop && S.pop.startsWith('add') ? null : 'add'; if (S.view !== 'plan' && S.pop) setView('plan'); renderMenus(); };
 $('undoBtn').onclick = undo; $('redoBtn').onclick = redo;
-$('drawBtn').onclick = () => { S.draw = !S.draw; $('drawBtn').setAttribute('aria-pressed', S.draw); plan.classList.toggle('draw', S.draw); if (S.draw && S.view !== 'plan') setView('plan'); };
+$('drawBtn').onclick = () => { setDraw(!S.draw); if (S.draw && S.view !== 'plan') setView('plan'); };
 $('tab-plan').onclick = () => setView('plan'); $('tab-cams').onclick = () => setView('cams'); $('tab-3d').onclick = () => setView('3d');
 // исходный вид 3D: камера по центру площадки, тот же ракурс и расстояние, что при первом открытии
 $('v3Home').onclick = () => { v3HomeView(); V3.dirty = true; };
@@ -9977,7 +10254,7 @@ async function export3D() {
   const t = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2), d = Math.max(v3fitDist(W / H), 1.2);
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200);
   cam.position.set(t.x + d * Math.cos(V3.el) * Math.cos(V3.az), t.y + d * Math.sin(V3.el), t.z + d * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
-  t3size(r, W, H); r.setScissorTest(false); r.setViewport(0, 0, W, H); r.toneMappingExposure = sceneExposureSync(r, sc, V3.lit); shadowSync(r);
+  t3size(r, W, H); r.setScissorTest(false); r.setViewport(0, 0, W, H); r.toneMappingExposure = viewExposure(r, sc, V3.lit); shadowSync(r);
   if (T3.helpers) T3.helpers.visible = false; setCuts(cam.position); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
   r.render(sc, cam); const blob = await toBlob(r.domElement);
   V3.dirty = true;   // вернуть обычный кадр окна
@@ -10071,7 +10348,8 @@ document.addEventListener('pointerdown', (e) => { if (S.pop && !e.target.closest
 function railOpen(key, btn) {
   if (S.view !== 'plan') setView('plan');
   const r = btn.getBoundingClientRect();
-  S.rail = true; S.railTop = Math.max(64, Math.min(window.innerHeight - 300, Math.round(r.top - 6)));
+  const catalogHeight = Math.min(window.innerHeight * .62, 540);
+  S.rail = true; S.railTop = Math.max(64, Math.min(window.innerHeight - catalogHeight - 16, Math.round(r.top - 6)));
   S.pop = key; renderMenus();
 }
 [['rtCam', 'add-cam'], ['rtLight', 'add-light'], ['rtPrac', 'add-prac'], ['rtProp', 'add-prop'], ['rtHero', 'add-hero'], ['rtRoom', 'add-room']]
@@ -10124,8 +10402,11 @@ function renderCams() {
   if (S.view !== 'cams') return;
   const list = cams(); const cl = $('camlist');
   const none = !list.length; cl.hidden = none; $('stage').hidden = none; $('camEmpty').hidden = !none;   // без камер — только подсказка по центру
+  $('camMeta').hidden = none; $('camCount').textContent = none ? '' : list.length;
   if (none) { cl.innerHTML = ''; cl._listKey = null; clearTimeout(THUMB_T); THUMB_G++; Object.keys(THUMB).forEach(id => delete THUMB[id]); viewLoadFinish('cams'); return; }
   let c = byId(S.activeCam); if (!c || c.type !== 'camera') { c = list[0]; S.activeCam = c.id; }
+  const aspect = (ASPECTS.find(a => a[0] === c.aspect) || ASPECTS[0])[1];
+  $('camMeta').innerHTML = `<strong>${esc(camName(c))}</strong><span>${esc(c.lens)} мм · ${esc(aspect)}</span><span class="cam-position">${list.indexOf(c) + 1} из ${list.length}</span>`;
   const listKey = JSON.stringify(list.map(k => [k.id, camName(k)]));
   if (cl._listKey !== listKey) {
     cl._listKey = listKey;
@@ -10149,14 +10430,19 @@ function renderCams() {
       const L2 = cams(), b2 = frameSceneKey() + '|' + S.ov.lit, cvs = $('camlist').querySelectorAll('canvas');
       let i = 0; while (i < L2.length && THUMB[L2[i].id] && THUMB[L2[i].id].key === b2) i++;
       if (i >= L2.length || !cvs[i]) return;
-      const k = L2[i], cv = cvs[i], off = document.createElement('canvas'); off.width = cv.width; off.height = cv.height;
+      const k = L2[i], cv = cvs[i], ar = aspectOf(k), off = document.createElement('canvas');
+      off.width = Math.max(1, Math.min(cv.width, Math.round(cv.height * ar))); off.height = Math.max(1, Math.round(off.width / ar));
       if (!renderFrame(off, k, { lit: S.ov.lit })) return;   /* идёт асинхронная компиляция — по её завершении renderCams перезапустит очередь */
-      THUMB[k.id] = { key: b2, cv: off }; const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(off, 0, 0);
+      const g = cv.getContext('2d'); g.fillStyle = '#151413'; g.fillRect(0, 0, cv.width, cv.height);
+      g.drawImage(off, Math.round((cv.width - off.width) / 2), Math.round((cv.height - off.height) / 2));
+      const cached = document.createElement('canvas'); cached.width = cv.width; cached.height = cv.height; cached.getContext('2d').drawImage(cv, 0, 0);
+      THUMB[k.id] = { key: b2, cv: cached };
       THUMB_T = setTimeout(next, 40);   /* отдаём основной поток интерфейсу между миниатюрами */
     }, 350);
   }
   const st = $('stage').getBoundingClientRect(); const ar = aspectOf(c);
   let w = Math.min(st.width, st.height * ar), h = w / ar; w = Math.max(80, Math.floor(w)); h = Math.max(40, Math.floor(h));
+  $('camMeta').style.width = `${w}px`;
   const fr = $('frame'); fr.style.width = w + 'px'; fr.style.height = h + 'px';
   const mc = $('mainCanvas'); sizeCanvas(mc, w, h, 1.5); clearTimeout(CAMD);   /* плотность пикселей не выше 1,5 — на экранах ×2 кадр в 1,8 раза дешевле */
   if (!waitHumans) CAMD = setTimeout(() => {
@@ -10180,12 +10466,68 @@ function renderPip() {
   const cs = cams(); if (!byId(P.cam) || byId(P.cam).type !== 'camera') P.cam = cs[0].id;
   const sel = el.querySelector('select'), opts = cs.map(c => `<option value="${c.id}">${esc(camName(c))}</option>`).join(''); if (sel._o !== opts) { sel.innerHTML = opts; sel._o = opts; } sel.value = P.cam;
   const wr = $('stagewrap').getBoundingClientRect(), cam = byId(P.cam), ar = aspectOf(cam);
-  P.w = Math.round(Math.max(150, Math.min(P.w || 320, wr.width - 16))); const ch = Math.round(P.w / ar);
-  if (P.x == null) P.x = matchMedia('(max-width: 700px)').matches ? 12 : 92; if (P.y == null) P.y = matchMedia('(max-width: 700px)').matches ? 60 : 16;   // правее левого меню, чтобы окно не уходило под него
-  P.x = Math.max(8, Math.min(P.x, wr.width - P.w - 8)); P.y = Math.max(8, Math.min(P.y, wr.height - ch - 40));
-  el.style.left = P.x + 'px'; el.style.top = P.y + 'px'; el.style.width = P.w + 'px';
-  const cv = el.querySelector('canvas'); if (cv._w !== P.w || cv._h !== ch) { sizeCanvas(cv, P.w, ch, 1); cv.style.width = P.w + 'px'; cv.style.height = ch + 'px'; cv._w = P.w; cv._h = ch; cv._k = ''; }
+  const mobile = matchMedia('(max-width: 700px)').matches;
+  const width = P.w ?? (mobile ? 200 : Math.min(wr.width / 3, (wr.height - 56) * ar));
+  const w = Math.round(Math.max(150, Math.min(width, wr.width - 16))), ch = Math.round(w / ar);
+  const x = P.x ?? (mobile ? 12 : document.querySelector('.tools').getBoundingClientRect().right - wr.left + 8);
+  P.x = Math.max(8, Math.min(x, wr.width - w - 10));
+  P.y = Math.max(8, Math.min(P.y ?? (mobile ? 60 : 16), wr.height - ch - 40));
+  el.style.left = P.x + 'px'; el.style.top = P.y + 'px'; el.style.width = w + 'px';
+  const cv = el.querySelector('canvas'); if (cv._w !== w || cv._h !== ch) { sizeCanvas(cv, w, ch, 1); cv._w = w; cv._h = ch; cv._k = ''; }
   schedPipDraw();
+}
+function focusPipArea() {
+  const pip = $('pip'), cam = byId(S.project.pip?.cam);
+  if (!cam || !pip || pip.hidden || matchMedia('(max-width: 700px)').matches) return;
+
+  const viewport = plan.getBoundingClientRect(), preview = pip.getBoundingClientRect(), inspector = $('inspector');
+  const left = preview.right + 16;
+  const right = (inspector.hidden ? viewport.right : inspector.getBoundingClientRect().left) - 16;
+  if (right - left < 32) return;
+
+  // Берём середину снимаемого сектора, ограничивая лучи стенами.
+  const bounds = t3bounds(), depth = Math.max(4, Math.hypot(bounds.maxx - bounds.minx, bounds.maxy - bounds.miny));
+  const half = hfov(cam) / RAD / 2, rotation = cam.rot || 0;
+  const tilt = (cam.tilt || 0) * RAD;
+  const floorDistance = tilt < -0.01 ? (cam.h || 1.4) / Math.tan(-tilt) : Infinity;
+  const targets = [-half * 0.75, 0, half * 0.75].map(offset => {
+    const [dx, dy] = dirOf(rotation + offset);
+    const wall = rayToWall(cam.x, cam.y, dx, dy);
+    const distance = Math.min(depth * 0.65, wall * 0.65, floorDistance);
+    return [cam.x + dx * distance, cam.y + dy * distance];
+  });
+  const [x, y] = targets.reduce(([sx, sy], [tx, ty]) => [sx + tx / targets.length, sy + ty / targets.length], [0, 0]);
+  const cameraMargin = 0.4;
+  const minX = Math.min(cam.x - cameraMargin, x);
+  const maxX = Math.max(cam.x + cameraMargin, x);
+  const minY = Math.min(cam.y - cameraMargin, y);
+  const maxY = Math.max(cam.y + cameraMargin, y);
+  const top = viewport.top + 16;
+  const controls = document.querySelector('.ctrlcard').getBoundingClientRect();
+  const bottom = (controls.width && controls.left < right && controls.right > left ? controls.top : viewport.bottom) - 16;
+  if (bottom - top < 32) return;
+
+  const scale = Math.min(S.vp.s, (right - left) / (maxX - minX), (bottom - top) / (maxY - minY));
+  // Комната задаёт основную композицию, центр кадра уточняет её между панелями.
+  const roomWeight = 0.65;
+  const roomLeft = document.querySelector('.tools').getBoundingClientRect().right + 16;
+  const roomCenterX = (roomLeft + right) / 2;
+  const roomCenterY = (top + bottom) / 2;
+  const roomX = (bounds.minx + bounds.maxx) / 2;
+  const roomY = (bounds.miny + bounds.maxy) / 2;
+  const offset = (start, end, min, max, target, roomCenter, roomCoord) => {
+    const byRoom = roomCenter - roomCoord * scale;
+    const byFrame = (start + end) / 2 - target * scale;
+    const preferred = roomWeight * byRoom + (1 - roomWeight) * byFrame;
+    return Math.max(start - min * scale, Math.min(end - max * scale, preferred));
+  };
+  S.vp.s = scale;
+  S.vp.minScale = Math.min(S.vp.minScale || 20, scale);
+  S.vp.ox = offset(left, right, minX, maxX, x, roomCenterX, roomX) - viewport.left;
+  S.vp.oy = offset(top, bottom, minY, maxY, y, roomCenterY, roomY) - viewport.top;
+  S.fitted = true;
+  renderPlan();
+  return true;
 }
 let pipRAF = 0;
 const FRAME_KEYS = { rev: -1, key: '' };
@@ -10219,7 +10561,7 @@ function schedPipDraw() {
 }
 function bindPip(el) {
   let D = null;
-  const start = (e, mode) => { const P = S.project.pip; if (!P) return; e.preventDefault(); e.stopPropagation(); el.setPointerCapture(e.pointerId); D = { mode, id: e.pointerId, sx: e.clientX, sy: e.clientY, x: P.x, y: P.y, w: P.w }; };
+  const start = (e, mode) => { const P = S.project.pip; if (!P) return; e.preventDefault(); e.stopPropagation(); el.setPointerCapture(e.pointerId); D = { mode, id: e.pointerId, sx: e.clientX, sy: e.clientY, x: P.x, y: P.y, w: el.clientWidth }; };
   el.querySelector('.pip-h').addEventListener('pointerdown', (e) => { if (e.target.closest('select, button')) return; start(e, 'move'); });
   el.querySelector('canvas').addEventListener('pointerdown', (e) => start(e, 'move'));   // перетаскивать можно и за саму картинку
   el.querySelector('.pip-rs').addEventListener('pointerdown', (e) => start(e, 'size'));
@@ -10227,8 +10569,8 @@ function bindPip(el) {
     if (D.mode === 'move') { P.x = D.x + dx; P.y = D.y + dy; } else P.w = D.w + dx; renderPip(); });
   const end = (e) => { if (!D || e.pointerId !== D.id) return; D = null; save(); };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
-  el.querySelector('select').addEventListener('change', (e) => { S.project.pip.cam = e.target.value; save(); renderPip(); });
-  el.querySelector('.pip-x').addEventListener('click', () => { delete S.project.pip; save(); renderPip(); });
+  el.querySelector('select').addEventListener('change', (e) => { S.project.pip.cam = e.target.value; renderPip(); if (!focusPipArea()) renderPlan(); save(); });
+  el.querySelector('.pip-x').addEventListener('click', () => { delete S.project.pip; save(); renderPlan(); });
 }
 function renderAll(full) {
   loadNeededModels();
