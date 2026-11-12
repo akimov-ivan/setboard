@@ -138,8 +138,11 @@ button { cursor: pointer; }
 .view-load-title { font-size: 15px; font-weight: 650; text-align: center; }
 .view-load-sub { margin-top: 6px; color: var(--muted); font-size: 12px; text-align: center; }
 .view-load-track { height: 6px; margin-top: 20px; overflow: hidden; border-radius: 6px; background: var(--line2); }
-.view-load-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--brand); transition: width .22s ease; }
-.view-load-pct { margin-top: 8px; color: var(--muted); font: 11px var(--font-data); text-align: right; }
+.view-load-fill { display: block; width: 35%; height: 100%; border-radius: inherit; background: var(--brand); transform: translateX(-110%); animation: view-load-sweep 1.4s ease-in-out infinite; }
+.view-loading[data-state="complete"] .view-load-fill { width: 100%; transform: none; animation: none; }
+.view-load-pct { margin-top: 10px; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
+@keyframes view-load-sweep { from { transform: translateX(-110%); } to { transform: translateX(390%); } }
+@media (prefers-reduced-motion: reduce) { .view-load-fill { animation: none; transform: none; width: 100%; opacity: .55; } }
 body.view-loading { overscroll-behavior: none; }
 .planempty { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, calc(100% - 32px)); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); pointer-events: none; }
 .planempty p { margin: 0; } .planempty .t { color: var(--fg); font-weight: 600; font-size: 16px; } .planempty .s { font-size: 12px; } .planempty .btn { pointer-events: auto; margin: 6px 0; }
@@ -881,9 +884,13 @@ select option { background: var(--surface); color: var(--fg); }
   .stp svg { width: 14px; height: 14px; }
 }
 
+body.native-android .top { height: calc(60px + max(28px, env(safe-area-inset-top, 0px))); padding-top: max(28px, env(safe-area-inset-top, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+@media (min-width: 701px) {
+  body.native-android .layerbar, body.native-android .ctrlcard, body.native-android .cellhint { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}
 @media (max-width: 700px) {
   .top { padding-top: max(6px, env(safe-area-inset-top, 0px)); }
-  body.native-android .top { height: calc(58px + max(28px, env(safe-area-inset-top, 0px))); padding-top: max(28px, env(safe-area-inset-top, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); }
+  body.native-android .top { height: calc(58px + max(28px, env(safe-area-inset-top, 0px))); }
   body.native-android .brand { display: none; }
   body.native-android .pwrap { margin-left: 4px; }
   body.native-android .ctrlcard { right: max(20px, env(safe-area-inset-right, 0px)); }
@@ -992,7 +999,7 @@ select option { background: var(--surface); color: var(--fg); }
   </div>
 </div>
 <div class="view-loading" id="viewLoading" role="status" aria-live="polite" aria-busy="true" hidden>
-  <div class="view-load-card"><div class="view-load-title">Подготавливаем 3D-вид</div><div class="view-load-sub">Загружаем геометрию, текстуры и освещение</div><div class="view-load-track"><span class="view-load-fill"></span></div><div class="view-load-pct">0%</div></div>
+  <div class="view-load-card"><div class="view-load-title">Подготавливаем 3D-вид</div><div class="view-load-sub">Загружаем модели и текстуры</div><div class="view-load-track" aria-hidden="true"><span class="view-load-fill"></span></div><div class="view-load-pct">При первом открытии это может занять несколько секунд</div></div>
 </div>
 <div id="menus"></div>
 <input type="file" id="fileIn" accept=".setb,.json,.setboard,application/json" hidden>
@@ -5621,6 +5628,14 @@ function sizeCanvas(cv, w, h, cap) { const dpr = Math.min(cap || 2, window.devic
 const T3 = { r: null, scene: null, key: '', byId: {}, helpers: null, tex: {}, failed: false, pend: 0, center: null,
   quality: store.get('setboard-q') === 'fast' ? 'fast' : 'high' };
 const MAT = {};
+let modelRefreshTimer = 0;
+function modelsChanged() {
+  clearTimeout(modelRefreshTimer);
+  modelRefreshTimer = setTimeout(() => { T3.modelRev = (T3.modelRev || 0) + 1; T3.key = ''; V3.dirty = true; renderAll(true); }, 60);
+}
+function loadNeededModels() {
+  humansLoad(); plantLoad(); chairLoad(); curtainLoad(); cabinetLoad();
+}
 const has3 = () => !!window.THREE && !T3.failed;
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 function c3(h) { return new THREE.Color(h).convertSRGBToLinear(); }
@@ -5701,22 +5716,42 @@ function t3compileRedraw() {
   if (S.view === 'cams') renderCams();
   else if (S.view === 'plan') { if (S.sel) positionPreview(); const pc = document.querySelector('#pip canvas'); if (pc) { pc._k = ''; schedPipDraw(); } schedPrewarm(); }
 }
+/* Перед первым кадром переносим готовые текстуры на GPU небольшими порциями.
+   WeakMap не удерживает удалённые текстуры; version учитывает их обновления. */
+function t3warmTextures(r, sc) {
+  const textures = new Set(), done = r.userData.warmedTextures || (r.userData.warmedTextures = new WeakMap());
+  sc.traverse(o => {
+    const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    ms.forEach(m => Object.values(m).forEach(t => { if (t && t.isTexture && t.image && done.get(t) !== t.version) textures.add(t); }));
+  });
+  const queue = [...textures];
+  return new Promise((resolve, reject) => {
+    const next = () => {
+      if (sc !== T3.scene || !queue.length) { resolve(); return; }
+      try {
+        const t = queue.shift(); r.initTexture(t); done.set(t, t.version);
+        setTimeout(next, 0);
+      } catch (e) { reject(e); }
+    };
+    setTimeout(next, 0);
+  });
+}
 function t3compile(r, sc, cam) {
+  if (T3.pendingBuild) return false;
   if (!r.userData) r.userData = {};
   if (!r.compileAsync || r.userData.compileAsyncFailed || T3.compiledVer === T3.ver) return true;
+  viewLoadProgress(62);
   if (T3.compileBusy) return false;
-  const ver = T3.ver; T3.compileVer = ver; T3.compileBusy = true; viewLoadProgress(62);
-  let to, timedOut = false;
-  const timeout = new Promise(resolve => { to = setTimeout(() => { timedOut = true; resolve(); }, 4000); });
-  Promise.race([r.compileAsync(sc, cam), timeout]).then(() => {
-    if (timedOut) r.userData.compileAsyncFailed = true;
-    T3.compiledVer = ver; if (T3.ver === ver) t3compileRedraw();
+  const ver = T3.ver; T3.compileVer = ver; T3.compileBusy = true;
+  /* Тайм-аут не означает готовность GPU. Не запускаем синхронный тяжёлый кадр
+     поверх незавершённой компиляции и не удаляем используемые ею материалы. */
+  Promise.all([r.compileAsync(sc, cam), t3warmTextures(r, sc)]).then(() => {
+    T3.compiledVer = ver;
   }).catch(e => {
     console.error('3D compile', e); r.userData.compileAsyncFailed = true;
-    T3.compiledVer = ver; if (T3.ver === ver) t3compileRedraw();
+    T3.compiledVer = ver;
   }).finally(() => {
-    clearTimeout(to); T3.compileBusy = false; t3disposeFlush();
-    if (T3.compiledVer !== T3.ver) t3compileRedraw();
+    T3.compileBusy = false; t3disposeFlush(); t3compileRedraw();
   });
   return false;
 }
@@ -5738,6 +5773,7 @@ const mbox = (p, w, h, d, m, x, y, z, ns) => cachedMesh(p, 'box|' + geoKey([w, h
 // скруглённый блок: прямоугольник со скруглёнными углами, выдавленный с фаской-скруглением по всем рёбрам
 const RBOX = {};
 function roundBoxGeo(w, h, d, r, soft) {
+  if (!Number.isFinite(r)) r = Math.min(w, h, d) * 0.1;
   r = Math.max(0.002, Math.min(r, w / 2 - 0.002, h / 2 - 0.002, d / 2 - 0.002)); const key = [w, h, d, r, soft ? 1 : 0].map(v => v.toFixed(3)).join('|');
   if (RBOX[key]) return RBOX[key];
   const iw = w - 2 * r, ih = h - 2 * r, cr = Math.min(iw, ih) * 0.12, s = new THREE.Shape();
@@ -5898,7 +5934,14 @@ function paintTex() {
 }
 function t3dispose(sc) {
   if (T3.compileBusy) { (T3.disposeQueue || (T3.disposeQueue = [])).push(sc); return; }   // compileAsync ещё читает материалы старой сцены
-  sc.traverse((o) => { if (o.geometry && !(o.userData && o.userData.shared)) o.geometry.dispose(); const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => { if (x.userData && x.userData.own) x.dispose(); }); });
+  const skeletons = new Set(), materials = new Set(), geometries = new Set();
+  sc.traverse((o) => {
+    if (o.skeleton) skeletons.add(o.skeleton);
+    if (o.shadow) o.shadow.dispose();
+    if (o.geometry && !(o.userData && o.userData.shared)) geometries.add(o.geometry);
+    const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach(x => { if (x.userData && x.userData.own) materials.add(x); });
+  });
+  skeletons.forEach(s => s.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose());
 }
 function t3disposeFlush() {
   if (T3.compileBusy) return;
@@ -6664,14 +6707,19 @@ function plantPackKey(name) {
   return null;
 }
 function plantLoad() {
-  if (PLANT.started) return; PLANT.started = true;
+  const plants = objs().filter(o => o.type === 'prop' && o.kind === 'plant');
+  if (!plants.length) return;
   if (!has3() || !THREE.GLTFLoader) { PLANT.state = 'failed'; return; }
-  PLANT.state = 'loading';
   const loader = new THREE.GLTFLoader();
+  if (!PLANT.started && plants.some(o => !o.plant || o.plant === 'monstera')) {
+  PLANT.started = true; PLANT.state = 'loading';
   loader.load('models/plant.glb', g => {
     g.scene.traverse(m => { if (m.isMesh) plantMesh(m); });
-    PLANT.model = g.scene; PLANT.state = 'ready'; T3.key = ''; V3.dirty = true; renderAll(true);
+    PLANT.model = g.scene; PLANT.state = 'ready'; modelsChanged();
   }, undefined, e => { console.error('plant GLB', e); PLANT.state = 'failed'; });
+  }
+  if (!PLANT.packStarted && plants.some(o => o.plant && o.plant !== 'monstera')) {
+  PLANT.packStarted = true;
   loader.load('models/low_poly_plants_pack.glb', g => {
     g.scene.updateMatrixWorld(true);
     const meshes = [], groups = {}, leaves = {}, centers = {};
@@ -6689,8 +6737,9 @@ function plantLoad() {
       if (!key) { const x = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3()).x; key = Object.keys(centers).reduce((a, b) => Math.abs(centers[a] - x) <= Math.abs(centers[b] - x) ? a : b); }
       const copy = m.clone(false); copy.matrixAutoUpdate = false; copy.matrix.copy(m.matrixWorld); groups[key].add(copy);
     });
-    PLANT.variants = groups; T3.key = ''; V3.dirty = true; renderAll(true);
+    PLANT.variants = groups; modelsChanged();
   }, undefined, e => console.error('plant pack GLB', e));
+  }
 }
 function plantInstance(o, w, d, h) {
   const key = o.plant || 'monstera', source = key === 'monstera' ? PLANT.model : PLANT.variants[key] || PLANT.model;
@@ -6705,6 +6754,7 @@ function plantInstance(o, w, d, h) {
 // Herman Miller Aeron из officehome: исходная геометрия, палитры и сетчатые материалы Pellicle.
 const CHAIR = { model: null, started: false, state: 'idle' };
 function chairLoad() {
+  if (!objs().some(o => o.type === 'prop' && o.kind === 'ochair')) return;
   if (CHAIR.started) return; CHAIR.started = true;
   if (!has3() || !THREE.GLTFLoader) { CHAIR.state = 'failed'; return; }
   CHAIR.state = 'loading';
@@ -6717,7 +6767,7 @@ function chairLoad() {
         if (x.emissive) { x.emissive.setRGB(0, 0, 0); x.emissiveIntensity = 0; }
       });
     });
-    CHAIR.model = g.scene; CHAIR.state = 'ready'; T3.key = ''; V3.dirty = true; renderAll(true);
+    CHAIR.model = g.scene; CHAIR.state = 'ready'; modelsChanged();
   }, undefined, e => { console.error('chair GLB', e); CHAIR.state = 'failed'; });
 }
 function chairInstance(w, d, h) {
@@ -6731,11 +6781,12 @@ function chairInstance(w, d, h) {
 }
 const CABINET = { model: null, started: false };
 function cabinetLoad() {
+  if (!objs().some(o => o.type === 'prop' && o.kind === 'cabinet')) return;
   if (CABINET.started) return; CABINET.started = true;
   if (!has3() || !THREE.GLTFLoader) return;
   new THREE.GLTFLoader().load('models/table_furniture.glb', glb => {
     glb.scene.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; m.userData.shared = true; } });
-    CABINET.model = glb.scene; T3.key = ''; V3.dirty = true; renderAll(true);
+    CABINET.model = glb.scene; modelsChanged();
   }, undefined, e => console.error('cabinet GLB', e));
 }
 function cabinetInstance(o) {
@@ -6851,7 +6902,7 @@ function buildProp(g, o) {
     const back = new THREE.Group(); back.position.set(0, L + 0.12, -hd + 0.1); back.rotation.x = -0.1; g.add(back);   // спинка с наклоном
     const bh = top - L - 0.12; rbox(back, w - 0.01, bh, 0.17, fabric, 0, bh / 2, 0, 0.08);
     if (sofa) for (let i = 0; i < n; i++) rbox(back, cw - 0.02, bh * 0.55, 0.1, cushion, -hw + a + 0.01 + cw * (i + 0.5), bh * 0.5, 0.11, 0.05);   // спинные подушки дивана
-  } else if (k === 'plant' && PLANT.model) {
+  } else if (k === 'plant' && (PLANT.model || PLANT.variants[o.plant])) {
     const plant = plantInstance(o, w, d, h); if (plant) g.add(plant);
   } else if (k === 'plant') {   // запасной фикус на время загрузки или при ошибке GLB
     const r = Math.min(hw, hd), ph = Math.max(0.12, h * 0.36), pr = Math.max(0.05, Math.min(0.17, r * 0.5)), sl = pr * 0.45;
@@ -7154,11 +7205,13 @@ function curtainPanelMesh(width, height, open, side, material) {
 }
 const CURTAIN_MODEL = { model: null, started: false, state: 'idle' };
 function curtainLoad() {
+  if (!objs().some(o => o.type === 'prop' && o.kind === 'curtain')) return;
   if (CURTAIN_MODEL.started) return; CURTAIN_MODEL.started = true;
   if (!has3() || !THREE.GLTFLoader) { CURTAIN_MODEL.state = 'failed'; return; }
   CURTAIN_MODEL.state = 'loading';
   new THREE.GLTFLoader().load('models/curtain.glb', glb => {
-    CURTAIN_MODEL.model = glb.scene; CURTAIN_MODEL.state = 'ready'; T3.key = ''; V3.dirty = true; renderAll(true);
+    glb.scene.traverse(m => { if (m.isMesh) m.userData.shared = true; });
+    CURTAIN_MODEL.model = glb.scene; CURTAIN_MODEL.state = 'ready'; modelsChanged();
   }, undefined, e => { console.error('curtain GLB', e); CURTAIN_MODEL.state = 'failed'; });
 }
 function curtainInstance(o) {
@@ -7170,7 +7223,7 @@ function curtainInstance(o) {
     if (/tied/i.test(m.name) !== open) { hidden.push(m); return; }
     m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
     const old = Array.isArray(m.material) ? m.material : [m.material], mats = old.map(v => {
-      const n = v.clone(); n.color.copy(c3(col)); n.roughness = 0.84; n.metalness = 0; n.side = THREE.DoubleSide; return n;
+      const n = v.clone(); n.userData.own = true; n.color.copy(c3(col)); n.roughness = 0.84; n.metalness = 0; n.side = THREE.DoubleSide; return n;
     });
     m.material = Array.isArray(m.material) ? mats : mats[0];
   });
@@ -7295,9 +7348,10 @@ function detailedBookStack(g, o) {
 // герои появляются только когда готовы и модель, и перекрашенные футболки — без «мигания» цвета
 function humansFinish() {
   if (!HUMAN.modelReady || !SHIRT.done || HUMAN.state === 'ready') return;
-  HUMAN.state = 'ready'; T3.key = ''; V3.dirty = true; renderAll(true);
+  HUMAN.state = 'ready'; modelsChanged();
 }
 function humansLoad() {
+  if (!objs().some(o => o.type === 'hero')) return;
   if (HUMAN.started) return; HUMAN.started = true;
   if (!has3() || !THREE.GLTFLoader || !THREE.SkeletonUtils) { HUMAN.state = 'failed'; return; }
   let ld; try { ld = new THREE.GLTFLoader(); } catch (e) { HUMAN.state = 'failed'; return; }
@@ -7308,7 +7362,7 @@ function humansLoad() {
     try { g.scene.animations = g.animations; HUMAN.m = prepHuman(g.scene, 'models/man/', MAN_TEX); HUMAN.modelReady = true; humansFinish(); } catch (e) { failed(e); }
   }, undefined, failed);
   ld.load('models/man-lod.glb', g => {   // дальний уровень догружается отдельно и не задерживает появление героев
-    try { g.scene.animations = g.animations; HUMAN.mLod = prepHuman(g.scene, 'models/man/', MAN_TEX); if (HUMAN.modelReady) { T3.key = ''; V3.dirty = true; renderAll(true); } } catch (e) { console.warn('model LOD', e); }
+    try { g.scene.animations = g.animations; HUMAN.mLod = prepHuman(g.scene, 'models/man/', MAN_TEX); if (HUMAN.modelReady) modelsChanged(); } catch (e) { console.warn('model LOD', e); }
   }, undefined, e => console.warn('model LOD', e));
 }
 function findBone(root, re) { let b = null; root.traverse(o => { if (!b && o.isBone && re.test(o.name)) b = o; }); return b; }
@@ -7320,7 +7374,7 @@ function posedClone(obj, clip, frac) {
 const TEXL = {};
 function texLoad(url, color) {
   if (TEXL[url]) return TEXL[url];
-  const tx = new THREE.TextureLoader().load(url, () => { T3.key = ''; V3.dirty = true; if (S.view !== '3d') renderAll(true); });
+  const tx = new THREE.TextureLoader().load(url, modelsChanged);
   if (color) tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4; tx.flipY = false; TEXL[url] = tx; return tx;
 }
 function prepHuman(obj, base, texMap) {
@@ -8352,13 +8406,30 @@ function sceneKeys() {
   return KEYS;
 }
 const expoKey = (lit) => sceneKeys().light + '|' + lit + '|' + T3.quality;
-function t3build(lit) {
+function t3build(lit, sync) {
   const key = sceneKeys().full + '|' + lit + '|' + T3.quality;
+  if (T3.pendingBuild) {
+    if (T3.pendingBuild.key === key && T3.key) {
+      if (sync) T3.pendingBuild.run(true);
+      return T3.scene;
+    }
+    clearTimeout(T3.pendingBuild.timer); T3.pendingBuild = null; T3.key = '';
+  }
   if (T3.scene && T3.key === key) { t3goboSync(); return T3.scene; }
   // если несущая геометрия, режим света и качество не менялись — обновляем только изменившиеся объекты и приборы
-  const K = sceneKeys();
+  const currentKeys = sceneKeys(), K = { ...currentKeys, per: new Map(currentKeys.per) };
   if (T3.scene && T3.key && T3.structKey === K.struct && T3.lit === lit && T3.buildQ === T3.quality && objs().some(o => o.type === 'wall')) {   // T3.key = '' — принудительная полная сборка (догрузились модели/текстуры)
     try { if (t3partial(T3.scene, lit, K)) T3.ver = (T3.ver || 0) + 1; T3.key = key; t3softSync(T3.scene); return T3.scene; }   /* тени — только если менялись не одни камеры */ catch (e) { console.error('partial update', e); } }
+  /* При правке оболочки сохраняем независимые объекты вместе с геометрией,
+     скелетами и материалами. При загрузке моделей (пустой key) это запрещено. */
+  const retained = new Map();
+  const roomOnly = T3.scene && T3.key && T3.lit === lit && T3.buildQ === T3.quality && T3.structKey !== K.struct &&
+    objs().filter(o => !STATIC_T.includes(o.type)).every(o => T3.per && T3.per.get(o.id) === K.per.get(o.id)) &&
+    [...(T3.per || new Map()).keys()].every(id => K.per.has(id) || !T3.byId[id]);
+  if (roomOnly) objs().forEach(o => {
+    if (!['prop', 'hero', 'camera'].includes(o.type) || o.wall || o.kind === 'curtain') return;
+    const g = T3.byId[o.id]; if (g) { g.removeFromParent(); retained.set(o.id, g); }
+  });
   if (T3.scene) t3dispose(T3.scene);
   const sc = new THREE.Scene(); sc.background = c3('#151413'); T3.byId = {}; T3.vw = {}; T3.cut = []; T3.corr = []; T3.ceil = []; T3.lightsOf = {}; T3.nodesOf = {};
   const b = t3bounds(); const cx = (b.minx + b.maxx) / 2, cz = (b.miny + b.maxy) / 2; T3.center = V(cx, 1, cz);
@@ -8384,12 +8455,34 @@ function t3build(lit) {
   buildWalls(sc);
   const budget = { n: T3.quality === 'high' ? 7 : 3 };
   T3.shadowIds = shadowPicks(budget.n, T3.quality === 'high');
-  objs().forEach(o => { if (o.type === 'window' || o.type === 'door') buildOpening(sc, o, lit); else t3obj(sc, o, lit, budget); });
+  const buildObject = o => {
+    if (retained.has(o.id)) { const g = retained.get(o.id); T3.byId[o.id] = g; sc.add(g); }
+    else if (o.type === 'window' || o.type === 'door') buildOpening(sc, o, lit);
+    else t3obj(sc, o, lit, budget);
+  };
+  const modelRev = T3.modelRev || 0;
+  const finishBuild = () => {
   // смещение по нормали убирает «рябь» и полосы самозатенения на стенах при размытых краях теней
   sc.children.forEach(l => { if (l.isLight && l.castShadow && l.shadow) l.shadow.normalBias = l.userData.sun ? 0.01 : 0.03; });
   if (lit) { try { t3bounce(sc); } catch (e) { console.error('bounce', e); } }
   t3helpers(sc);
-  t3softSync(sc); T3.scene = sc; T3.key = key; T3.structKey = K.struct; T3.lit = lit; T3.buildQ = T3.quality; T3.per = new Map(K.per); T3.ver = (T3.ver || 0) + 1; T3.occVer = (T3.occVer || 0) + 1; return sc;
+  t3softSync(sc); T3.scene = sc; T3.key = modelRev === (T3.modelRev || 0) ? key : ''; T3.structKey = K.struct; T3.lit = lit; T3.buildQ = T3.quality; T3.per = new Map(K.per); T3.ver = (T3.ver || 0) + 1; T3.occVer = (T3.occVer || 0) + 1;
+  };
+  if (sync || roomOnly) { objs().forEach(buildObject); finishBuild(); }
+  else {
+    T3.scene = sc; T3.key = key;
+    const pending = { key, jobs: objs().slice(), timer: 0, run: null };
+    pending.run = all => {
+      if (T3.pendingBuild !== pending) return;
+      clearTimeout(pending.timer);
+      const start = performance.now();
+      while (pending.jobs.length && (all || performance.now() - start < 8)) buildObject(pending.jobs.shift());
+      if (pending.jobs.length) pending.timer = setTimeout(() => pending.run(false), 0);
+      else { finishBuild(); T3.pendingBuild = null; t3compileRedraw(); }
+    };
+    T3.pendingBuild = pending; pending.timer = setTimeout(() => pending.run(false), 0);
+  }
+  return sc;
 }
 // один объект сцены (предмет, герой, камера, прибор) — в своей группе, чтобы его можно было пересобрать отдельно
 function t3obj(sc, o, lit, budget) {
@@ -8630,7 +8723,8 @@ function viewExposure(r, sc, lit) {
 }
 function renderFrame3(cv, cam, opts) {
   const lit = opts && opts.lit !== undefined ? opts.lit : true;
-  const sc = t3build(lit); const q = opts && opts.q > 0 && opts.q < 1 ? opts.q : 1, W = Math.max(8, Math.round(cv.width * q)), H = Math.max(8, Math.round(cv.height * q)); const r = T3.r;   /* q < 1 — быстрый черновой кадр пониженного разрешения */
+  const sc = t3build(lit, opts && opts.sync); if (T3.pendingBuild) return false;
+  const q = opts && opts.q > 0 && opts.q < 1 ? opts.q : 1, W = Math.max(8, Math.round(cv.width * q)), H = Math.max(8, Math.round(cv.height * q)); const r = T3.r;   /* q < 1 — быстрый черновой кадр пониженного разрешения */
   const BW = Math.max(r.domElement.width, cv.width), BH = Math.max(r.domElement.height, cv.height);
   t3size(r, BW, BH);   /* буфер только растёт: черновой/полный кадр и миниатюры не пересоздают его */
   r.setViewport(0, BH - H, W, H); r.setScissor(0, BH - H, W, H); r.setScissorTest(true);   /* область у верхнего левого угла canvas */
@@ -8657,7 +8751,7 @@ const VIEW_LOAD = { active: false, view: null, progress: 0, gen: 0, hideT: 0 };
 function viewLoadStart(view) {
   const el = $('viewLoading'); if (!el) return;
   clearTimeout(VIEW_LOAD.hideT); VIEW_LOAD.active = true; VIEW_LOAD.view = view; VIEW_LOAD.gen++; VIEW_LOAD.progress = 0;
-  el.hidden = false; el.setAttribute('aria-busy', 'true'); document.body.classList.add('view-loading');
+  el.hidden = false; el.dataset.state = 'loading'; el.setAttribute('aria-busy', 'true'); document.body.classList.add('view-loading');
   const label = el.querySelector('.view-load-title'); if (label) label.textContent = view === 'cams' ? 'Подготавливаем вид с камеры' : 'Подготавливаем 3D-вид';
   viewLoadProgress(5);
 }
@@ -8665,8 +8759,16 @@ function viewLoadProgress(value) {
   if (!VIEW_LOAD.active) return;
   VIEW_LOAD.progress = Math.max(VIEW_LOAD.progress, Math.min(100, value));
   const el = $('viewLoading'); if (!el) return;
-  const bar = el.querySelector('.view-load-fill'); if (bar) bar.style.width = VIEW_LOAD.progress + '%';
-  const pct = el.querySelector('.view-load-pct'); if (pct) pct.textContent = Math.round(VIEW_LOAD.progress) + '%';
+  /* Это этапы подготовки, а не измеренные проценты: драйвер не сообщает
+     прогресс компиляции. Показываем непрерывную активность до готового кадра. */
+  const done = VIEW_LOAD.progress === 100;
+  el.dataset.state = done ? 'complete' : 'loading';
+  const sub = el.querySelector('.view-load-sub');
+  const stage = done ? 'Готово' : VIEW_LOAD.progress >= 62 ? 'Подготавливаем освещение и материалы' : VIEW_LOAD.progress >= 32 ? 'Собираем сцену' : 'Загружаем модели и текстуры';
+  if (sub && sub.textContent !== stage) sub.textContent = stage;
+  const pct = el.querySelector('.view-load-pct');
+  const hint = done ? 'Открываем вид…' : 'При первом открытии это может занять несколько секунд';
+  if (pct && pct.textContent !== hint) pct.textContent = hint;
 }
 function viewLoadFinish(view) {
   if (!VIEW_LOAD.active || view && VIEW_LOAD.view !== view) return;
@@ -8810,7 +8912,8 @@ function draw3(quiet) {
   const moving = !!V3.drag;
   const r = V3.r, ratio = T3.quality === 'high' && !moving ? Math.min(2, window.devicePixelRatio || 1) : Math.min(1, window.devicePixelRatio || 1); t3size(r, W, H, ratio);
   r.setScissorTest(false); r.setViewport(0, 0, W, H);
-  viewLoadProgress(32); const sc = t3build(V3.lit); if (T3.helpers) T3.helpers.visible = false;
+  viewLoadProgress(32); const sc = t3build(V3.lit); if (T3.pendingBuild) return false;
+  if (T3.helpers) T3.helpers.visible = false;
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200); const t = V3.tgt;
   cam.position.set(t.x + V3.dist * Math.cos(V3.el) * Math.cos(V3.az), t.y + V3.dist * Math.sin(V3.el), t.z + V3.dist * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
   setCuts(cam.position, v3Near(W / H)); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
@@ -9820,6 +9923,15 @@ const DL = (window.claude && window.claude.use) ? window.claude.use('downloads')
 async function saveFile(name, blob) {
   const dl = await DL;
   if (dl) { try { await dl.save({ filename: name, data: blob }); toast('Сохранено: ' + name); } catch (e) { if (!e || e.code !== 'declined') toast('Не удалось сохранить файл'); } return; }
+  const nativeExport = window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android' && window.Capacitor.Plugins.SetboardExport;
+  if (nativeExport) {
+    try {
+      const data = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(blob); });
+      const result = await nativeExport.save({ name, data: data.split(',')[1] });
+      toast('Сохранено: ' + (result && result.path || name));
+    } catch (e) { if (!e || e.code !== 'canceled') toast('Не удалось сохранить файл'); }
+    return;
+  }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 const frames = (n) => new Promise(r => { const f = () => (--n > 0 ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); });
@@ -9861,7 +9973,7 @@ async function export3D() {
   const prevView = S.view; if (S.view !== '3d') { setView('3d'); await frames(3); await new Promise(r => setTimeout(r, 400)); }
   if (!V3.r) { toast('3D-вид ещё не готов'); return; }
   // снимок всегда горизонтальный 1920×1080 с текущего ракурса, но с расстоянием, при котором видна вся площадка
-  const W = 1920, H = 1080, r = V3.r, sc = t3build(V3.lit), b = t3bounds();
+  const W = 1920, H = 1080, r = V3.r, sc = t3build(V3.lit, true), b = t3bounds();
   const t = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2), d = Math.max(v3fitDist(W / H), 1.2);
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200);
   cam.position.set(t.x + d * Math.cos(V3.el) * Math.cos(V3.az), t.y + d * Math.sin(V3.el), t.z + d * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
@@ -10012,11 +10124,17 @@ function renderCams() {
   if (S.view !== 'cams') return;
   const list = cams(); const cl = $('camlist');
   const none = !list.length; cl.hidden = none; $('stage').hidden = none; $('camEmpty').hidden = !none;   // без камер — только подсказка по центру
-  if (none) { cl.innerHTML = ''; viewLoadFinish('cams'); return; }
+  if (none) { cl.innerHTML = ''; cl._listKey = null; clearTimeout(THUMB_T); THUMB_G++; Object.keys(THUMB).forEach(id => delete THUMB[id]); viewLoadFinish('cams'); return; }
   let c = byId(S.activeCam); if (!c || c.type !== 'camera') { c = list[0]; S.activeCam = c.id; }
-  cl.innerHTML = list.map(k => `<button class="camcard" data-cam="${k.id}" aria-current="${k.id === c.id}"><canvas width="440" height="184" aria-hidden="true"></canvas><span class="t">${esc(camName(k))}</span></button>`).join('');
+  const listKey = JSON.stringify(list.map(k => [k.id, camName(k)]));
+  if (cl._listKey !== listKey) {
+    cl._listKey = listKey;
+    cl.innerHTML = list.map(k => `<button class="camcard" data-cam="${k.id}"><canvas width="440" height="184" aria-hidden="true"></canvas><span class="t">${esc(camName(k))}</span></button>`).join('');
+  }
+  cl.querySelectorAll('[data-cam]').forEach(b => b.setAttribute('aria-current', b.dataset.cam === c.id));
   // миниатюры: берём из кэша; если сцена изменилась — перерисовываем с задержкой, а не на каждое действие
-  const base = JSON.stringify(objs()) + '|' + S.ov.lit; let stale = false;
+  const base = frameSceneKey() + '|' + S.ov.lit; let stale = false;
+  const liveIds = new Set(list.map(k => k.id)); Object.keys(THUMB).forEach(id => { if (!liveIds.has(id)) delete THUMB[id]; });
   const waitHumans = objs().some(x => x.type === 'hero') && HUMAN.state !== 'ready' && HUMAN.state !== 'failed';
   cl.querySelectorAll('canvas').forEach((cv, i) => {
     const k = list[i]; let c0 = THUMB[k.id];
@@ -10027,7 +10145,8 @@ function renderCams() {
     clearTimeout(THUMB_T); const gen = ++THUMB_G;
     THUMB_T = setTimeout(function next() {
       if (gen !== THUMB_G || S.view !== 'cams') return;
-      const L2 = cams(), b2 = JSON.stringify(objs()) + '|' + S.ov.lit, cvs = $('camlist').querySelectorAll('canvas');
+      if (drag || S.placing || performance.now() - lastAct < 180) { THUMB_T = setTimeout(next, 200); return; }
+      const L2 = cams(), b2 = frameSceneKey() + '|' + S.ov.lit, cvs = $('camlist').querySelectorAll('canvas');
       let i = 0; while (i < L2.length && THUMB[L2[i].id] && THUMB[L2[i].id].key === b2) i++;
       if (i >= L2.length || !cvs[i]) return;
       const k = L2[i], cv = cvs[i], off = document.createElement('canvas'); off.width = cv.width; off.height = cv.height;
@@ -10069,7 +10188,18 @@ function renderPip() {
   schedPipDraw();
 }
 let pipRAF = 0;
-function camFrameKey(id) { return sceneKeys().full + '|' + JSON.stringify(objs().filter(o => o.type === 'light')) + '|' + id; }
+const FRAME_KEYS = { rev: -1, key: '' };
+function frameSceneKey() {
+  const token = S.rev + '|' + T3.quality + '|' + (T3.modelRev || 0);
+  if (FRAME_KEYS.token !== token || FRAME_KEYS.project !== S.project) {
+    FRAME_KEYS.token = token; FRAME_KEYS.project = S.project;
+    FRAME_KEYS.key = sceneKeys().full + '|' + T3.quality + '|' + (T3.modelRev || 0) + '|' +
+      JSON.stringify(objs().filter(o => o.type === 'light'), (k, v) => ['name', 'cap', 'locked', 'showLbl', 'lbl', 'desc'].includes(k) ? undefined : v) + '|' +
+      JSON.stringify(cams().map(c => [c.id, c.sensor, c.aspect]));
+  }
+  return FRAME_KEYS.key;
+}
+function camFrameKey(id) { return frameSceneKey() + '|' + id; }
 function pipDraw() {
   const P = S.project.pip, el = $('pip'); if (!P || !el || el.hidden) return; const cam = byId(P.cam); if (!cam) return;
   const cv = el.querySelector('canvas');
@@ -10101,6 +10231,7 @@ function bindPip(el) {
   el.querySelector('.pip-x').addEventListener('click', () => { delete S.project.pip; save(); renderPip(); });
 }
 function renderAll(full) {
+  loadNeededModels();
   S.rev = (S.rev || 0) + 1; WALL_H = Math.max(WALL_H_MIN, S.project.wh || 3);
   { const loading = HUMAN.state !== 'ready' && HUMAN.state !== 'failed' && objs().some(o => o.type === 'hero');   // плашка загрузки героев в 3D и «Камерах»
     document.querySelectorAll('[data-load]').forEach(el => el.hidden = !loading);
@@ -10121,7 +10252,7 @@ function renderAll(full) {
 let rzT = 0;
 new ResizeObserver(() => { cancelAnimationFrame(rzT); rzT = requestAnimationFrame(() => { if (!S.fitted && S.view === 'plan' && !S.wallDraw) fit();   /* не подгоняем вид, пока строим стены */ S.view === 'plan' ? renderPlan() : S.view === '3d' ? (V3.dirty = true) : renderCams(); }); }).observe(document.querySelector('.body'));
 applyTheme();
-try { humansLoad(); plantLoad(); chairLoad(); curtainLoad(); cabinetLoad(); } catch (e) { }
+try { loadNeededModels(); } catch (e) { }
 requestAnimationFrame(() => { fit(); renderAll(true); });
 })();
 if (window.Capacitor && window.Capacitor.getPlatform) document.body.classList.add('native-' + window.Capacitor.getPlatform());
