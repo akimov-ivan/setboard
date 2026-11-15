@@ -146,6 +146,16 @@ button { cursor: pointer; }
 body.view-loading { overscroll-behavior: none; }
 .planempty { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, calc(100% - 32px)); text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--muted); pointer-events: none; }
 .planempty p { margin: 0; } .planempty .t { color: var(--fg); font-weight: 600; font-size: 16px; } .planempty .s { font-size: 12px; } .planempty .btn { pointer-events: auto; margin: 6px 0; }
+.planempty-setup { box-sizing: border-box; width: min(288px, calc(100% - 32px)); padding: 16px; gap: 12px; border: 1px solid var(--hair); border-radius: var(--r-card); background: var(--surface); box-shadow: var(--card-shadow); }
+.planempty-setup h2 { margin: 0; color: var(--fg); font-size: 16px; font-weight: 600; }
+.planempty-setup p { width: 100%; padding-top: 10px; border-top: 1px solid var(--hair); font-size: 12px; }
+.planempty-setup .btn { width: 100%; margin: 0; background: var(--chip); color: var(--fg); font-weight: 500; }
+.planempty-setup .btn:hover { background: var(--active); }
+.room-size-form { pointer-events: auto; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 10px; width: 100%; }
+.room-size-form label { display: grid; gap: 4px; text-align: left; font-size: 12px; }
+.room-size-form input { box-sizing: border-box; width: 100%; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--line2); border-radius: var(--r-in); background: var(--raised); color: var(--fg); font-size: 16px; }
+.room-size-form .btn { grid-column: 1 / -1; }
+@media (max-width: 460px) { .planempty-setup { width: min(288px, calc(100% - 132px)); padding: 12px; } }
 #plan:focus, #plan:focus-visible { outline: none; }   /* фокус с клавиатуры виден по подсветке выбранного объекта */
 .tool:disabled { color: var(--muted); opacity: .45; cursor: default; }
 .tool.add:disabled { background: transparent; }
@@ -1054,7 +1064,16 @@ body.native-android .top { height: calc(60px + max(28px, env(safe-area-inset-top
 
     <section class="main" id="planView">
       <div class="stagewrap" id="stagewrap">
-        <div class="planempty" id="planEmpty" hidden><p class="t">Схема пуста</p><p>Начните со стен помещения: кликами поставьте углы, замкните контур на первой точке.</p><button class="btn primary" id="startWalls">Нарисовать стены</button><p class="s">или иконки слева — камеры, свет, герои и реквизит</p></div>
+        <section class="planempty planempty-setup" id="planEmpty" aria-labelledby="planEmptyTitle" hidden>
+          <h2 id="planEmptyTitle">Схема пуста</h2>
+          <button class="btn" id="startWalls" type="button">Нарисовать стены</button>
+          <p id="roomSizeLabel">или создать комнату по размерам</p>
+          <form id="roomSizeForm" class="room-size-form" aria-labelledby="roomSizeLabel">
+            <label>Ширина, м<input name="width" inputmode="decimal" pattern="[0-9]+([,.][0-9]+)?" value="5" required></label>
+            <label>Длина, м<input name="depth" inputmode="decimal" pattern="[0-9]+([,.][0-9]+)?" value="5" required></label>
+            <button class="btn" type="submit">Создать</button>
+          </form>
+        </section>
         <svg id="plan" tabindex="0" role="application" aria-label="Схема площадки. Tab — выбрать следующий объект, стрелки — сдвиг на 5 см (с Shift — 50 см), Delete — удалить"></svg>
         <div class="inspector" id="inspector" hidden></div>
       </div>
@@ -4977,7 +4996,8 @@ three/build/three.module.js:
 // ---------- catalogs ----------
 const LENSES = [10, 12, 14, 18, 20, 24, 28, 35, 50, 70, 85, 100, 135, 200, 250, 300];
 const ASPECTS = [['2.39', '2.39:1', 2.39], ['1.85', '1.85:1', 1.85], ['1.78', '16:9', 16 / 9], ['1', '1:1', 1], ['0.56', '9:16', 9 / 16]];
-const SENSOR = { S35: 27.99, FF: 36 };
+// Активные размеры в мм. S35 соответствует URSA Mini Pro 4.6K G2.
+const SENSOR = { S35: [25.34, 14.25], FF: [36, 24] };
 const HERO_COLORS = ['h1', 'h2', 'h3', 'h4'];
 const HERO_3D = ['#8E7BB0', '#B87A8E', '#7FA287', '#2B2C30'];   // спокойные: лиловый, пыльная роза, шалфей, чёрный (не синий камер, не янтарный света, не серый реквизита)
 const heroCss = (o) => o.hcol || `var(--${HERO_COLORS[o.color || 0]})`, hero3d = (o) => o.hcol || HERO_3D[o.color || 0];   // свой цвет героя (hcol) важнее набора
@@ -5170,8 +5190,31 @@ function wallLinks(o, which) {
   return res;
 }
 const dirOf = (rot) => [Math.sin(rot * RAD), -Math.cos(rot * RAD)];
-const hfov = (c) => 2 * Math.atan(SENSOR[c.sensor || 'S35'] / (2 * c.lens));
 const aspectOf = (c) => (ASPECTS.find(a => a[0] === c.aspect) || ASPECTS[0])[2];
+function cameraField(c, aspect = aspectOf(c)) {
+  const sensor = SENSOR[c.sensor] || SENSOR.S35;
+  const [w, h] = aspect < 1 ? [sensor[1], sensor[0]] : sensor;
+  const width = Math.min(w, h * aspect), height = width / aspect;
+  const lens = Number(c.lens) > 0 ? Number(c.lens) : 35;
+  return { horizontal: 2 * Math.atan(width / (2 * lens)), vertical: 2 * Math.atan(height / (2 * lens)), aspect };
+}
+const CAMERA_BODY_Z = 0.035, CAMERA_BODY_LENGTH = 0.19;
+const cameraHeight = c => Math.max(0.1, c.h ?? 1.4);
+function cameraLensProfile(c) {
+  const lens = Number(c.lens) > 0 ? Number(c.lens) : 35;
+  const length = 0.085 + Math.min(0.16, lens * 0.00055);
+  const mountZ = CAMERA_BODY_Z - CAMERA_BODY_LENGTH / 2 - 0.009, startZ = mountZ - 0.0225;
+  return { length, mountZ, startZ, glassZ: startZ - length - 0.003 };
+}
+function cameraPose(c) {
+  const [dx, dy] = dirOf(c.rot || 0), tilt = (c.tilt || 0) * RAD;
+  const forward = [dx * Math.cos(tilt), Math.sin(tilt), dy * Math.cos(tilt)];
+  const offset = -cameraLensProfile(c).glassZ;
+  return { forward, position: [c.x + forward[0] * offset, cameraHeight(c) + forward[1] * offset, c.y + forward[2] * offset] };
+}
+function cameraPlanHalf(c) {
+  return Math.atan(Math.tan(cameraField(c).horizontal / 2) / Math.cos((c.tilt || 0) * RAD));
+}
 const segOf = (o) => { const dx = o.x2 - o.x1, dy = o.y2 - o.y1, len = Math.hypot(dx, dy) || 0.001; return { dx, dy, len, ux: dx / len, uy: dy / len, nx: -dy / len, ny: dx / len }; };
 function centerOf(o) { return o.x1 !== undefined ? [(o.x1 + o.x2) / 2, (o.y1 + o.y2) / 2] : o.type === 'stroke' ? (o.pts[0] || [0, 0]) : [o.x, o.y]; }
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
@@ -5184,12 +5227,17 @@ const S2W = (x, y) => [(x - S.vp.ox) / S.vp.s, (y - S.vp.oy) / S.vp.s];
 const GRID_KINDS = ['softbox', 'stripbox', 'mat', 'panel', 'kino'];
 function lightHalf(o) {
   const L = LIGHTS[o.kind] || LIGHTS.fresnel;
-  if (o.kind === 'spot') return (o.beam === 36 ? 36 : 19) / 2;
-  if (o.grid && GRID_KINDS.includes(o.kind)) return 37;
-  if (o.kind === 'softbox') return Math.min(89, 75 + softboxSize(o) / 9);
-  if (o.kind === 'stripbox') return Math.min(89, 75 + emitOf(o.kind, o) * 100 / 9);
-  if (o.kind === 'panel') return 89;
+  if (o.kind === 'spot') return (o.beam === 36 ? 36 : 19) * 0.56;
+  if (o.grid && GRID_KINDS.includes(o.kind)) return 45;
+  if (['softbox', 'stripbox', 'panel', 'mat'].includes(o.kind)) return 80;
+  if (['fresnel', 'pot', 'kino'].includes(o.kind)) return L.half + 12;
   return L.half;
+}
+function lightPenumbra(o) {
+  if (o.kind === 'spot') return 0.1;
+  if (o.grid && GRID_KINDS.includes(o.kind)) return 0.35;
+  if (o.kind === 'softbox' || o.kind === 'stripbox') return 0.85;
+  return o.kind === 'panel' ? 1 : 0.7;
 }
 const LIGHT_REAL = { p_desk: 0.4, p_torch: 0.5, p_floor: 0.45, p_small: 0.25, softbox: 0.9, mat: 0.6, pot: 0.45, astera: 1.0, spot: 0.6, china: 0.72, fresnel: 0.45, practical: 0.4, reflector: 1.0, panel: 0.6, kino: 1.32, sun: 0.6 };
 const _lsz = {};
@@ -5396,7 +5444,7 @@ function renderPlan() {
       if (L.omni) { beams += grad(id, o.x, o.y, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11) + `<circle cx="${o.x}" cy="${o.y}" r="${R}" fill="url(#${id})" pointer-events="none"/>`; }
       else {
         // луч начинается от передней (светящей) плоскости прибора и имеет её ширину — у софтбокса от рассеивающего полотна
-        const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85, half = Math.min(lightHalf(o), o.kind === 'softbox' || o.kind === 'stripbox' || o.kind === 'panel' ? 89 : 80);
+        const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85, half = Math.min(lightHalf(o), 89);
         const [fx, fy] = dirOf(o.rot), cx = o.x + fx * fo, cy = o.y + fy * fo, [lx, ly] = dirOf(o.rot - 90), [ax, ay] = dirOf(o.rot - half), [bx, by] = dirOf(o.rot + half);
         const p1 = [cx + lx * hw, cy + ly * hw], p2 = [cx - lx * hw, cy - ly * hw];
         beams += grad(id, cx, cy, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11);
@@ -5406,8 +5454,9 @@ function renderPlan() {
     const previewing = o.type === 'camera' && S.view === 'plan' && S.project.pip?.cam === o.id;
     if (o.type === 'camera' && (S.layers.cones || previewing)) {
       const on = previewing || isSel(o.id) || (S.view === 'cams' && o.id === S.activeCam), R = 4, id = 'cc' + o.id;
-      cones += grad(id, o.x, o.y, R, 'var(--cam)', on ? 0.28 : 0.14) + grad(id + 's', o.x, o.y, R, 'var(--cam)', on ? 0.95 : 0.55);
-      cones += `<path d="${sector(o.x, o.y, o.rot, hfov(o) / RAD / 2, R)}" fill="url(#${id})" stroke="url(#${id}s)" stroke-width="1" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
+      const [x, , y] = cameraPose(o).position;
+      cones += grad(id, x, y, R, 'var(--cam)', on ? 0.28 : 0.14) + grad(id + 's', x, y, R, 'var(--cam)', on ? 0.95 : 0.55);
+      cones += `<path d="${sector(x, y, o.rot || 0, cameraPlanHalf(o) / RAD, R)}" fill="url(#${id})" stroke="url(#${id}s)" stroke-width="1" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
     }
   });
   const isRoom = (o) => o.x1 !== undefined;
@@ -5703,7 +5752,8 @@ function lightAt(P, N, lit) {
   let r = 0.28, g = 0.29, b = 0.32;
   objs().forEach(o => {
     if (o.type !== 'light') return;
-    const L = LIGHTS[o.kind] || LIGHTS.fresnel; const c = LCOL(5600); const I = 1; // все приборы: 5600 K, 100 %
+    const L = LIGHTS[o.kind] || LIGHTS.fresnel, c = LCOL(5600);
+    const I = NO_COLOR.includes(o.kind) ? 1 : lightIntensityScale(o);
     if (o.kind === 'sun') {
       const [dx, dy] = dirOf(o.rot); const D = [dx * 0.8, dy * 0.8, -0.6]; const lam = Math.max(0, -(N[0] * D[0] + N[1] * D[1] + N[2] * D[2]));
       const k = I * lam * 0.55; r += c[0] * k; g += c[1] * k; b += c[2] * k; return;
@@ -5711,7 +5761,12 @@ function lightAt(P, N, lit) {
     const v = [o.x - P[0], o.y - P[1], o.h - P[2]]; const dist = Math.hypot(v[0], v[1], v[2]) || 0.01; const u = [v[0] / dist, v[1] / dist, v[2] / dist];
     const lam = Math.max(0, N[0] * u[0] + N[1] * u[1] + N[2] * u[2]);
     let cone = 1;
-    if (!L.omni) { const [dx, dy] = dirOf(o.rot); const dl = Math.hypot(dx, dy, 0.3); const D = [dx / dl, dy / dl, -0.3 / dl]; const ca = -(u[0] * D[0] + u[1] * D[1] + u[2] * D[2]); const c1 = Math.cos(Math.min(85, lightHalf(o) + 18) * RAD), c2 = Math.cos(Math.min(80, lightHalf(o)) * RAD); cone = Math.max(0, Math.min(1, (ca - c1) / (c2 - c1 || 1))); }
+    if (!L.omni) {
+      const [dx, dy] = dirOf(o.rot), tilt = lightTilt(o) * RAD;
+      const ca = -(u[0] * dx * Math.cos(tilt) + u[1] * dy * Math.cos(tilt) + u[2] * Math.sin(tilt));
+      const half = lightHalf(o) * RAD, c1 = Math.cos(half), c2 = Math.cos(half * (1 - lightPenumbra(o)));
+      cone = Math.max(0, Math.min(1, (ca - c1) / (c2 - c1 || 1)));
+    }
     const fall = 1 / (1 + (dist * dist) / (L.len * L.len * 0.45));
     const k = I * lam * cone * fall * 1.5; r += c[0] * k; g += c[1] * k; b += c[2] * k;
   });
@@ -5723,17 +5778,19 @@ function renderFrameLegacy(cv, cam, opts) {
   const scene = buildScene(cam.id);
   const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#1E1C1A'); sky.addColorStop(1, '#2A2724');
   ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
-  const fpx = (W / 2) / Math.tan(hfov(cam) / 2);
-  const [fx_, fy_] = dirOf(cam.rot); const rx = -fy_, ry = fx_; const t = (cam.tilt || 0) * RAD; const ct = Math.cos(t), st = Math.sin(t);
-  const toCam = (p) => { const dx = p[0] - cam.x, dy = p[1] - cam.y, dz = p[2] - cam.h; const f = dx * fx_ + dy * fy_, r = dx * rx + dy * ry; return [r, dz * ct - f * st, f * ct + dz * st]; };
+  const optics = cameraField(cam, cam.aspect == null ? W / H : aspectOf(cam));
+  const fpx = W / (2 * Math.tan(optics.horizontal / 2)), fpy = H / (2 * Math.tan(optics.vertical / 2));
+  const [cx, cz, cy] = cameraPose(cam).position;
+  const [fx_, fy_] = dirOf(cam.rot || 0); const rx = -fy_, ry = fx_; const t = (cam.tilt || 0) * RAD; const ct = Math.cos(t), st = Math.sin(t);
+  const toCam = (p) => { const dx = p[0] - cx, dy = p[1] - cy, dz = p[2] - cz; const f = dx * fx_ + dy * fy_, r = dx * rx + dy * ry; return [r, dz * ct - f * st, f * ct + dz * st]; };
   const NEAR = 0.05;
-  const proj = (c) => [W / 2 + c[0] / c[2] * fpx, H / 2 - c[1] / c[2] * fpx];
+  const proj = (c) => [W / 2 + c[0] / c[2] * fpx, H / 2 - c[1] / c[2] * fpy];
   const items = [];
   scene.faces.forEach(fc => {
     let pts = fc.v.map(toCam);
     // backface: normal vs view
     const ctr = fc.v.reduce((s, p) => [s[0] + p[0], s[1] + p[1], s[2] + p[2]], [0, 0, 0]).map(x => x / fc.v.length);
-    const vx = cam.x - ctr[0], vy = cam.y - ctr[1], vz = cam.h - ctr[2];
+    const vx = cx - ctr[0], vy = cy - ctr[1], vz = cz - ctr[2];
     if (fc.n[0] * vx + fc.n[1] * vy + fc.n[2] * vz <= 0) return;
     // clip near
     const outp = [];
@@ -5743,12 +5800,12 @@ function renderFrameLegacy(cv, cam, opts) {
       if (ain !== bin) { const k = (NEAR - a[2]) / (b[2] - a[2]); outp.push([a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, NEAR]); }
     }
     if (outp.length < 3) return;
-    const depth = Math.hypot(ctr[0] - cam.x, ctr[1] - cam.y, ctr[2] - cam.h);
+    const depth = Math.hypot(ctr[0] - cx, ctr[1] - cy, ctr[2] - cz);
     const base = hex(fc.c); const sh = fc.e ? [1.05, 1.05, 1.05] : lightAt(ctr, fc.n, lit);
     const col = `rgb(${Math.min(255, base[0] * sh[0] * 255) | 0},${Math.min(255, base[1] * sh[1] * 255) | 0},${Math.min(255, base[2] * sh[2] * 255) | 0})`;
     items.push({ d: depth + (fc.floor ? 1000 : 0), pts: outp.map(proj), col, floor: fc.floor });
   });
-  if (lit) scene.sprites.forEach(sp => { const c = toCam(sp.p); if (c[2] <= NEAR) return; const [x, y] = proj(c); const r = Math.max(4, sp.r * fpx / c[2]) * 2.2; items.push({ d: Math.hypot(sp.p[0] - cam.x, sp.p[1] - cam.y, sp.p[2] - cam.h) - 0.3, sprite: { x, y, r, c: sp.c, i: sp.i } }); });
+  if (lit) scene.sprites.forEach(sp => { const c = toCam(sp.p); if (c[2] <= NEAR) return; const [x, y] = proj(c); const r = Math.max(4, sp.r * fpx / c[2]) * 2.2; items.push({ d: Math.hypot(sp.p[0] - cx, sp.p[1] - cy, sp.p[2] - cz) - 0.3, sprite: { x, y, r, c: sp.c, i: sp.i } }); });
   items.sort((a, b) => b.d - a.d);
   items.forEach(it => {
     if (it.sprite) { const s = it.sprite; const gr = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r); const cc = s.c.map(v => (v * 255) | 0).join(','); gr.addColorStop(0, `rgba(255,250,235,${0.9 * Math.min(1, s.i + 0.3)})`); gr.addColorStop(0.25, `rgba(${cc},${0.45 * s.i + 0.1})`); gr.addColorStop(1, `rgba(${cc},0)`); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); return; }
@@ -5759,7 +5816,13 @@ function renderFrameLegacy(cv, cam, opts) {
   // vignette
   const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.35)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 }
-function sizeCanvas(cv, w, h, cap) { const dpr = Math.min(cap || 2, window.devicePixelRatio || 1); cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); cv.style.width = w + 'px'; cv.style.height = h + 'px'; }
+function sizeCanvas(cv, w, h, cap) {
+  const dpr = Math.min(cap || 2, window.devicePixelRatio || 1);
+  const width = Math.round(w * dpr), height = Math.round(h * dpr);
+  if (cv.width !== width) cv.width = width;
+  if (cv.height !== height) cv.height = height;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+}
 
 // ---------- Three.js engine ----------
 const T3 = { r: null, scene: null, key: '', byId: {}, helpers: null, tex: {}, failed: false, pend: 0, center: null,
@@ -5791,10 +5854,12 @@ function kelvin3(k) {
   const c = kelvinRaw(k); c.r /= K_REF.r; c.g /= K_REF.g; c.b /= K_REF.b;
   const m = Math.max(c.r, c.g, c.b); return c.multiplyScalar(1 / m);
 }
-// цвет прибора: режим CCT (температура + поправка G/M) или HSI (тон + насыщенность); яркость — множитель 0…1
+// Цвет прибора задаётся в CCT или HSI. Прежняя номинальная мощность теперь соответствует 50%.
 const NO_COLOR = ['sun', 'reflector'];   // солнце и отражатель свой цвет не задают
+const DEFAULT_LIGHT_POWER = 50;
 const lightKelvin = (o) => Math.max(2700, Math.min(7000, o.kelvin != null ? o.kelvin : ((LIGHTS[o.kind] || {}).cct || 5600)));
-const lightPower = (o) => Math.max(0, Math.min(100, o.power != null ? o.power : 100)) / 100;
+const lightPower = (o) => Math.max(0, Math.min(100, o.power ?? DEFAULT_LIGHT_POWER)) / 100;
+const lightIntensityScale = o => 2 * lightPower(o);
 function lightColor(o) {
   if (o.mode === 'hsi') { const c = new THREE.Color().setHSL(((o.hue || 0) % 360) / 360, 1, 0.5), w = new THREE.Color(1, 1, 1), s = Math.max(0, Math.min(100, o.sat != null ? o.sat : 100)) / 100; return w.lerp(c, s).convertSRGBToLinear(); }
   return kelvin3(lightKelvin(o));
@@ -5826,14 +5891,14 @@ function t3goboSync() {
 // смена цвета/яркости без пересборки сцены: меняем параметры уже созданных источников и светящихся поверхностей
 function t3lightUpdate(o, quiet) {
   const ls = (T3.lightsOf || {})[o.id]; if (!ls) return false;
-  const col = lightColor(o), pw = lightPower(o), pwPrev = (T3.pwOf || (T3.pwOf = {}))[o.id]; T3.pwOf[o.id] = pw;
-  ls.forEach(l => { l.color.copy(col); l.intensity = l.userData.base * pw; });
+  const col = lightColor(o), pw = lightPower(o), intensity = lightIntensityScale(o), pwPrev = (T3.pwOf || (T3.pwOf = {}))[o.id]; T3.pwOf[o.id] = pw;
+  ls.forEach(l => { l.color.copy(col); l.intensity = l.userData.base * intensity; });
   const sp = o.kind === 'spot' && ls.find(l => l.isSpotLight);
   if (sp) { const info = goboInfo(o); sp.map = info ? info.texture : null; sp.userData.goboGain = info ? info.gain : 1; sp.userData.goboKey = info ? info.key : 'none'; syncGoboProjection(sp); V3.dirty = true; }
   const g = T3.byId[o.id];
-  if (g) g.traverse(m => { const mm = m.material; if (!mm) return; (Array.isArray(mm) ? mm : [mm]).forEach(x => { if (x.userData && x.userData.own && x.emissive && x.userData.glow !== false) { x.emissive.copy(col); if (x.userData.ei != null) x.emissiveIntensity = x.userData.ei * (0.12 + 0.88 * pw); } }); });
+  if (g) g.traverse(m => { const mm = m.material; if (!mm) return; (Array.isArray(mm) ? mm : [mm]).forEach(x => { if (x.userData && x.userData.own && x.emissive && x.userData.glow !== false) { x.emissive.copy(col); if (x.userData.ei != null) x.emissiveIntensity = x.userData.ei * (0.12 + 0.88 * intensity); } }); });
   if (quiet) return true;
-  clearTimeout(T3.expoT); T3.expoT = setTimeout(() => { const sc = T3.scene; if (sc && /\|true\|/.test(T3.key || '')) { sc.children.filter(l => l.isLight && l.userData && l.userData.bounce === true).forEach(l => { sc.remove(l); if (l.target) sc.remove(l.target); }); try { t3bounce(sc); } catch (e) { } }   /* отражённый свет — под новый цвет/яркость */
+  clearTimeout(T3.expoT); T3.expoT = setTimeout(() => { const sc = T3.scene; if (sc && /\|true\|/.test(T3.key || '')) { t3bounceReset(sc); try { t3bounce(sc); } catch (e) { } }   /* отражённый свет — под новый цвет/яркость */
     if (pwPrev === undefined || Math.abs(pwPrev - pw) > 1e-6) T3.expKey = '';   /* экспозицию пересчитываем только при смене яркости: температура и оттенок её почти не меняют */
     V3.dirty = true; if (S.view === 'cams') renderCams(); if (S.sel) positionPreview(); const pc = document.querySelector('#pip canvas'); if (pc) { pc._k = ''; schedPipDraw(); } }, 350);   // экспозицию пересчитываем, когда закончили двигать ползунок
   V3.dirty = true; return true;
@@ -6162,14 +6227,18 @@ function t3softSync(sc) {
 uniform sampler2D wallTex; uniform mat4 wallIV; uniform float wallRows; uniform int wallCnt; uniform vec4 ceilB[16]; uniform int ceilCnt; uniform float ceilY; uniform float wallSoftPt[32]; uniform float wallSoftSp[32]; uniform float wallSoftRa[16];
 float wallHit( const in vec3 l, const in vec3 p, const in float d, const in float ang, const in float slot, const in vec2 nh ) {   /* 1 — луч от прибора к точке по этому направлению упирается в стену */
   float u = fract( ang / 6.2831853 + 0.5 );
-  vec4 H = texture2D( wallTex, vec2( u, ( slot * 4.0 + 0.5 ) / wallRows ) );
-  if ( H.w < 0.5 || H.x > d - 0.03 ) return 0.0;
   /* Не затеняем стену её собственной дискретной картой: иначе появляются вертикальные полосы. */
   float ba = ( floor( u * ${WOCC.AN.toFixed(1)} ) + 0.5 ) / ${WOCC.AN.toFixed(1)} * 6.2831853 - 3.14159265;
-  vec2 hp = l.xz + H.x * vec2( cos( ba ), sin( ba ) );
-  if ( dot( nh, nh ) > 0.64 && abs( dot( hp - p.xz, nh ) ) < 0.055 ) return 0.0;
-  float y = mix( l.y, p.y, H.x / d );
-  return y >= H.y && y <= H.z ? 1.0 : 0.0;
+  vec2 ray = vec2( cos( ba ), sin( ba ) );
+  for ( int i = 0; i < ${WOCC.HITS}; i ++ ) {
+    vec4 h = texture2D( wallTex, vec2( u, ( slot * ${WOCC.HITS.toFixed(1)} + float( i ) + 0.5 ) / wallRows ) );
+    if ( h.w < 0.5 || h.x > d - 0.03 ) break;
+    vec2 hp = l.xz + h.x * ray;
+    if ( dot( nh, nh ) > 0.64 && abs( dot( hp - p.xz, nh ) ) < 0.055 ) continue;
+    float y = mix( l.y, p.y, h.x / d );
+    if ( y >= h.y && y <= h.z ) return 1.0;
+  }
+  return 0.0;
 }
 float wallVis( const in mat4 iv, const in vec3 pv, const in vec3 nv, const in vec3 lv, const in float soft, const in float slot ) {
   vec3 p = ( iv * vec4( pv, 1.0 ) ).xyz, l = ( iv * vec4( lv, 1.0 ) ).xyz; vec3 dd = l - p;
@@ -6211,16 +6280,18 @@ function emitOf(kind, o) {
 }
 /* карта теней: чем шире конус, тем больше текселей нужно, иначе край тени «пилится» */
 const shadowMapFor = (kind, hq, angRad) => {
-  const sharp = kind === 'fresnel' || kind === 'spot', deg = angRad * 180 / Math.PI;
+  if (kind === 'spot') return hq ? 2048 : 1024;
+  const sharp = kind === 'fresnel', deg = angRad * 180 / Math.PI;
   if (!hq) return deg >= 60 ? 1024 : (sharp ? 512 : 256);
   if (deg >= 60) return 2048;
   if (deg >= 40) return 1024;
   return sharp ? 1024 : 512;
 };
 /* радиус PCF задаём в сантиметрах на стене и переводим в тексели для конкретной карты и дистанции */
-const shadowRadiusFor = (kind, mapSize, angRad, focus, dist, o) => {
-  const span = Math.max(0.05, 2 * angRad * (focus || 1));                  // угол, который реально покрывает карта
-  const texelCm = Math.tan(span / mapSize) * Math.max(0.5, dist) * 100;    // сколько сантиметров приходится на один тексель
+const shadowRadiusFor = (kind, mapSize, halfAngle, dist, o) => {
+  if (kind === 'spot') return 1.25;   // проекционная насадка: фильтр только сглаживает пиксели карты
+  const span = 2 * Math.tan(halfAngle) * Math.max(0.5, dist);
+  const texelCm = span * 100 / mapSize;
   const softCm = 1.5 + emitOf(kind, o) * 9;                                // желаемая ширина размытия края растёт вместе с диаметром софтбокса
   return Math.max(1, Math.min(40, Math.round((softCm / Math.max(0.02, texelCm)) * 10) / 10));
 };
@@ -6263,13 +6334,14 @@ const FLOOR_FIN = {
   porcelain: { name: 'Керамогранит', tex: 'porcelain', col: '#D8D6D2', rough: 0.3 },
   tile: { name: 'Плитка', tex: 'tile', col: '#D8D6D2', rough: 0.4 },
   carpet: { name: 'Ковролин', tex: 'carpetf', col: '#8A8A88', rough: 1 },
-  solid: { name: 'Наливной пол', tex: 'paint', col: '#8A8A88', rough: 0.12 }
+  solid: { name: 'Наливной пол', tex: 'solid', col: '#8A8A88', rough: 1 }
 };
 const FLOOR_TEX = {   // текстуры, которые есть только у пола
   herringbone: { sx: 1.6971, sy: 1.6971, px: 1024 },
   tile: { sx: 1.2, sy: 1.2 },
   micro: { sx: 2.4, sy: 2.4 },
-  carpetf: { sx: 1, sy: 1 }
+  carpetf: { sx: 1, sy: 1 },
+  solid: { sx: 3, sy: 3 }
 };
 const floorFin = (o) => o && FLOOR_FIN[o.fin] ? o.fin : 'laminate';
 const floorCol = (o) => (o && o.wcol) || FLOOR_FIN[floorFin(o)].col;
@@ -6287,7 +6359,26 @@ function floorMat(o) {
     opt.roughnessMap = finishTex('laminate-roughness', 'models/finishes/laminate-roughness.webp', false, true);
     opt.normalMap = finishTex('laminate-normal', 'models/finishes/laminate-normal.webp', false, true); opt.normalScale = new THREE.Vector2(0.65, 0.65);
   }
-  return mat('floor|' + fin + '|' + col, col, opt);
+  if (fin === 'solid') {
+    // ambientCG Concrete048 (CC0): карта цвета нейтрализована под палитру, блеск настроен под наливное покрытие.
+    opt.roughnessMap = finishTex('solid-roughness', 'models/finishes/solid-roughness.webp', false, true);
+    opt.normalMap = finishTex('solid-normal', 'models/finishes/solid-normal.webp', false, true);
+    opt.normalScale = new THREE.Vector2(0.24, 0.24);
+  }
+  const material = mat('floor|' + fin + '|' + col, col, opt);
+  material.onBeforeCompile = floorShadowCompile;
+  return material;
+}
+function floorShadowCompile(shader) {
+  THREE.Material.prototype.onBeforeCompile.call(this, shader);
+  // Пол не отбрасывает тень. Меньшее смещение возвращает контакт с подошвами и ножками мебели.
+  const chunks = THREE.ShaderChunk;
+  const vertex = chunks.shadowmap_vertex.replace(/((?:directional|point|spot)LightShadows\[ i \]\.shadowNormalBias)/g, 'min( $1, 0.005 )');
+  const fragment = chunks.lights_fragment_begin
+    .replace('spotLightShadow.shadowBias,', 'max( spotLightShadow.shadowBias, -0.00005 ),')
+    .replace('pointLightShadow.shadowBias,', 'max( pointLightShadow.shadowBias, -0.0005 ),');
+  shader.vertexShader = shader.vertexShader.replace('#include <shadowmap_vertex>', vertex);
+  shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_begin>', fragment);
 }
 const texDim = (tex) => WALL_FIN[tex] || FLOOR_TEX[tex];
 // UV пола в метрах (в плоскости XZ), чтобы рисунок был в реальном масштабе и непрерывным между комнатами
@@ -6348,17 +6439,10 @@ function marbleTiles(x, w, h, cols, rows) {
   }
   x.putImageData(im, 0, 0);
 }
-const BAKED_WALL_TEX = { laminate: 'models/finishes/laminate.webp', wood: 'models/finishes/wood.webp' };
+const BAKED_FINISH_TEX = { laminate: 'models/finishes/laminate.webp', wood: 'models/finishes/wood.webp', solid: 'models/finishes/solid.webp' };
 function wallTex(fin) {
-  const key = 'wall2_' + fin, baked = BAKED_WALL_TEX[fin];
-  // Две самые тяжёлые попиксельные текстуры подготовлены заранее в исходном разрешении.
-  // Их загрузка не блокирует основной поток при холодном открытии 3D и камер.
-  if (baked) {
-    if (T3.tex[key]) return T3.tex[key];
-    const t = new THREE.TextureLoader().load(baked, t3compileRedraw);
-    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    T3.tex[key] = t; return t;
-  }
+  const key = 'wall2_' + fin, baked = BAKED_FINISH_TEX[fin];
+  if (baked) return finishTex(key, baked, true, true);
   const F = texDim(fin), N = F.px || 512, W = N, H = Math.round(N * F.sy / F.sx / 64) * 64 || N;
   return canvasTex(key, W, H, (x, w, h) => {
     let s = 11; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
@@ -6710,6 +6794,12 @@ function drawWindowScene(x, w, h, kind) {
 }
 // Детализированные процедурные виды за окном; текстуры создаются локально и кэшируются.
 const PHOTO_VIEWS = ['street', 'park', 'city', 'sunset', 'night', 'country'];
+// В сохранённых проектах яркость окна хранится на шкале 0–200.
+const WINDOW_LIGHT_POWER_MAX = 200;
+const windowLightPower = o => Number.isFinite(o.skyPower)
+  ? Math.max(0, Math.min(WINDOW_LIGHT_POWER_MAX, o.skyPower))
+  : o.view === 'night' ? 8 : o.view === 'sunset' ? 45 : 100;
+const windowLightPercent = o => Math.round(windowLightPower(o)) * 100 / WINDOW_LIGHT_POWER_MAX;
 function viewTex(kind) {
   if (PHOTO_VIEWS.includes(kind)) return finishTex('window-photo-' + kind, 'models/views/' + kind + '.webp', true, false);
   return canvasTex('view6-' + kind, 1024, 512, (x, w, h) => drawWindowScene(x, w, h, kind));
@@ -6783,12 +6873,15 @@ function buildOpening(sc, o, lit) {
     mbox(g, sg.len, 0.04, 0.1, frame, 0, top, 0);
     mbox(g, 0.04, WH, 0.1, frame, -sg.len / 2 + 0.02, cy, 0); mbox(g, 0.04, WH, 0.1, frame, sg.len / 2 - 0.02, cy, 0);
     for (let i = 1; i < n; i++) mbox(g, 0.04, WH, 0.1, frame, -sg.len / 2 + i * sg.len / n, cy, 0);
-    if (lit) {
-      const day = kelvin3(o.view === 'sunset' ? 3200 : 6500); const ix = -onx, iz = -onz;
-      const sunny = objs().some(q => q.type === 'light' && q.kind === 'sun');
-      const sp = new THREE.SpotLight(day, (0.9 + sg.len * 0.35) * (sunny ? 1 : 0.25), 9, 62 * RAD, 1, 1.2);
-      sp.position.set(cx + onx * 2.2, Math.min(WALL_H + 0.2, winTop(o) + 0.2), cy + onz * 2.2); sp.target.position.set(cx + ix * 2.2, 0.2, cy + iz * 2.2); sc.add(sp.target);
-      sc.add(sp);
+    const skyPower = windowLightPower(o);
+    if (lit && skyPower > 0) {
+      const skyColor = kelvin3(o.view === 'sunset' ? 3600 : o.view === 'night' ? 8500 : 6500);
+      if (!T3.rectInit) { THREE.RectAreaLightUniformsLib.init(); T3.rectInit = true; }
+      const sky = new THREE.RectAreaLight(skyColor, 0.24 * skyPower / 100, sg.len, WH);
+      sky.position.set(cx - onx * 0.12, sill + WH / 2, cy - onz * 0.12);
+      sky.lookAt(cx - onx, sky.position.y, cy - onz);
+      sky.userData.oid = o.id;
+      sc.add(sky);
     }
   } else {
     const wood = mat('door|' + doorCol(o), doorCol(o), { roughness: 0.6 }), frame = wood;
@@ -7236,8 +7329,6 @@ function limb(p, a, b, ra, rb, m) {
   me.position.copy(a).add(b).multiplyScalar(0.5); me.quaternion.setFromUnitVectors(V(0, 1, 0), v.normalize());
   me.castShadow = true; me.receiveShadow = true; p.add(me); return me;
 }
-const HUMAN = { m: null, f: null, started: false, state: 'idle' };
-function heroSex(o) { return 'm'; }
 const shelfCount = (o) => Math.max(1, Math.min(8, o.shelves || Math.round((o.h - 0.126) / 0.36 + 1)));
 function shelfSetCount(o, count) { o.shelves = Math.max(1, Math.min(8, Math.round(count))); o.h = 0.486 + (o.shelves - 1) * 0.36; }
 function buildShelfLoft(g, o) {
@@ -7538,13 +7629,42 @@ function detailedBookStack(g, o) {
   }
 }
 // герои появляются только когда готовы и модель, и перекрашенные футболки — без «мигания» цвета
+const HUMAN = { m: null, f: null, state: 'idle', fState: 'idle' };
+const heroSex = o => o.sex === 'f' ? 'f' : 'm';
+const heroModelPending = o => {
+  const state = heroSex(o) === 'f' ? HUMAN.fState : HUMAN.state;
+  return state === 'idle' || state === 'loading';
+};
+const humansPending = () => objs().some(o => o.type === 'hero' && heroModelPending(o));
+const HERO_SKIN_REFLECTANCE = 0.75;
+function heroShadowCompile(shader) {
+  THREE.Material.prototype.onBeforeCompile.call(this, shader);
+  // У широкого прожектора тексель карты покрывает больше поверхности. На шее и плечах
+  // это даёт полосы самозатенения при скользящем свете. Поправка нужна только героям.
+  const projectBias = `
+    float heroSpotNormalBias( mat4 projection, float bias ) {
+      // Убираем из строки X смещение на полтекстуры. Её длина равна половине котангенса полуугла луча.
+      vec3 x = vec3( projection[0].x, projection[1].x, projection[2].x );
+      vec3 w = vec3( projection[0].w, projection[1].w, projection[2].w );
+      float wide = 1.0 - smoothstep( 0.09, 0.5, length( x - 0.5 * w ) );
+      return bias + wide * min( 0.055, bias * 1.84 );
+    }`;
+  const vertex = THREE.ShaderChunk.shadowmap_vertex.replace(
+    'spotLightShadows[ i ].shadowNormalBias',
+    'heroSpotNormalBias( spotLightMatrix[ i ], spotLightShadows[ i ].shadowNormalBias )'
+  );
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <shadowmap_pars_vertex>', '#include <shadowmap_pars_vertex>\n' + projectBias)
+    .replace('#include <shadowmap_vertex>', vertex);
+}
 function humansFinish() {
   if (!HUMAN.modelReady || !SHIRT.done || HUMAN.state === 'ready') return;
   HUMAN.state = 'ready'; modelsChanged();
 }
 function humansLoad() {
-  if (!objs().some(o => o.type === 'hero')) return;
-  if (HUMAN.started) return; HUMAN.started = true;
+  const heroes = objs().filter(o => o.type === 'hero');
+  if (HUMAN.fState === 'idle' && heroes.some(o => heroSex(o) === 'f')) womanLoad();
+  if (HUMAN.state !== 'idle' || !heroes.some(o => heroSex(o) === 'm')) return;
   if (!has3() || !THREE.GLTFLoader || !THREE.SkeletonUtils) { HUMAN.state = 'failed'; return; }
   let ld; try { ld = new THREE.GLTFLoader(); } catch (e) { HUMAN.state = 'failed'; return; }
   HUMAN.state = 'loading'; shirtLoad();
@@ -7556,6 +7676,111 @@ function humansLoad() {
   ld.load('models/man-lod.glb', g => {   // дальний уровень догружается отдельно и не задерживает появление героев
     try { g.scene.animations = g.animations; HUMAN.mLod = prepHuman(g.scene, 'models/man/', MAN_TEX); if (HUMAN.modelReady) modelsChanged(); } catch (e) { console.warn('model LOD', e); }
   }, undefined, e => console.warn('model LOD', e));
+}
+function womanLoad() {
+  const failed = error => {
+    console.error('Sophia GLB', error);
+    HUMAN.fState = 'failed';
+    modelsChanged();
+  };
+  if (!has3() || !THREE.GLTFLoader || !THREE.SkeletonUtils) { HUMAN.fState = 'failed'; return; }
+  HUMAN.fState = 'loading';
+  Promise.all([
+    new THREE.GLTFLoader().loadAsync('models/sophia.glb'),
+    new THREE.TextureLoader().loadAsync('models/sophia-material-mask.webp')
+  ]).then(([gltf, mask]) => {
+    mask.flipY = false;
+    mask.anisotropy = 4;
+    HUMAN.f = prepWoman(gltf, mask);
+    HUMAN.fState = 'ready';
+    modelsChanged();
+  }).catch(failed);
+}
+function prepWoman(gltf, mask) {
+  // На 4,5 с клипа обе стопы опираются на пол. Для раскадровки используем фиксированную позу.
+  const idle = gltf.animations[0];
+  const root = posedClone(gltf.scene, idle, idle ? 4.5 / idle.duration : 0);
+  const seatBase = gltf.scene;
+  const tips = new Map();
+  seatBase.traverse(b => { if (b.isBone && /_(index|middle|ring|pinky)_end_[lr]_/.test(b.name)) tips.set(b, b.position.clone()); });
+  seatBase.traverse(o => { if (o.isSkinnedMesh) o.skeleton.pose(); });
+  // Концевые кости пальцев не деформируют сетку и не имеют полезной матрицы привязки.
+  tips.forEach((position, bone) => bone.position.copy(position));
+  const limbNames = {
+    upperleg: 'UpperLeg', lowerleg: 'LowerLeg', foot: 'Foot', ball: 'Toe',
+    upperarm: 'UpperArm', lowerarm: 'LowerArm', hand: 'Palm', eye: 'Eye', mouth: 'Mouth'
+  };
+  const prepare = o => {
+    if (o.isBone) {
+      const part = o.name.replace(/^rp_sophia_animated_003_idling_|_\d+$/g, '');
+      const limb = /^(.*)_([lr])$/.exec(part);
+      if (limb && limbNames[limb[1]]) o.name = limbNames[limb[1]] + limb[2].toUpperCase();
+      const finger = /^(index|middle|ring|pinky)_(0[1-3]|end)_([lr])$/.exec(part);
+      if (finger) o.name = finger[1] + (finger[2] === 'end' ? '4' : Number(finger[2])) + finger[3].toUpperCase();
+      if (part === 'hip') o.name = 'Hips';
+      if (part === 'head') o.name = 'Head';
+      if (part === 'neck') o.name = 'Neck';
+      if (part === 'jaw') o.name = 'Jaw';
+      return;
+    }
+    if (!o.isMesh) return;
+    o.material.userData.sophia = true;
+    o.castShadow = true;
+    o.receiveShadow = true;
+    o.frustumCulled = false;
+  };
+  root.traverse(prepare);
+  seatBase.traverse(prepare);
+  seatBase.updateMatrixWorld(true);
+  // В исходной стойке голова и глаза повёрнуты вбок. В нейтральном риге их ось совпадает со стрелкой героя.
+  for (const name of ['Neck', 'Head', 'EyeL', 'EyeR']) {
+    const re = new RegExp('^' + name + '$'), bone = findBone(root, re), neutral = findBone(seatBase, re);
+    if (!bone || !neutral) continue;
+    const rotation = neutral.getWorldQuaternion(new THREE.Quaternion());
+    // Центры зрачков смещены в текстуре относительно осей костей глаз.
+    const yaw = name === 'EyeL' ? 3.2 : name === 'EyeR' ? 5.4 : 0;
+    if (yaw) {
+      rotation.premultiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), yaw * RAD));
+      setBoneWorldRotation(neutral, rotation);
+    }
+    setBoneWorldRotation(bone, rotation);
+  }
+  for (const name of ['Jaw', 'MouthL', 'MouthR']) {
+    const re = new RegExp('^' + name + '$'), bone = findBone(root, re), neutral = findBone(seatBase, re);
+    if (bone && neutral) { bone.position.copy(neutral.position); bone.quaternion.copy(neutral.quaternion); }
+  }
+  root.updateMatrixWorld(true);
+  const scale = 1.68 / new THREE.Box3().setFromObject(root, true).getSize(V(0, 0, 0)).y;
+  // Укорачиваем сидячий корпус примерно на 4 см, оставляя таз на подушке и стопы на полу.
+  seatBase.traverse(b => {
+    if (b.isBone && (b.name === 'Neck' || /^rp_sophia_animated_003_idling_spine_0[1-3]_/.test(b.name))) b.position.multiplyScalar(0.92);
+  });
+  seatBase.updateMatrixWorld(true);
+  return { stand: root, seatBase, scale, mask };
+}
+function sophiaCompile(shader) {
+  heroShadowCompile.call(this, shader);
+  shader.uniforms.sophiaMask = { value: HUMAN.f.mask };
+  shader.uniforms.sophiaBlouse = { value: c3(this.userData.blouseColor) };
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <map_pars_fragment>', `#include <map_pars_fragment>
+      uniform sampler2D sophiaMask;
+      uniform vec3 sophiaBlouse;`)
+    .replace('#include <map_fragment>', `#include <map_fragment>
+      #ifdef USE_MAP
+        vec2 regions = texture2D( sophiaMask, vMapUv ).rg;
+        float shade = dot( diffuseColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
+        vec3 skin = diffuseColor.rgb * vec3( 0.58, 0.79, 0.98 );
+        diffuseColor.rgb = mix( diffuseColor.rgb, skin, regions.g );
+        diffuseColor.rgb = mix( diffuseColor.rgb, min( vec3( 1.0 ), sophiaBlouse * ( shade / 0.68 ) ), regions.r );
+      #endif`);
+}
+function sophiaSeatedCompile(shader) {
+  sophiaCompile.call(this, shader);
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <skinning_pars_vertex>', '#include <skinning_pars_vertex>\nattribute vec4 posedHandNormal;')
+    .replace('#include <skinnormal_vertex>', `#include <skinnormal_vertex>
+      objectNormal = normalize( mix( objectNormal, posedHandNormal.xyz, posedHandNormal.w ) );`);
 }
 function findBone(root, re) { let b = null; root.traverse(o => { if (!b && o.isBone && re.test(o.name)) b = o; }); return b; }
 function posedClone(obj, clip, frac) {
@@ -7579,8 +7804,11 @@ function prepHuman(obj, base, texMap) {
       const n = new THREE.MeshStandardMaterial({ color: tm ? new THREE.Color(1, 1, 1) : (m && m.color ? m.color.clone() : new THREE.Color(0.5, 0.5, 0.5)), roughness: /cornea|eye/i.test(name) ? 0.15 : 0.7, flatShading: false });
       if (tm) { n.map = texLoad(base + tm[0], true); if (tm[1]) n.normalMap = texLoad(base + tm[1], false); }
       // текстура кожи очень светлая (≈ 225/255) — реальная кожа отражает заметно меньше; без этого лица «выгорают» при любом свете
-      if (/^(Body|Head)_map$/.test(name)) { n.color.setRGB(0.51, 0.49, 0.48); n.roughness = 0.6; }
-      n.name = name; return n;
+      if (/^(Body|Head)_map$/.test(name)) {
+        n.color.setRGB(0.525, 0.487, 0.465).multiplyScalar(HERO_SKIN_REFLECTANCE);
+        n.roughness = 0.6;
+      }
+      n.name = name; n.onBeforeCompile = heroShadowCompile; return n;
     });
     o.material = Array.isArray(o.material) ? nm : nm[0]; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
   });
@@ -7599,8 +7827,11 @@ function aimBone(bone, child, target) {
   const cur = cp.sub(bp).normalize(), want = target.clone().sub(bp).normalize();
   const q = new THREE.Quaternion().setFromUnitVectors(cur, want);
   const bw = bone.getWorldQuaternion(new THREE.Quaternion());
-  const pw = bone.parent.getWorldQuaternion(new THREE.Quaternion());
-  bone.quaternion.copy(pw.invert().multiply(q.multiply(bw)));
+  setBoneWorldRotation(bone, q.multiply(bw));
+}
+function setBoneWorldRotation(bone, rotation) {
+  const parent = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  bone.quaternion.copy(parent.invert().multiply(rotation));
   bone.updateMatrixWorld(true);
 }
 const SHIRT = { base: null, mask: null, ready: false, cache: {}, started: false };
@@ -7629,15 +7860,16 @@ function shirtTex(hex) {
 }
 // самая низкая точка позированной модели (подошвы): вершины скин-меша с учётом костей, в координатах корня
 // стопы носками вперёд (с естественным разворотом ~7° наружу): поворачиваем кость стопы вокруг вертикали
-function alignFeet(c) {
-  const F = [['L', 'Left'], ['R', 'Right']].map(([sd, mx]) => { const ft = findBone(c, new RegExp('^(Foot\\.?' + sd + '|mixamorig:?' + mx + 'Foot)$', 'i')); const toe = ft && findBone(ft, /toe/i); return ft && toe ? { ft, toe } : null; });
+const heroFoot = (c, side, fullSide) => findBone(c, new RegExp('^(Foot\\.?' + side + '|mixamorig:?' + fullSide + 'Foot)$', 'i'));
+function alignFeet(c, forward) {
+  const F = [['L', 'Left'], ['R', 'Right']].map(([sd, mx]) => { const ft = heroFoot(c, sd, mx); const toe = ft && findBone(ft, /toe/i); return ft && toe ? { ft, toe } : null; });
   if (F.some(f => !f)) return;
   const hdir = (f) => { const a = f.ft.getWorldPosition(new THREE.Vector3()), b = f.toe.getWorldPosition(new THREE.Vector3()); return new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize(); };
-  const d0 = F.map(hdir), fwd = d0[0].clone().add(d0[1]).normalize();
+  const d0 = F.map(hdir), fwd = forward || d0[0].clone().add(d0[1]).normalize();
   const lx = F[0].ft.getWorldPosition(new THREE.Vector3()), rx = F[1].ft.getWorldPosition(new THREE.Vector3()), side = new THREE.Vector3().subVectors(lx, rx).setY(0).normalize();   // от правой стопы к левой
   F.forEach((f, i) => {
-    const s = i === 0 ? 1 : -1, want = fwd.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), 0);
-    want.addScaledVector(side, s * Math.tan(7 * RAD)).normalize();   // лёгкий разворот наружу
+    const s = i === 0 ? 1 : -1, want = fwd.clone();
+    if (!forward) want.addScaledVector(side, s * Math.tan(7 * RAD)).normalize();
     const cur = hdir(f), q = new THREE.Quaternion().setFromUnitVectors(cur, want);
     const bw = f.ft.getWorldQuaternion(new THREE.Quaternion()), pw = f.ft.parent.getWorldQuaternion(new THREE.Quaternion());
     f.ft.quaternion.copy(pw.invert().multiply(q.multiply(bw))); f.ft.updateMatrixWorld(true);
@@ -7652,27 +7884,98 @@ function skinnedMinY(root) {
 function humanClone(tpl, o) {
   const c = THREE.SkeletonUtils.clone(tpl);
   c.traverse(m => {
-    if (!m.isMesh) return; m.userData.shared = true; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
+    if (!m.isMesh) return; m.userData.shared = true;
     const arr = Array.isArray(m.material) ? m.material : [m.material];
-    const nm = arr.map(x => { if (x.name === 'outfit_map') { shirtLoad(); const tx = shirtTex(hero3d(o)); if (tx) { const y = x.clone(); y.map = tx; y.userData.own = true; return y; } return x; } if (/shirt|top|dress|tank|jacket|suit/i.test(x.name)) { const y = x.clone(); y.color = c3(hero3d(o)); y.userData.own = true; return y; } return x; });
+    const nm = arr.map(x => {
+      if (x.userData.sophia) {
+        const material = x.clone();
+        material.userData.own = true;
+        material.userData.blouseColor = hero3d(o);
+        material.onBeforeCompile = sophiaCompile;
+        return material;
+      }
+      const outfit = x.name === 'outfit_map', colored = !outfit && /shirt|top|dress|tank|jacket|suit/i.test(x.name);
+      const tx = outfit ? shirtTex(hero3d(o)) : null;
+      if (!tx && !colored) return x;
+      const y = x.clone();
+      if (tx) y.map = tx;
+      if (colored) y.color = c3(hero3d(o));
+      y.onBeforeCompile = x.onBeforeCompile;
+      y.userData.own = true;
+      return y;
+    });
     m.material = Array.isArray(m.material) ? nm : nm[0];
   });
   return c;
 }
+function sophiaThighSupports(actor, legs) {
+  const mesh = actor.getObjectByProperty('isSkinnedMesh', true);
+  const ray = new THREE.Raycaster(V(0, 0, 0), V(0, -1, 0), 0, 0.25);
+  const top = (hip, knee, t, clearance) => {
+    const p = hip.clone().lerp(knee, t);
+    ray.ray.origin.copy(p).y += 0.22;
+    const hit = mesh && ray.intersectObject(mesh, false)[0];
+    p.y = (hit ? hit.point.y : p.y + 0.09) + clearance;
+    return p;
+  };
+  return legs.map(leg => {
+    const hip = leg.up.getWorldPosition(V(0, 0, 0)), knee = leg.lo.getWorldPosition(V(0, 0, 0));
+    const wrist = top(hip, knee, 0.58, 0.014), fingers = top(hip, knee, 0.89, 0.009);
+    return { wrist, along: fingers.sub(wrist).normalize() };
+  });
+}
+function relaxSophiaFingers(hand, side, along) {
+  for (const name of ['index', 'middle', 'ring', 'pinky']) {
+    const chain = [1, 2, 3, 4].map(i => hand.getObjectByName(name + i + side));
+    for (let i = 0; i < 3; i++) {
+      const bone = chain[i], next = chain[i + 1];
+      if (!bone || !next) break;
+      const tip = bone.getWorldPosition(V(0, 0, 0));
+      const natural = next.getWorldPosition(V(0, 0, 0)).sub(tip).normalize();
+      // Сохраняем небольшой веер пальцев и не даём кончикам загибаться под ладонь.
+      const dir = along.clone().add(V(natural.x * 0.22, -0.035 * i, 0)).normalize();
+      aimBone(bone, next, tip.add(dir));
+    }
+  }
+}
+function sophiaSeatedGeometry(mesh) {
+  const geometry = mesh.geometry.clone();
+  const { position, skinIndex, skinWeight } = geometry.attributes;
+  const positions = new Float32Array(position.count * 3), normals = new Float32Array(position.count * 4);
+  const vertex = V(0, 0, 0);
+  const hands = mesh.skeleton.bones.map(b => /^(Palm|index|middle|ring|pinky)|_thumb_/.test(b.name));
+  for (let i = 0; i < position.count; i++) {
+    mesh.getVertexPosition(i, vertex).toArray(positions, i * 3);
+    for (let j = 0; j < 4; j++) {
+      if (hands[skinIndex.getComponent(i, j)]) normals[i * 4 + 3] += skinWeight.getComponent(i, j);
+    }
+  }
+  // После укладки кистей исходные нормали рига дают чёрные пальцы даже при отключённых тенях.
+  const posed = new THREE.BufferGeometry();
+  posed.setIndex(geometry.index);
+  posed.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  posed.computeVertexNormals();
+  for (let i = 0; i < position.count; i++) {
+    vertex.fromBufferAttribute(posed.attributes.normal, i).toArray(normals, i * 4);
+  }
+  geometry.setAttribute('posedHandNormal', new THREE.BufferAttribute(normals, 4));
+  return geometry;
+}
 function buildHumanModel(g, o) {
-  const H = HUMAN[heroSex(o)] || HUMAN.m || HUMAN.f; if (!H || !H.stand) return false;
-  const sit = o.pose === 'sit'; const tpl = sit && H.sit ? H.sit : H.stand; const procSit = sit && !H.sit;
+  const H = HUMAN[heroSex(o)]; if (!H || !H.stand) return false;
+  const sit = o.pose === 'sit'; const tpl = sit ? H.sit || H.seatBase || H.stand : H.stand; const procSit = sit && !H.sit;
   const c = humanClone(tpl, o);
   const wrap = new THREE.Group(); wrap.scale.setScalar(H.scale); wrap.rotation.y = Math.PI; wrap.add(c); wrap.updateMatrixWorld(true);
   const wp = (b) => b.getWorldPosition(new THREE.Vector3());
-  const hips = findBone(c, /hips|pelvis/i); const feet = []; c.traverse(b => { if (b.isBone && /foot/i.test(b.name)) feet.push(wp(b).y); });
+  const hips = findBone(c, /hips|pelvis/i);
+  const feet = [heroFoot(c, 'L', 'Left'), heroFoot(c, 'R', 'Right')].filter(Boolean).map(b => wp(b).y);
   const hp = hips ? wp(hips) : new THREE.Vector3();
   const footY = feet.length ? Math.min.apply(null, feet) : 0;
   // нижняя точка обутой модели считается по всем вершинам — дорого (~30 мс на героя), поэтому кэшируется по шаблону и позе: результат не зависит от места на площадке
   const MY = HUMAN._minY || (HUMAN._minY = new Map()), tk = tpl.uuid, myc = (key, f) => { if (!MY.has(key)) MY.set(key, f()); return MY.get(key); };
   const sole = myc(tk + '|sole', () => Math.max(0.02, footY - skinnedMinY(wrap)));   // от кости стопы до подошвы ботинка
   if (sit) {
-    const legs = [['L', 'Left'], ['R', 'Right']].map(([sd, mx]) => ({ up: findBone(c, new RegExp('^(UpperLeg\\.?' + sd + '|mixamorig:?' + mx + 'UpLeg)$', 'i')), lo: findBone(c, new RegExp('^(LowerLeg\\.?' + sd + '|mixamorig:?' + mx + 'Leg)$', 'i')), ft: findBone(c, new RegExp('^(Foot\\.?' + sd + '|mixamorig:?' + mx + 'Foot)$', 'i')), sd }));
+    const legs = [['L', 'Left'], ['R', 'Right']].map(([sd, mx]) => ({ up: findBone(c, new RegExp('^(UpperLeg\\.?' + sd + '|mixamorig:?' + mx + 'UpLeg)$', 'i')), lo: findBone(c, new RegExp('^(LowerLeg\\.?' + sd + '|mixamorig:?' + mx + 'Leg)$', 'i')), ft: heroFoot(c, sd, mx), sd }));
     const ok = legs.every(l => l.up && l.lo && l.ft);
     let shin = 0.44;
     if (ok) shin = legs.reduce((a, l) => a + wp(l.lo).distanceTo(wp(l.ft)), 0) / 2;
@@ -7681,21 +7984,26 @@ function buildHumanModel(g, o) {
     wrap.position.set(-hp.x, HIPJ - hjY0, -hp.z); wrap.updateMatrixWorld(true);
     const hipY = HIPJ - 0.03;
     if (ok) legs.forEach(l => {
+      const shoe = H.seatBase ? l.ft.getWorldQuaternion(new THREE.Quaternion()) : null;
       const hj = wp(l.up), kn0 = wp(l.lo), thigh = hj.distanceTo(kn0), sh = kn0.distanceTo(wp(l.ft));
       const side = hj.x >= 0 ? 1 : -1;
       const kneeY = ANKLE + sh, dyT = kneeY - hj.y, dz = Math.sqrt(Math.max(0.01, thigh * thigh - dyT * dyT));
       aimBone(l.up, l.lo, new THREE.Vector3(hj.x + side * 0.03, Math.min(kneeY, hj.y + thigh * 0.9), hj.z - dz));
       const kn = wp(l.lo);
       aimBone(l.lo, l.ft, new THREE.Vector3(kn.x, kn.y - sh, kn.z + 0.03));
+      if (shoe) setBoneWorldRotation(l.ft, shoe);
     });
+    const handSupports = H.seatBase && ok
+      ? myc(tk + '|hands|' + HIPJ.toFixed(3), () => sophiaThighSupports(c, legs)) : null;
     // руки: плечо почти вертикально, локоть согнут, предплечье вперёд, ладони вниз лежат на бёдрах, пальцы слегка свисают
     if (procSit) [['L', 'Left'], ['R', 'Right']].forEach(([sd, mx], li) => {
       const ua = findBone(c, new RegExp('^(UpperArm\\.?' + sd + '|mixamorig:?' + mx + 'Arm)$', 'i')), fa = findBone(c, new RegExp('^(LowerArm\\.?' + sd + '|mixamorig:?' + mx + 'ForeArm)$', 'i')), hd = findBone(c, new RegExp('^(Palm\\.?' + sd + '|mixamorig:?' + mx + 'Hand)$', 'i'));
       if (!ua || !fa || !hd) return;
       const shp = wp(ua), side = shp.x >= 0 ? 1 : -1, ul = shp.distanceTo(wp(fa)), fl = wp(fa).distanceTo(wp(hd));
       const leg = ok ? legs.find(l => (wp(l.up).x >= 0 ? 1 : -1) === side) || legs[li] : null;
-      const S = shp; let E = null, T = null;   // кисти на 2 см выше поверхности бедра — не уходят в него
-      if (leg) {   // плечо опускаем почти вертикально и наклоняем вперёд, пока предплечье не ляжет кистью на верх бедра
+      const support = handSupports && handSupports[li];
+      const S = shp; let E = null, T = support?.wrist || null;
+      if (leg && !T) {   // плечо опускаем почти вертикально и наклоняем вперёд, пока предплечье не ляжет кистью на верх бедра
         const hj = wp(leg.up), kn = wp(leg.lo), P = (u) => new THREE.Vector3(hj.x + (kn.x - hj.x) * u + side * 0.01, hj.y + (kn.y - hj.y) * u + 0.13, hj.z + (kn.z - hj.z) * u + 0.05);
         const solve = (zMax) => { E = null; T = null; for (let th = 5; th <= 75 && !E; th += 1) {
           const a = th * RAD, e = new THREE.Vector3(S.x + side * 0.03, S.y - ul * Math.cos(a), S.z - ul * Math.sin(a)); if (e.z > zMax) continue;
@@ -7706,7 +8014,7 @@ function buildHumanModel(g, o) {
         if (E) { const E0 = E, T0 = T; solve(E0.z - 0.03); if (!E) { E = E0; T = T0; } }   // локти на 3 см вперёд (вперёд — это −z)
       }
       if (!E) {   // запасной вариант — двухзвенный IK к точке над бедром
-        T = new THREE.Vector3(side * 0.12, hipY + 0.15, shp.z - 0.3);
+        T ||= V(side * 0.12, hipY + 0.15, shp.z - 0.3);
         const d = Math.min(S.distanceTo(T), ul + fl - 0.002), dir = T.clone().sub(S).normalize(); T = S.clone().addScaledVector(dir, d);
         const ax = (ul * ul - fl * fl + d * d) / (2 * d), hh = Math.sqrt(Math.max(0, ul * ul - ax * ax));
         const pole = new THREE.Vector3(side * 0.12, -1, 0.35); pole.addScaledVector(dir, -pole.dot(dir)).normalize();
@@ -7715,16 +8023,27 @@ function buildHumanModel(g, o) {
       aimBone(ua, fa, E); aimBone(fa, hd, T);
       const mid = findBone(hd, /Middle1/i), idx = findBone(hd, /Index1/i), pin = findBone(hd, /Pinky1/i);
       if (mid && idx && pin) {
-        hd.traverse(b => { if (b !== hd && b.isBone && /Index|Middle|Ring|Pinky/i.test(b.name)) b.quaternion.identity(); }); hd.updateMatrixWorld(true);   // пальцы выпрямлены — лежат на бедре, а не впиваются в него
-        const W = wp(hd); aimBone(hd, mid, W.clone().add(new THREE.Vector3(0, -0.3, -1).normalize()));   // пальцы вперёд и слегка вниз — облегают бедро
+        if (!support) {
+          hd.traverse(b => { if (b !== hd && b.isBone && /Index|Middle|Ring|Pinky/i.test(b.name)) b.quaternion.identity(); });
+          hd.updateMatrixWorld(true);
+        }
+        const W = wp(hd); aimBone(hd, mid, W.clone().add(support?.along || V(0, -0.3, -1).normalize()));
         const f = wp(mid).sub(wp(hd)).normalize(), across = wp(idx).sub(wp(pin)); across.addScaledVector(f, -across.dot(f)).normalize();
-        const want = new THREE.Vector3(-side, 0.55, 0); want.addScaledVector(f, -want.dot(f)).normalize();   // большой палец к середине тела и приподнят — ладонь вниз и развёрнута внутрь (~30°)
+        const want = V(-side, support ? 0 : 0.55, 0); want.addScaledVector(f, -want.dot(f)).normalize();
         const ang = Math.atan2(f.dot(new THREE.Vector3().crossVectors(across, want)), across.dot(want)), q = new THREE.Quaternion().setFromAxisAngle(f, ang), bw = hd.getWorldQuaternion(new THREE.Quaternion()), pw = hd.parent.getWorldQuaternion(new THREE.Quaternion());
         hd.quaternion.copy(pw.invert().multiply(q.multiply(bw))); hd.updateMatrixWorld(true);
+        if (support) relaxSophiaFingers(hd, sd, support.along);
       }
     });
-    wrap.updateMatrixWorld(true); alignFeet(c); const low = wrap.position.y + myc(tk + '|sit|' + HIPJ.toFixed(3), () => skinnedMinY(wrap) - wrap.position.y); if (low < 0.004) wrap.position.y += 0.004 - low;   // подстраховка: ничего не уходит под пол
+    wrap.updateMatrixWorld(true);
+    alignFeet(c, H.seatBase ? V(0, 0, -1) : null); const low = wrap.position.y + myc(tk + '|sit|' + HIPJ.toFixed(3), () => skinnedMinY(wrap) - wrap.position.y); if (low < 0.004) wrap.position.y += 0.004 - low;   // подстраховка: ничего не уходит под пол
+    if (handSupports) {
+      const mesh = c.getObjectByProperty('isSkinnedMesh', true);
+      mesh.geometry = myc(tk + '|handNormals|' + HIPJ.toFixed(3), () => sophiaSeatedGeometry(mesh));
+      mesh.material.onBeforeCompile = sophiaSeatedCompile;
+    }
   } else { wrap.position.set(-hp.x, -footY, -hp.z); wrap.updateMatrixWorld(true); alignFeet(c); wrap.position.y += 0.004 - (wrap.position.y + myc(tk + '|stand', () => skinnedMinY(wrap) - wrap.position.y)); }   // стоя: подошвы точно на полу
+  g.meterHead = findBone(c, /head$/i);
   const HL = H === HUMAN.m ? HUMAN.mLod : null, tplL = HL && (sit && HL.sit ? HL.sit : HL.stand);
   if (tplL) {
     const lc = humanClone(tplL, o), bones = new Map(); c.traverse(b => { if (b.isBone && b.name) bones.set(b.name, b); });
@@ -7736,9 +8055,10 @@ function buildHumanModel(g, o) {
 }
 function blob(p, r, m, x, y, z, sx, sy, sz) { const me = msph(p, r, m, x, y, z); me.scale.set(sx || 1, sy || 1, sz || 1); return me; }
 function buildHero(g, o) {
-  if (HUMAN.state === 'loading' || HUMAN.state === 'idle') return;
+  if (heroModelPending(o)) return;
   try { if (buildHumanModel(g, o)) return; } catch (e) { console.error(e); }
-  const skin = mat('skin', '#C99D7C', { roughness: 0.6 }), pants = mat('pants', '#2E333B', { roughness: 0.9 }), shoe = mat('shoe', '#18191C', { roughness: 0.45 });
+  const skin = mat('skin', '#C99D7C', { color: c3('#C99D7C').multiplyScalar(HERO_SKIN_REFLECTANCE), roughness: 0.6 });
+  const pants = mat('pants', '#2E333B', { roughness: 0.9 }), shoe = mat('shoe', '#18191C', { roughness: 0.45 });
   const shirt = mat('shirt' + hero3d(o), hero3d(o), { roughness: 0.9 }), hair = mat('hair', '#2A211C', { roughness: 0.85 });
   const sit = o.pose === 'sit';
   const W0 = sit ? 0.55 : 0.98;            // waist height
@@ -7780,7 +8100,7 @@ function buildHero(g, o) {
 }
 function buildCamera(g, o) { buildUrsaCamera(g, o); }
 function buildUrsaCamera(g, o) {
-  const h = Math.max(0.45, o.h || 1.4), ff = o.sensor === 'FF' ? 1.08 : 1;
+  const axisHeight = cameraHeight(o), h = Math.max(0.45, axisHeight), ff = o.sensor === 'FF' ? 1.08 : 1;
   const body = mat('ursa-body', '#30363A', { roughness: 0.42, metalness: 0.68 });
   const edge = mat('ursa-edge', '#151A1D', { roughness: 0.5, metalness: 0.55 });
   const rubber = mat('ursa-rubber', '#111517', { roughness: 0.88 });
@@ -7802,8 +8122,10 @@ function buildUrsaCamera(g, o) {
   const lineScrew = (s, r) => { const q = mbox(s, r * 1.2, r * 0.16, r * 0.08, edge, 0, 0, -r * 0.22, true); };
   const cylZ = (p, r0, r1, len, m, x, y, z, seg) => { const q = mcyl(p, r0, r1, len, m, x, y, z, seg || 32, true); q.rotation.x = Math.PI / 2; return q; };
 
-  const head = new THREE.Group(); head.position.set(0, h - 0.02, 0); head.rotation.x = (o.tilt || 0) * RAD; g.add(head);
-  const BW = 0.145 * ff, BH = 0.15 * ff, BL = 0.19, bz = 0.035, bf = bz - BL / 2;
+  const head = new THREE.Group(); head.position.set(0, axisHeight, 0); head.rotation.x = (o.tilt || 0) * RAD;
+  if (aspectOf(o) < 1) head.rotateZ(Math.PI / 2);
+  g.add(head);
+  const BW = 0.145 * ff, BH = 0.15 * ff, BL = CAMERA_BODY_LENGTH, bz = CAMERA_BODY_Z, bf = bz - BL / 2;
   rbox(head, BW, BH, BL, body, 0, 0, bz, 0.008);
   rbox(head, BW * 0.94, 0.018, BL * 0.9, edge, 0, -BH / 2 - 0.006, bz, 0.005);
   rbox(head, BW * 0.78, 0.017, BL * 0.82, body, 0, BH / 2 + 0.006, bz + 0.006, 0.004);
@@ -7819,7 +8141,7 @@ function buildUrsaCamera(g, o) {
   const led = mat('battery-led', '#8FCB68', { emissive: c3('#7BBD55'), emissiveIntensity: 0.6, roughness: 0.4 });
   for (let i = 0; i < 4; i++) msph(head, 0.0022, led, -0.018 + i * 0.012, -0.038, batteryZ + 0.029, true);
 
-  const mountZ = bf - 0.009;
+  const { mountZ, startZ: lz, length: LL, glassZ } = cameraLensProfile(o);
   cylZ(head, 0.065 * ff, 0.065 * ff, 0.018, edge, 0, 0, mountZ, 48);
   cylZ(head, 0.058 * ff, 0.058 * ff, 0.008, silver, 0, 0, mountZ - 0.012, 64);
   cylZ(head, 0.049 * ff, 0.049 * ff, 0.009, darkMetal, 0, 0, mountZ - 0.018, 64);
@@ -7828,11 +8150,11 @@ function buildUrsaCamera(g, o) {
   const redDot = msph(head, 0.003, red, 0, 0.061 * ff, mountZ - 0.023, true); redDot.scale.z = 0.3;
   for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; const contact = mbox(head, 0.003, 0.006, 0.001, brassContact(), Math.cos(a) * 0.035 * ff, Math.sin(a) * 0.035 * ff, mountZ - 0.025, true); contact.rotation.z = a; }
 
-  const LL = 0.085 + Math.min(0.16, o.lens / 1000 * 0.55), lz = mountZ - 0.0225;
   cylZ(head, 0.043 * ff, 0.041 * ff, LL, darkMetal, 0, 0, lz - LL / 2, 48);
   for (const f of [0.08, 0.18, 0.55, 0.82, 0.94]) cylZ(head, 0.045 * ff, 0.045 * ff, 0.009, f === 0.55 ? rubber : edge, 0, 0, lz - LL * f, 48);
   for (let i = 0; i < 36; i++) { const a = i * Math.PI * 2 / 36, r = 0.044 * ff; const rib = mbox(head, 0.002, 0.004, LL * 0.28, rubber, Math.cos(a) * r, Math.sin(a) * r, lz - LL * 0.55, true); rib.rotation.z = a; }
-  cylZ(head, 0.037 * ff, 0.037 * ff, 0.004, glass, 0, 0, lz - LL - 0.003, 48);
+  const frontGlass = cylZ(head, 0.037 * ff, 0.037 * ff, 0.004, glass, 0, 0, glassZ, 48);
+  frontGlass.name = 'camera-front-glass';
   const lensRing = mesh(head, new THREE.TorusGeometry(0.04 * ff, 0.0018 * ff, 8, 48), silver, 0, 0, lz - LL - 0.005, true);
   labelMesh(head, 'BLACKMAGIC', 0.043, 0.009, 0, -BH / 2 + 0.015, bf - 0.004, Math.PI, '#CBD1D2');
 
@@ -7917,16 +8239,13 @@ function buildUrsaCamera(g, o) {
     mrod(g, P(rm, ym, 0), V(0, hubY, bz), 0.0065, darkMetal, true);
     const spread = rbox(g, 0.04, 0.025, 0.037, edge, ux * rm, ym, bz + uz * rm, 0.004); spread.rotation.y = -a;
   }
+  if (axisHeight < h) {
+    const supports = new THREE.Group();
+    supports.add(...g.children.filter(node => node !== head));
+    supports.scale.y = (axisHeight - BH / 2 + 0.018) / (h - BH / 2 + 0.018);
+    g.add(supports);
+  }
   g.traverse(m => { if (m.isMesh) m.castShadow = true; });
-  const half = R + 0.18, ff2 = Math.round(R / half * 100) / 100;
-  const tex = canvasTex('tripsh' + ff2, 256, 256, (c, w) => {
-    const m = w / 2, gr = c.createRadialGradient(m, m, 0, m, m, m * 0.55); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = gr; c.fillRect(0, 0, w, w);
-    c.filter = 'blur(5px)'; c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineCap = 'round'; c.lineWidth = 10;
-    for (let i = 0; i < 3; i++) { const a = i * 2.094 - Math.PI / 2; c.beginPath(); c.moveTo(m, m); c.lineTo(m + Math.cos(a) * m * ff2, m + Math.sin(a) * m * ff2); c.stroke(); }
-    c.filter = 'none';
-  });
-  const shm = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); shm.userData.own = true;
-  const sh = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2), shm); sh.rotation.x = -Math.PI / 2; sh.position.set(0, 0.004, bz); sh.renderOrder = 1; g.add(sh);
 }
 function brassContact() { return mat('brass-contact', '#C6A75A', { roughness: 0.25, metalness: 0.85 }); }
 // бытовые светильники: геометрия от пола (или от столешницы), лампа — точечный источник у абажура
@@ -7985,7 +8304,7 @@ function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
   const glow = (I, dist, at) => { const p = new THREE.PointLight(col, I, dist, 2); p.position.copy(at); sc.add(p); return p; };
   const withShadow = (l) => { if (hq && shadowOK(o, budget)) { budget.n--; l.castShadow = true;
     const smp = shadowMapFor(k, hq, l.angle); l.shadow.mapSize.set(smp, smp);
-    l.shadow.radius = shadowRadiusFor(k, smp, l.angle, 1, Math.min(4, l.distance || 4)); l.shadow.bias = -0.002; l.shadow.camera.near = 0.08; } };
+    l.shadow.radius = shadowRadiusFor(k, smp, l.angle, Math.min(4, l.distance || 4)); l.shadow.bias = -0.002; l.shadow.camera.near = 0.08; } };
   if (k === 'p_desk') {   // настольная — направленный конус из плафона вперёд-вниз
     withShadow(spot(2.2, L.len * 2.5, 50, 0.55, Wp(0, bulb.y + 0.02, bulb.z - 0.02), Wp(0, bulb.y - 0.62, bulb.z + 0.79)));
   } else if (k === 'p_torch') {   // торшер: абажур-барабан открыт сверху и снизу — мягкий свет вниз и вверх, ткань светится слабо, тени мягкие
@@ -7996,7 +8315,8 @@ function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
     withShadow(spot(1.5, 5, 58, 0.8, Wp(0, bulb.y + 0.05, bulb.z), Wp(0, bulb.y - 3, bulb.z)));
     glow(0.12, 1.2, Wp(0, bulb.y - 0.08, bulb.z));
   } else if (k === 'p_fabric') {
-    spot(0.65, 3.5, 62, 1, Wp(0, bulb.y, 0), Wp(0, bulb.y - 2, 0)); glow(0.35, 2.5, Wp(0, bulb.y, 0));
+    withShadow(spot(0.65, 3.5, 62, 1, Wp(0, bulb.y, 0), Wp(0, bulb.y - 2, 0)));
+    glow(0.35, 2.5, Wp(0, bulb.y, 0));
   } else if (k === 'p_neon') {
     if (THREE.RectAreaLight && THREE.RectAreaLightUniformsLib) {
       if (!T3.rectInit) { THREE.RectAreaLightUniformsLib.init(); T3.rectInit = true; }
@@ -8021,29 +8341,29 @@ function buildCStand(g, h) {
   // хромированная колонна: толстая нижняя секция и две тонкие с рычажными зажимами у верха, сверху штырь
   const chrome = mat('chrome2', '#D9DBDE', { roughness: 0.14, metalness: 0.95 }), knob = mat('cknob', '#B4B9BF', { roughness: 0.4, metalness: 0.3 }), foot = mat('cfoot', '#2F6FB5', { roughness: 0.7 });
   const top = Math.max(0.6, h - 0.03), s1 = Math.max(0.5, top - 0.55), s2 = Math.max(s1 + 0.05, top - 0.3);
-  mcyl(g, 0.01, 0.012, 0.16, chrome, 0, 0.2, 0, 10, true);
-  mcyl(g, 0.0175, 0.0175, s1 - 0.26, chrome, 0, (0.26 + s1) / 2, 0, 14, true);
-  mcyl(g, 0.0135, 0.0135, s2 - s1 + 0.04, chrome, 0, (s1 + s2) / 2, 0, 12, true);
-  mcyl(g, 0.011, 0.011, top - s2 + 0.04, chrome, 0, (s2 + top) / 2, 0, 12, true);
-  mcyl(g, 0.006, 0.006, 0.05, chrome, 0, top + 0.02, 0, 8, true);
+  mcyl(g, 0.01, 0.012, 0.16, chrome, 0, 0.2, 0, 10);
+  mcyl(g, 0.0175, 0.0175, s1 - 0.26, chrome, 0, (0.26 + s1) / 2, 0, 14);
+  mcyl(g, 0.0135, 0.0135, s2 - s1 + 0.04, chrome, 0, (s1 + s2) / 2, 0, 12);
+  mcyl(g, 0.011, 0.011, top - s2 + 0.04, chrome, 0, (s2 + top) / 2, 0, 12);
+  mcyl(g, 0.006, 0.006, 0.05, chrome, 0, top + 0.02, 0, 8);
   [s1, s2].forEach(y => {
-    mcyl(g, 0.021, 0.021, 0.035, knob, 0, y, 0, 12, true);
-    mbox(g, 0.045, 0.012, 0.012, knob, 0.035, y + 0.008, 0, true); mbox(g, 0.012, 0.03, 0.012, knob, 0.056, y + 0.02, 0, true);
+    mcyl(g, 0.021, 0.021, 0.035, knob, 0, y, 0, 12);
+    mbox(g, 0.045, 0.012, 0.012, knob, 0.035, y + 0.008, 0); mbox(g, 0.012, 0.03, 0.012, knob, 0.056, y + 0.02, 0);
   });
   const rb = 0.06;
   [[0.33, -Math.PI / 2, 0.48], [0.285, -Math.PI / 2 + 2.094, 0.42], [0.24, -Math.PI / 2 + 4.189, 0.42]].forEach(([y0, a, R]) => {
     const ux = Math.cos(a), uz = Math.sin(a), P = (r, y) => V(ux * r, y, uz * r);
-    mcyl(g, 0.026, 0.026, 0.04, knob, 0, y0, 0, 12, true);
-    mrod(g, P(0.02, y0), P(R - rb, y0), 0.011, chrome, true);
-    let prev = P(R - rb, y0); for (let k = 1; k <= 4; k++) { const th = k / 4 * Math.PI / 2; const q = P(R - rb + Math.sin(th) * rb, y0 - (1 - Math.cos(th)) * rb); mrod(g, prev, q, 0.011, chrome, true); prev = q; }
-    const fx = P(R + 0.03, 0.035); mrod(g, prev, fx, 0.011, chrome, true);
-    mcyl(g, 0.014, 0.014, 0.035, foot, ux * (R + 0.03), 0.0175, uz * (R + 0.03), 10, true);
+    mcyl(g, 0.026, 0.026, 0.04, knob, 0, y0, 0, 12);
+    mrod(g, P(0.02, y0), P(R - rb, y0), 0.011, chrome);
+    let prev = P(R - rb, y0); for (let k = 1; k <= 4; k++) { const th = k / 4 * Math.PI / 2; const q = P(R - rb + Math.sin(th) * rb, y0 - (1 - Math.cos(th)) * rb); mrod(g, prev, q, 0.011, chrome); prev = q; }
+    const fx = P(R + 0.03, 0.035); mrod(g, prev, fx, 0.011, chrome);
+    mcyl(g, 0.014, 0.014, 0.035, foot, ux * (R + 0.03), 0.0175, uz * (R + 0.03), 10);
   });
 }
 // наклон прибора в градусах: задан в свойствах, иначе — автоматически «смотрит» на уровень лица (1,2 м) на расстоянии 3 м
 const TILT_KINDS = ['softbox', 'stripbox', 'mat', 'fresnel', 'astera', 'spot', 'pot', 'panel', 'kino'];
 const tiltable = (o) => TILT_KINDS.includes(o.kind) && !(o.kind === 'astera' && !o.horiz);   // вертикальная Astera не наклоняется
-const lightTilt = (o) => o.kind === 'astera' && !o.horiz ? 0 : o.ltilt != null ? o.ltilt : (o.kind === 'astera' ? 0 : -Math.round(Math.atan2((o.h || 2) - 1.2, 3) / RAD));
+const lightTilt = (o) => o.kind === 'astera' && !o.horiz ? 0 : o.ltilt != null ? o.ltilt : (o.kind === 'astera' ? 0 : -Math.round(Math.atan2((o.h ?? 2) - 1.2, 3) / RAD));
 function buildAstera(sc, g, o, L, lit, col, emi, budget, hq) {
   const base = asteraBaseH(o), e = base > 0 ? 0 : supportTop(o), len = asteraLen(o), r = 0.023;
   const cy = base > 0 ? base : o.horiz ? e + r + 0.002 : e + 0.07 + len / 2;
@@ -8056,12 +8376,12 @@ function buildAstera(sc, g, o, L, lit, col, emi, budget, hq) {
     for (let i = 0; i < 3; i++) {
       const a = -Math.PI / 2 + i * 2.094, ux = Math.cos(a), uz = Math.sin(a);
       mrod(g, V(ux * 0.015, e + 0.035, uz * 0.015), V(ux * 0.17, e + 0.012, uz * 0.17), 0.007, blk);
-      mcyl(g, 0.012, 0.012, 0.01, blk, ux * 0.175, e + 0.005, uz * 0.175, 10, true);
+      mcyl(g, 0.012, 0.012, 0.01, blk, ux * 0.175, e + 0.005, uz * 0.175, 10);
     }
   }
   if (base > 0 && o.stand !== false) {
     const stand = new THREE.Group(); stand.position.z = 0.09; g.add(stand); buildCStand(stand, base);
-    mrod(g, V(0, base, 0.09), V(0, base, 0), 0.012, cap, true);
+    mrod(g, V(0, base, 0.09), V(0, base, 0), 0.012, cap);
   }
   mcyl(tube, r, r, len - 0.06, emi, 0, 0, 0, 20, true);                                                 // светящийся рассеиватель
   mcyl(tube, r + 0.001, r + 0.001, 0.03, cap, 0, len / 2 - 0.015, 0, 20, true); mcyl(tube, r + 0.001, r + 0.001, 0.03, cap, 0, -len / 2 + 0.015, 0, 20, true);   // торцы
@@ -8101,7 +8421,7 @@ function cobBody(head) {
 }
 function buildLight(sc, g, o, lit, shadowBudget) {
   const L = LIGHTS[o.kind] || LIGHTS.fresnel; const I = 1; const col = o.kind === 'sun' ? kelvin3(5600) : lightColor(o); // цвет — из режима CCT/HSI прибора
-  const h = o.h || 2; const [dx, dy] = dirOf(o.rot || 0); const hq = T3.quality === 'high';
+  const h = o.h ?? 2; const [dx, dy] = dirOf(o.rot || 0); const hq = T3.quality === 'high';
   const emi = ownMat({ color: col, emissive: col, emissiveIntensity: lit ? 0.5 + 1.6 * I : 0.2, roughness: 0.6, side: THREE.DoubleSide });
   const black = mat('fixture', '#24262B', { roughness: 0.5, metalness: 0.4 }), steel = mat('steel', '#8A8F96', { roughness: 0.3, metalness: 0.8 });
   if (o.kind === 'sun') {
@@ -8115,28 +8435,22 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     const gm = new THREE.SpriteMaterial({ map: T3.tex.sunGlow, color: scol, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }); gm.userData.own = true;
     const glow = new THREE.Sprite(gm); glow.userData.shared = true; glow.scale.set(16, 16, 1); glow.position.copy(sp0); sc.add(glow);
     if (lit) {
-      // солнечный свет строим отдельно для каждого окна: узкий «параллельный» пучок издалека, точно накрывающий проём.
-      // Так свет физически попадает только в окна, а рамы, люди и мебель в луче дают чёткие тени.
-      const wins = objs().filter(w => w.type === 'window').map(w => {
-        const sg = segOf(w); let nx = sg.nx, ny = sg.ny; if ((o.x - w.x1) * nx + (o.y - w.y1) * ny > 0) { nx = -nx; ny = -ny; }
-        return { w, sg, f: u[0] * nx + u[1] * ny };
-      }).filter(q => q.f > 0.08).sort((a, b) => b.f - a.f).slice(0, 3);
-      { const b = t3bounds();   // невидимая крыша: в кадре её нет, но она отбрасывает тень — часть пучка над окном не перелетает через стену
-        if (b.walls && wins.length) { const rm = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide }); rm.userData.own = true;
-          const roof = new THREE.Mesh(new THREE.PlaneGeometry(b.maxx - b.minx + 1, b.maxy - b.miny + 1), rm); roof.rotation.x = -Math.PI / 2;
-          roof.position.set((b.minx + b.maxx) / 2, WALL_H + 0.01, (b.miny + b.maxy) / 2); roof.castShadow = true; roof.receiveShadow = false; sc.add(roof); } }
-      if (!wins.length) {   // окон нет — обычное направленное солнце
-        const dl = new THREE.DirectionalLight(scol, 2.2 * I); dl.position.copy(c).addScaledVector(D, -25); dl.target.position.copy(c); sc.add(dl.target); sc.add(dl);
-      }
-      wins.forEach(({ w, sg }) => {
-        const sill = winSill(w), top = winTop(w), wc = V((w.x1 + w.x2) / 2, (sill + top) / 2, (w.y1 + w.y2) / 2), DIST = 30;
-        const hd = Math.hypot(sg.len / 2, (top - sill) / 2) * 1.12 + 0.05;
-        const sp = new THREE.SpotLight(scol, 3.6 * I, 0, Math.atan(hd / DIST), 0.12, 0);
-        sp.position.copy(wc).addScaledVector(D, -DIST); sp.target.position.copy(wc).addScaledVector(D, 5); sc.add(sp.target);
-        sp.castShadow = true; sp.shadow.mapSize.set(hq ? 1024 : 512, hq ? 1024 : 512); sp.shadow.radius = 1; sp.shadow.bias = -0.0003;
-        sp.shadow.camera.near = DIST - 4; sp.shadow.camera.far = DIST + 25; sp.userData.sun = true;
-        sc.add(sp);
+      const b = t3bounds();
+      const radius = Math.max(2, Math.hypot(b.maxx - b.minx, b.maxy - b.miny, WALL_H) / 2 + 0.3);
+      const center = V((b.minx + b.maxx) / 2, WALL_H / 2, (b.miny + b.maxy) / 2);
+      const sun = new THREE.DirectionalLight(scol, 2.2 * I);
+      sun.position.copy(center).addScaledVector(D, -2 * radius);
+      sun.target.position.copy(center);
+      sun.castShadow = true;
+      sun.userData.sun = true;
+      const size = hq ? 2048 : 1024;
+      sun.shadow.mapSize.set(size, size);
+      sun.shadow.bias = -0.0002;
+      Object.assign(sun.shadow.camera, {
+        left: -radius, right: radius, top: radius, bottom: -radius, near: 0.1, far: 3.2 * radius
       });
+      sun.shadow.camera.updateProjectionMatrix();
+      sc.add(sun.target, sun);
     }
     return;
   }
@@ -8145,12 +8459,12 @@ function buildLight(sc, g, o, lit, shadowBudget) {
   const stand = !(L.omni || o.kind === 'practical');
   const showStand = stand && o.stand !== false;   // галочка «C-stand» в свойствах
   if (showStand) buildCStand(g, h);
-  else if (!stand) mcyl(g, 0.004, 0.004, Math.max(0.05, WALL_H - h), black, 0, (WALL_H + h) / 2, 0, 6, true);
+  else if (!stand) mcyl(g, 0.004, 0.004, Math.max(0.05, WALL_H - h), black, 0, (WALL_H + h) / 2, 0, 6);
   const pitch = L.omni || o.kind === 'reflector' ? 0 : -lightTilt(o) * RAD;   // наклон прибора (вниз — отрицательный); отражатель висит строго вертикально
   // вынос вперёд не даёт стойке проходить через панель; у большой LED-панели вынос растёт вместе с высотой
   const arm = stand && o.kind === 'mat' ? 0.16 : stand && o.kind === 'panel' ? 0.12 + panelH(o) * 0.45 : 0;
   const head = new THREE.Group(); head.position.set(0, h, -arm); head.rotation.x = -pitch; g.add(head);
-  if (arm && showStand) mrod(g, V(0, h, 0), V(0, h, -arm), 0.012, black, true);
+  if (arm && showStand) mrod(g, V(0, h, 0), V(0, h, -arm), 0.012, black);
   const k = o.kind;
   if (k === 'softbox') {
     // глубокий параболический софтбокс (16 граней) на COB-приборе; диаметр и глубина масштабируются выбранным размером
@@ -8299,7 +8613,7 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     const bp = [[0.41, 0.16], [0.33, 0.24], [0.23, 0.32], [0.14, 0.38], [0.075, 0.42]].map(q => new THREE.Vector2(q[0], q[1]));
     mesh(head, lobes(new THREE.LatheGeometry(wp, 48)), emi, 0, 0, 0, true);
     const blk = mat('lantblk', '#1C1E22', { roughness: 0.75, side: THREE.DoubleSide }), blue = mat('lantblue', '#3E82DA', { roughness: 0.55 });
-    mesh(head, new THREE.LatheGeometry(bp, 48), blk, 0, 0, 0);   // юбка отбрасывает тень — потолок над фонарём темнее
+    mesh(head, new THREE.LatheGeometry(bp, 48), blk, 0, 0, 0);
     for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a); for (let j = 0; j < bp.length - 1; j++) mrod(head, V(ca * (bp[j].x + 0.004), bp[j].y, sa * (bp[j].x + 0.004)), V(ca * (bp[j + 1].x + 0.004), bp[j + 1].y, sa * (bp[j + 1].x + 0.004)), 0.005, blue, true); }
     const br = mesh(head, new THREE.TorusGeometry(0.412, 0.006, 6, 64), blue, 0, 0.16, 0, true); br.rotation.x = Math.PI / 2;   // синий кант по краю юбки
     mcyl(head, 0.07, 0.075, 0.09, mat('lantmount', '#B9BDC2', { roughness: 0.3, metalness: 0.8 }), 0, 0.46, 0, 24, true);   // байонет-крепление
@@ -8319,7 +8633,7 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     head.children.forEach(ch => { if (!ch.geometry) return; ch.updateMatrix(); ch.geometry.computeBoundingBox(); bb.copy(ch.geometry.boundingBox).applyMatrix4(ch.matrix); if (isFinite(bb.max.z)) back = Math.max(back, bb.max.z); });
     if (!head.userData.custom) head.children.forEach(ch => { ch.position.z -= back; });   // у софтбокса крепление уже на вилке под корпусом
     head.userData.front = 0; bb.makeEmpty(); head.children.forEach(ch => { if (!ch.geometry) return; ch.updateMatrix(); if (!ch.geometry.boundingBox) ch.geometry.computeBoundingBox(); bb.copy(ch.geometry.boundingBox).applyMatrix4(ch.matrix); if (isFinite(bb.min.z)) head.userData.front = Math.min(head.userData.front, bb.min.z); });
-    if (showStand) { const kn = mcyl(head, 0.028, 0.028, 0.1, black, 0, 0, 0, 12, true); kn.rotation.z = Math.PI / 2; }
+    if (showStand) { const kn = mcyl(head, 0.028, 0.028, 0.1, black, 0, 0, 0, 12); kn.rotation.z = Math.PI / 2; }
     // точка на схеме = середина прибора: сдвигаем стойку и прибор назад на половину длины прибора
     let bk = -1e9; bb.makeEmpty(); head.children.forEach(ch => { if (!ch.geometry) return; ch.updateMatrix(); if (!ch.geometry.boundingBox) ch.geometry.computeBoundingBox(); bb.copy(ch.geometry.boundingBox).applyMatrix4(ch.matrix); if (isFinite(bb.max.z)) bk = Math.max(bk, bb.max.z); });
     const zc = ((head.userData.front || 0) + Math.max(0, bk)) / 2 - arm;
@@ -8328,21 +8642,30 @@ function buildLight(sc, g, o, lit, shadowBudget) {
   if (!lit) return;
   const wp = V(o.x, h, o.y);
   if (k === 'china') {
-    // фонарь Ø90: мягкий свет во все стороны вниз и вбок (почти полусфера с плавным краем у горизонта), потолок прикрыт чёрной юбкой;
-    // без жёстких теней — источник большой и рассеянный
-    const sp = new THREE.SpotLight(col, 1.6 * I, 10, 89 * RAD, 0.6, 1.2); sp.position.copy(wp).add(V(0, 0.75, 0));   // источник поднят к юбке: граница света на стенах проходит выше шара
+    // Свет исходит из рассеивателя под юбкой. Широкий мягкий спад
+    // имитирует её экранирование без проекции силуэта корпуса на пол.
+    const sp = new THREE.SpotLight(col, 1.6 * I, 10, 79 * RAD, 0.9, 1.2);
+    sp.position.copy(wp).add(V(0, -0.09, 0));
+    if (hq && shadowOK(o, shadowBudget)) {
+      shadowBudget.n--;
+      sp.castShadow = true;
+      sp.shadow.mapSize.set(1024, 1024);
+      // Карта теней покрывает весь конус, включая мягкий край.
+      sp.shadow.radius = 12;
+      sp.shadow.bias = -0.001;
+    }
     sp.target.position.copy(wp).add(V(0, -3, 0)); sc.add(sp.target); sc.add(sp);
     const fill = new THREE.PointLight(col, 0.25 * I, 5, 1.5); fill.position.copy(wp).add(V(0, -0.2, 0)); sc.add(fill);   // слабое заполнение вокруг шара
   } else if (k === 'practical') {
     // подвесной абажур: основной свет вниз из раструба, немного вверх на потолок и слабое свечение ткани
     const dn = new THREE.SpotLight(col, 1.5 * I, 6, 65 * RAD, 1, 1.5); dn.position.copy(wp).add(V(0, 0.08, 0)); dn.target.position.copy(wp).add(V(0, -3, 0)); sc.add(dn.target);
-    if (hq && shadowOK(o, shadowBudget)) { shadowBudget.n--; dn.castShadow = true; const smp = shadowMapFor(k, hq, dn.angle); dn.shadow.mapSize.set(smp, smp); dn.shadow.radius = shadowRadiusFor(k, smp, dn.angle, 1, 4); dn.shadow.bias = -0.002; dn.shadow.camera.near = 0.1; }
+    if (hq && shadowOK(o, shadowBudget)) { shadowBudget.n--; dn.castShadow = true; const smp = shadowMapFor(k, hq, dn.angle); dn.shadow.mapSize.set(smp, smp); dn.shadow.radius = shadowRadiusFor(k, smp, dn.angle, 4); dn.shadow.bias = -0.002; dn.shadow.camera.near = 0.1; }
     sc.add(dn);
     const up = new THREE.SpotLight(col, 0.4 * I, 4, 40 * RAD, 1, 1.5); up.position.copy(wp); up.target.position.copy(wp).add(V(0, 3, 0)); sc.add(up.target); sc.add(up);
     const gl = new THREE.PointLight(col, 0.25 * I, 3, 2); gl.position.copy(wp); sc.add(gl);
   } else if (L.omni) {
     const pl = new THREE.PointLight(col, 1.8 * I, L.len * 3.2, 1.5); pl.position.copy(wp).add(V(0, -0.05, 0));
-    if (hq && shadowOK(o, shadowBudget)) { shadowBudget.n--; pl.castShadow = true; const pmp = hq ? 1024 : 512; pl.shadow.mapSize.set(pmp, pmp); pl.shadow.radius = shadowRadiusFor(k, pmp, Math.PI / 4, 1, 4); pl.shadow.bias = -0.002; pl.shadow.camera.near = 0.3; }
+    if (hq && shadowOK(o, shadowBudget)) { shadowBudget.n--; pl.castShadow = true; const pmp = hq ? 1024 : 512; pl.shadow.mapSize.set(pmp, pmp); pl.shadow.radius = shadowRadiusFor(k, pmp, Math.PI / 4, 4); pl.shadow.bias = -0.002; pl.shadow.camera.near = 0.3; }
     sc.add(pl);
   } else if (k === 'reflector') {
     // отражатель сам не светит: его яркость и цвет считаются после постройки сцены из света, который на него падает (t3bounce)
@@ -8350,21 +8673,34 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     const c = head.localToWorld(V(0, ay, -0.03)), n = head.localToWorld(V(0, ay, -1)).sub(head.localToWorld(V(0, ay, 0))).normalize();
     T3.refl.push({ c, n, r: 0.5, oid: o.id });
   } else {
-    const hf = lightHalf(o), grid = o.grid && GRID_KINDS.includes(k);
-    // софтбокс светит почти полусферой; его пятно расширяется с диаметром; Spotlight — жёсткое сфокусированное пятно с резким краем; соты — узкий луч с мягким краем
-    const softbox = k === 'softbox' || k === 'stripbox';
-    const ang = (k === 'spot' ? hf * 1.12 : grid ? hf + 8 : softbox || k === 'panel' ? hf : Math.min(hf + 12, 85)) * RAD;
-    const sp = new THREE.SpotLight(col, (k === 'spot' ? 3.2 : 2.6) * I, L.len * 3.2, ang, k === 'spot' ? 0.1 : grid ? 0.35 : softbox ? 0.85 : k === 'panel' && !grid ? 1 : 0.7, 1.3);
-    // источник — прямо перед светящейся поверхностью прибора, направлен вдоль его оси
+    const ang = lightHalf(o) * RAD, power = (k === 'spot' ? 3.2 : 2.6) * I;
     g.updateWorldMatrix(true, true); const fz = (head.userData.front || -0.2) - 0.06;
-    const ay = head.userData.ay || 0; sp.position.copy(head.localToWorld(V(0, ay, fz))); sp.target.position.copy(head.localToWorld(V(0, ay, fz - 3))); sc.add(sp.target);
-    const gobo = k === 'spot' ? goboInfo(o) : null;
-    if (gobo) { sp.map = gobo.texture; sp.userData.goboGain = gobo.gain; }
-    if (shadowOK(o, shadowBudget)) { shadowBudget.n--; sp.castShadow = true;
-      const foc = Math.min(1, (120 * RAD) / (2 * ang)), sm = shadowMapFor(k, hq, ang);
-      sp.shadow.mapSize.set(sm, sm); sp.shadow.focus = foc; sp.shadow.bias = -0.0008; sp.shadow.camera.near = 0.1;
-      sp.shadow.radius = shadowRadiusFor(k, sm, ang, foc, Math.min(4, L.len * 3.2), o); }
-    sc.add(sp); if (gobo) syncGoboProjection(sp);
+    const ay = head.userData.ay || 0, gobo = k === 'spot' ? goboInfo(o) : null;
+    const hasShadow = shadowOK(o, shadowBudget);
+    // Разносим точки вдоль светящейся поверхности, если бюджет вмещает ещё две карты теней.
+    const areaShadow = hasShadow && T3.areaShadowId === o.id && shadowBudget.n >= 3;
+    const { w, h: faceH } = k === 'stripbox' ? stripboxDims(o) : k === 'panel' ? { w: panelW(o), h: panelH(o) } : { w: emitOf(k, o), h: emitOf(k, o) };
+    const offset = Math.max(w, faceH) * 0.32;
+    const samples = areaShadow ? [[-offset, 0.27], [0, 0.46], [offset, 0.27]] : [[0, 1]];
+    for (const [shift, weight] of samples) {
+      const x = w >= faceH ? shift : 0, y = ay + (w < faceH ? shift : 0);
+      const sp = new THREE.SpotLight(col, power * weight, L.len * 3.2, ang, lightPenumbra(o), 1.3);
+      sp.position.copy(head.localToWorld(V(x, y, fz)));
+      sp.target.position.copy(head.localToWorld(V(x, y, fz - 3)));
+      if (gobo) { sp.map = gobo.texture; sp.userData.goboGain = gobo.gain; }
+      if (hasShadow) {
+        shadowBudget.n--;
+        sp.castShadow = true;
+        // Карта теней покрывает весь луч: за её краем источник светил сквозь предметы.
+        const size = Math.min(shadowMapFor(k, hq, ang), areaShadow ? 1024 : Infinity);
+        sp.shadow.mapSize.set(size, size);
+        sp.shadow.bias = k === 'spot' ? -0.00005 : -0.0008;
+        sp.shadow.camera.near = 0.1;
+        sp.shadow.radius = shadowRadiusFor(k, size, ang, Math.min(3, L.len * 3.2), o);
+      }
+      sc.add(sp.target, sp);
+      if (gobo) syncGoboProjection(sp);
+    }
   }
 }
 // ---------- гобо Spotlight: процедурные маски, надписи и пользовательские изображения ----------
@@ -8502,7 +8838,7 @@ function goboCustom(id, key, make) {
   const entry = make(); GOBO_CUSTOM.set(id, entry); if (old) goboDisposeOld(old); return entry;
 }
 function goboRedraw() {
-  T3.expKey = ''; V3.dirty = true;
+  T3.expKey = ''; T3.exposureTextureRev = (T3.exposureTextureRev || 0) + 1; V3.dirty = true;
   if (S.view === 'cams') renderCams(); else { schedPipDraw(); if (S.sel) positionPreview(); }
 }
 const goboAngle = g => Math.max(0, Math.min(360, Math.round(+g.angle || 0)));
@@ -8591,7 +8927,7 @@ function neonTextTex(text, col, aspect) {
 }
 // какие приборы получат тени (их число ограничено): сначала те, что сильнее всего светят на героев —
 // яркость прибора × близость к герою × попадание героя в луч. Без героев — по яркости и близости к центру площадки.
-const SHADOW_KINDS_OFF = ['sun', 'astera', 'china', 'reflector'];   // у этих тени устроены иначе или их нет
+const SHADOW_KINDS_OFF = ['sun', 'astera', 'reflector', 'p_small', 'p_neon', 'p_candle'];
 function shadowPicks(n, hq) {
   const heroes = objs().filter(o => o.type === 'hero');
   const b = t3bounds(), cx = (b.minx + b.maxx) / 2, cy = (b.miny + b.maxy) / 2;
@@ -8600,13 +8936,13 @@ function shadowPicks(n, hq) {
     const L = LIGHTS[o.kind] || LIGHTS.fresnel, prac = PRAC_FIXED.includes(o.kind) || o.kind === 'practical';
     const omni = L.omni && !L.rotIcon;
     if (!hq && (omni || prac)) return null;   // в быстром режиме тени есть только у направленных приборов
-    const base = o.kind === 'p_small' ? 0.8 : o.kind === 'p_desk' ? 2.2 : prac ? 1.4 : L.omni ? 1.8 : 2.6;
+    const base = o.kind === 'p_desk' ? 2.2 : prac ? 1.4 : L.omni ? 1.8 : 2.6;
     const lz = PRAC_FIXED.includes(o.kind) ? 1 : (o.h || 2), [dx, dy] = dirOf((o.rot || 0) + (backRot(o) ? 180 : 0));
     let s = 0;
     targets.forEach(([x, y, z]) => {
       const vx = x - o.x, vy = y - o.y, d2 = vx * vx + vy * vy + (z - lz) * (z - lz), dh = Math.hypot(vx, vy) || 1e-3;
       let cone = 1;
-      if (!omni) { const ang = Math.acos(Math.max(-1, Math.min(1, (vx * dx + vy * dy) / dh))) / RAD, half = Math.min(lightHalf(o) || 45, 80) + 12; cone = ang <= half ? 1 : Math.max(0, 1 - (ang - half) / 35); }
+      if (!omni) { const ang = Math.acos(Math.max(-1, Math.min(1, (vx * dx + vy * dy) / dh))) / RAD, half = lightHalf(o) || 45; cone = ang <= half ? 1 : Math.max(0, 1 - (ang - half) / 35); }
       s += cone / (0.5 + d2);
     });
     return { id: o.id, score: base * (s + 0.02) };
@@ -8614,8 +8950,16 @@ function shadowPicks(n, hq) {
   return new Set(cand.slice(0, n).map(c => c.id));
 }
 const shadowOK = (o, budget) => budget.n > 0 && (!T3.shadowIds || T3.shadowIds.has(o.id));
+function areaShadowFixture(picks, limit) {
+  if (T3.quality !== 'high' || limit - picks.size < 2) return null;
+  return [...picks].find(id => {
+    const o = byId(id);
+    return ['softbox', 'stripbox', 'panel', 'mat'].includes(o?.kind) && emitOf(o.kind, o) >= 0.5;
+  }) || null;
+}
+const sunRoofMaterial = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
 // подписи, закрепление, формат кадра и т. п. на 3D-сцену не влияют — их правка не должна пересобирать сцену
-const NON3D_KEYS = new Set(['name', 'cap', 'showLbl', 'lbl', 'locked', 'aspect', 'sensor', 'letter', 'desc', 'text', 'mode', 'kelvin', 'gm', 'hue', 'sat', 'power', 'cct']);   // цвет/яркость прибора меняются на месте
+const NON3D_KEYS = new Set(['name', 'cap', 'showLbl', 'lbl', 'locked', 'letter', 'desc', 'text', 'mode', 'kelvin', 'gm', 'hue', 'sat', 'power', 'cct']);   // цвет/яркость прибора меняются на месте
 function sceneKeyFilter(k, v) { if (k === 'gobo') return undefined; return NON3D_KEYS.has(k) && !(k === 'name' && this && this.kind === 'wardrobe') ? undefined : v; }   // гобо обновляется через t3lightUpdate без пересборки прибора; имя шкафа решает «холодильник»
 // экспозиция зависит только от света и обстановки: правка камер (положение, объектив, наклон) её не пересчитывает
 // ключи сцены (для кэша 3D) пересчитываются только когда проект менялся (S.rev), а не на каждый кадр вращения 3D-вида
@@ -8675,13 +9019,21 @@ function t3build(lit, sync) {
     WOCC.nc = 0; WOCC_U.ceilCnt.value = 0;
     polys.forEach(poly => { if (WOCC.nc < 16) { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; poly.forEach(q => { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); z0 = Math.min(z0, q.y); z1 = Math.max(z1, q.y); }); WOCC.C[WOCC.nc++].set(x0, z0, x1, z1); WOCC_U.ceilCnt.value = WOCC.nc; }
       const ce = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(poly.map(p => new THREE.Vector2(p.x, p.y)))), ceilM);
-      ce.rotation.x = Math.PI / 2; ce.position.y = WALL_H; ce.receiveShadow = true; ce.castShadow = false; ce.userData.bounce = '#F1F0EC'; sc.add(ce); T3.ceil.push(ce); }); }
+      ce.rotation.x = Math.PI / 2; ce.position.y = WALL_H; ce.receiveShadow = true; ce.castShadow = false; ce.userData.bounce = '#F1F0EC'; sc.add(ce); T3.ceil.push(ce);
+      if (lit && faces.length) {
+        const roof = new THREE.Mesh(ce.geometry, sunRoofMaterial);
+        roof.userData.shared = true; roof.rotation.copy(ce.rotation); roof.position.y = WALL_H + 0.005;
+        roof.castShadow = true; roof.userData.sunRoof = true;
+        sc.add(roof);
+      }
+    }); }
   T3.refl = [];
   if (lit) sc.add(new THREE.HemisphereLight(c3('#C9D3E2'), c3('#3A2E24'), 0.28));
   else { sc.add(new THREE.HemisphereLight(0xffffff, c3('#6A5E52'), 0.95)); const dl = new THREE.DirectionalLight(0xffffff, 0.45); dl.position.set(cx + 3, 7, cz + 5); sc.add(dl); }
   buildWalls(sc);
   const budget = { n: T3.quality === 'high' ? 7 : 3 };
   T3.shadowIds = shadowPicks(budget.n, T3.quality === 'high');
+  T3.areaShadowId = areaShadowFixture(T3.shadowIds, budget.n);
   const buildObject = o => {
     if (retained.has(o.id)) { const g = retained.get(o.id); T3.byId[o.id] = g; sc.add(g); }
     else if (o.type === 'window' || o.type === 'door') buildOpening(sc, o, lit);
@@ -8689,8 +9041,6 @@ function t3build(lit, sync) {
   };
   const modelRev = T3.modelRev || 0;
   const finishBuild = () => {
-  // смещение по нормали убирает «рябь» и полосы самозатенения на стенах при размытых краях теней
-  sc.children.forEach(l => { if (l.isLight && l.castShadow && l.shadow) l.shadow.normalBias = l.userData.sun ? 0.01 : 0.03; });
   if (lit) { try { t3bounce(sc); } catch (e) { console.error('bounce', e); } }
   t3helpers(sc);
   t3softSync(sc); T3.scene = sc; T3.key = modelRev === (T3.modelRev || 0) ? key : ''; T3.structKey = K.struct; T3.lit = lit; T3.buildQ = T3.quality; T3.per = new Map(K.per); T3.ver = (T3.ver || 0) + 1; T3.occVer = (T3.occVer || 0) + 1;
@@ -8722,8 +9072,11 @@ function t3obj(sc, o, lit, budget) {
     else if (o.type === 'light') {
       const n0 = sc.children.length; buildLight(sc, g, o, lit, budget);
       const nodes = sc.children.slice(n0); (T3.nodesOf || (T3.nodesOf = {}))[o.id] = nodes;   // источники, их цели и солнечный диск живут в корне сцены — удаляем вместе с прибором
-      const ls = nodes.filter(l => l.isLight); ls.forEach(l => { l.userData.base = l.intensity; l.userData.oid = o.id; l.userData.soft = softR2(o.kind) * (o.kind === 'softbox' || o.kind === 'stripbox' ? emitOf(o.kind, o) / 0.9 : o.kind === 'panel' ? Math.max(panelW(o), panelH(o)) / 0.5 : 1); if (l.castShadow && l.shadow) l.shadow.normalBias = l.userData.sun ? 0.01 : 0.03; });
-      if ((o.h || 0) < WALL_H) ls.forEach(l => { if (l.position.y > WALL_H - 0.03) l.position.y = WALL_H - 0.03; });   /* источник прибора (например, поднятый над шаром) не должен оказаться «над потолком» — иначе потолок закроет весь его свет */
+      const ls = nodes.filter(l => l.isLight); ls.forEach(l => { l.userData.base = l.intensity; l.userData.oid = o.id; l.userData.soft = softR2(o.kind) * (o.kind === 'softbox' || o.kind === 'stripbox' ? emitOf(o.kind, o) / 0.9 : o.kind === 'panel' ? Math.max(panelW(o), panelH(o)) / 0.5 : 1); if (l.castShadow && l.shadow) l.shadow.normalBias = l.userData.sun ? 0.01 : o.kind === 'spot' ? 0.005 : 0.03; });
+      if (o.kind !== 'sun' && (o.h || 0) < WALL_H) ls.forEach(l => {
+        const drop = l.position.y - (WALL_H - 0.03);
+        if (drop > 0) { l.position.y -= drop; if (l.target) l.target.position.y -= drop; }
+      });
       if (!T3.lightsOf) T3.lightsOf = {}; T3.lightsOf[o.id] = ls; (T3.pwOf || (T3.pwOf = {}))[o.id] = lightPower(o);   /* яркость, с которой построен прибор: с ней сравнивается правка */
       g.traverse(m => { const mm = m.material; if (mm) (Array.isArray(mm) ? mm : [mm]).forEach(x => { if (x.userData && x.userData.own && x.emissive && x.userData.ei == null) x.userData.ei = x.emissiveIntensity; }); });
       if (!NO_COLOR.includes(o.kind)) t3lightUpdate(o, true);
@@ -8751,6 +9104,12 @@ function t3partial(sc, lit, K) {
   const maxShadows = T3.quality === 'high' ? 7 : 3, budget = { n: maxShadows };
   if (lightChanged) {
     const picks = shadowPicks(maxShadows, T3.quality === 'high'), old = T3.shadowIds || new Set();
+    const areaId = areaShadowFixture(picks, maxShadows);
+    if (areaId !== T3.areaShadowId) {
+      if (areaId) ids.add(areaId);
+      if (T3.areaShadowId) ids.add(T3.areaShadowId);
+      T3.areaShadowId = areaId;
+    }
     if (picks.size !== old.size || [...picks].some(id => !old.has(id))) {   // другой набор теней: пересобираем только приборы, не всю сцену
       K.per.forEach((s, id) => { const o = byId(id); if (o && o.type === 'light') ids.add(id); });
       prev.forEach((s, id) => { if (!K.per.has(id) && was(id) && was(id).type === 'light') ids.add(id); });
@@ -8769,7 +9128,7 @@ function t3partial(sc, lit, K) {
     t3drop(sc, id); if (o) t3obj(sc, o, lit, isLight ? budget : null);
   });
   if (camsChanged) { if (T3.helpers) { sc.remove(T3.helpers); t3dispose(T3.helpers); } t3helpers(sc); }
-  if (lightChanged) { t3bounceReset(sc); if (lit) { try { t3bounce(sc); } catch (e) { console.error('bounce', e); } } }
+  if (lightChanged || occChanged) { t3bounceReset(sc); if (lit) { try { t3bounce(sc); } catch (e) { console.error('bounce', e); } } }
   T3.per = new Map(K.per);
   return other;
 }
@@ -8777,9 +9136,9 @@ function t3partial(sc, lit, K) {
 function t3helpers(sc) {
   const hl = new THREE.Group(); const lm = new THREE.LineBasicMaterial({ color: c3('#7FB2E5'), transparent: true, opacity: 0.85 }); lm.userData.own = true;
   cams().forEach(c => {
-    const ar = aspectOf(c), hf = hfov(c), vf = 2 * Math.atan(Math.tan(hf / 2) / ar), D = 1.6;
-    const cam = new THREE.PerspectiveCamera(vf / RAD, ar, 0.05, 10); t3aim(cam, c);
-    const xs = Math.tan(hf / 2) * D, ys = Math.tan(vf / 2) * D;
+    const { aspect, horizontal, vertical } = cameraField(c), D = 1.6;
+    const cam = new THREE.PerspectiveCamera(vertical / RAD, aspect, 0.05, 10); t3aim(cam, c);
+    const xs = Math.tan(horizontal / 2) * D, ys = Math.tan(vertical / 2) * D;
     const pts = [[-xs, -ys], [xs, -ys], [xs, ys], [-xs, ys]].map(([x, y]) => V(x, y, -D).applyMatrix4(cam.matrixWorld));
     const o = cam.position; const arr = [];
     pts.forEach((p, i) => { const q = pts[(i + 1) % 4]; arr.push(o.x, o.y, o.z, p.x, p.y, p.z, p.x, p.y, p.z, q.x, q.y, q.z); });
@@ -8792,7 +9151,11 @@ function t3helpers(sc) {
 // 1) отражатель светит пропорционально свету, который на него падает от остальных приборов (расстояние, угол, конус, цвет);
 // 2) там, куда приходится центр луча каждого прибора на стене/полу, ставится слабая мягкая подсветка цвета этой поверхности.
 function t3bounceReset(sc) {
-  sc.children.filter(l => l.isLight && l.userData && l.userData.bounce === true).forEach(l => { sc.remove(l); if (l.target) sc.remove(l.target); });
+  sc.children.filter(l => l.isLight && l.userData.bounce === true).forEach(l => {
+    sc.remove(l);
+    if (l.target) sc.remove(l.target);
+    t3dispose(l);
+  });
 }
 function t3bounce(sc) {
   try { t3bounceRun(sc); } finally { t3softSync(sc); }
@@ -8800,10 +9163,27 @@ function t3bounce(sc) {
 function t3bounceRun(sc) {
   sc.updateMatrixWorld(true);
   const targets = []; sc.traverse(m => { if (m.isMesh && m.userData.bounce && m.visible !== false) targets.push(m); });
+  const occluders = [];
+  const owners = new Map();
+  objs().forEach(o => {
+    if (!['prop', 'hero', 'door', 'window'].includes(o.type)) return;
+    T3.byId[o.id]?.traverse(m => {
+      const materials = Array.isArray(m.material) ? m.material : [m.material];
+      if (!m.isMesh || !m.castShadow || !materials.some(mat => mat && !mat.transparent)) return;
+      owners.set(m, o.id);
+      occluders.push(m);
+    });
+  });
+  const blockers = targets.concat(occluders);
+  const sunBlockers = blockers.concat(sc.children.filter(m => m.userData.sunRoof));
   const srcs = sc.children.filter(l => (l.isSpotLight || l.isPointLight || l.isRectAreaLight) && !l.userData.bounce);
   const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const rc = new THREE.Raycaster();
-  const blocked = (a, b) => { const d = b.clone().sub(a), len = d.length(); rc.set(a, d.normalize()); rc.near = 0.05; rc.far = len - 0.08; return rc.intersectObjects(targets, false).length > 0; };
+  const blocked = (a, b, sourceId, isSun) => {
+    const d = b.clone().sub(a), len = d.length();
+    rc.set(a, d.normalize()); rc.near = 0.05; rc.far = len - 0.08;
+    return rc.intersectObjects(isSun ? sunBlockers : blockers, false).some(hit => !sourceId || owners.get(hit.object) !== sourceId);
+  };
   // освещённость точки p с нормалью n от источника l (как в шейдере three r128: затухание по distance/decay, мягкий край конуса, закон косинуса)
   const irr = (l, p, n) => {
     const pos = l.position, v = p.clone().sub(pos), d = v.length(); if (d < 1e-3) return 0; v.divideScalar(d);
@@ -8814,15 +9194,37 @@ function t3bounceRun(sc) {
     const cs = Math.max(0, -v.dot(n)); return I * att * sf * cs;
   };
   const added = [];
+  const sunLights = sc.children.filter(l => l.userData.sun);
   // 1) отражатели
   (T3.refl || []).forEach(rf => {
     let E = 0; const cc = new THREE.Color(0, 0, 0);
-    srcs.forEach(l => { const e = irr(l, rf.c, rf.n); if (e > 0.005 && !blocked(l.position, rf.c)) { E += e; cc.r += l.color.r * e; cc.g += l.color.g * e; cc.b += l.color.b * e; } });
+    const side = V(rf.n.z, 0, -rf.n.x).multiplyScalar(rf.r * 0.66);
+    const up = V(0, rf.r * 0.66, 0);
+    const points = [rf.c, rf.c.clone().add(side), rf.c.clone().sub(side), rf.c.clone().add(up), rf.c.clone().sub(up)];
+    for (const l of srcs.concat(sunLights)) {
+      const sunDir = l.userData.sun ? l.position.clone().sub(l.target.position).normalize() : null;
+      let energy = 0;
+      for (const p of points) {
+        const e = sunDir ? l.intensity * Math.max(0, rf.n.dot(sunDir)) : irr(l, p, rf.n);
+        const from = sunDir ? p.clone().addScaledVector(sunDir, l.shadow.camera.far) : l.position;
+        if (e > 0.005 && !blocked(from, p, l.userData.oid, sunDir)) energy += e;
+      }
+      energy /= points.length;
+      E += energy; cc.r += l.color.r * energy; cc.g += l.color.g * energy; cc.b += l.color.b * energy;
+    }
     if (E < 0.02) return;   // на отражатель ничего не светит — он тёмный
     cc.multiplyScalar(1 / E);
     const sp = new THREE.SpotLight(cc, Math.min(2.2, 0.55 * E), 8, 75 * RAD, 0.85, 1.4); sp.userData.bounce = true;
     sp.position.copy(rf.c).addScaledVector(rf.n, 0.05); sp.target.position.copy(rf.c).addScaledVector(rf.n, 3); sc.add(sp.target); sc.add(sp); added.push(sp);
   });
+  if (T3.quality === 'high' && added.length && sc.children.filter(l => l.isLight && l.castShadow && !l.userData.sun).length < 7) {
+    const strongest = added.reduce((a, b) => a.intensity > b.intensity ? a : b);
+    strongest.castShadow = true;
+    strongest.shadow.mapSize.set(1024, 1024);
+    strongest.shadow.radius = shadowRadiusFor('reflector', 1024, strongest.angle, 2.5);
+    strongest.shadow.bias = -0.001;
+    strongest.shadow.normalBias = 0.025;
+  }
   // 2) отскок от стен и пола
   const cand = [];
   srcs.concat(added).forEach(l => {
@@ -8837,15 +9239,19 @@ function t3bounceRun(sc) {
       rc.set(l.position, d2); rc.near = 0.05; rc.far = 25;
       hit = rc.intersectObjects(targets, false)[0];
     }
-    if (!hit || !hit.face) return;
+    if (!hit || !hit.face || blocked(l.position, hit.point, l.userData.oid)) return;
     const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld); if (n.dot(dir) > 0) n.negate();
     const E = irr(l, hit.point, n); if (E < 0.02) return;
-    const alb = c3(hit.object.userData.bounce), lum = (alb.r + alb.g + alb.b) / 3;
-    const col = l.color.clone().multiply(alb).multiplyScalar(1 / Math.max(0.05, lum));
-    cand.push({ p: hit.point.clone().addScaledVector(n, 0.45), n: n.clone(), col, I: E * Math.sqrt(Math.max(0.04, lum)) * 0.42 });
+    const col = l.color.clone().multiply(c3(hit.object.userData.bounce));
+    const peak = Math.max(col.r, col.g, col.b);
+    if (peak <= 0) return;
+    col.multiplyScalar(1 / peak);
+    cand.push({ p: hit.point.clone().addScaledVector(n, 0.45), n, col, I: E * peak * 0.21 });
   });
-  cand.sort((a, b) => b.I - a.I).slice(0, 1).forEach(b => {   // один самый заметный отскок; остальное даёт общее заполнение сцены
-    const power = Math.min(0.6, Math.max(0.14, b.I * 0.5));
+  const strongest = cand.sort((a, b) => b.I - a.I).slice(0, T3.quality === 'high' ? 2 : 1);
+  const total = strongest.reduce((sum, b) => sum + b.I, 0);
+  strongest.forEach(b => {
+    const power = b.I * Math.min(1, 0.6 / total);
     let l;
     if (THREE.RectAreaLight && THREE.RectAreaLightUniformsLib) {
       if (!T3.rectInit) { THREE.RectAreaLightUniformsLib.init(); T3.rectInit = true; }
@@ -8859,25 +9265,22 @@ function t3bounceRun(sc) {
   });
 }
 function t3aim(cam, c) {
-  const [dx, dy] = dirOf(c.rot); const t = (c.tilt || 0) * RAD;
-  cam.position.set(c.x, c.h, c.y); cam.lookAt(c.x + dx * Math.cos(t), c.h + Math.sin(t), c.y + dy * Math.cos(t)); cam.updateMatrixWorld();
+  const { position, forward } = cameraPose(c);
+  cam.position.fromArray(position);
+  cam.lookAt(cam.position.clone().add(V(...forward)));
+  cam.updateMatrixWorld();
 }
-// Автоэкспозиция: при каждой перестройке сцены (новый свет, перестановка) кадр с общего ракурса рендерится в маленькую текстуру,
-// по средней яркости (без фона) подбирается экспозиция — пересвеченные сцены приглушаются, тёмные вытягиваются.
-// Экспозиция фиксируется на сцену и не «гуляет» при вращении камеры.
-// карты теней не зависят от ракурса: пересчитываем их только после перестройки сцены, а не каждый кадр
-// (вращение 3D-вида и перемещение камеры на схеме становятся заметно легче)
 /* карта тени считается для каждого прибора отдельно и один раз на версию сцены (и на каждый рендерер — у 3D-вида и кадров камер свои);
-   skip — приборы, которые сейчас не нужны (их свет не долетает до кадра), initOnly — только ещё ни разу не посчитанные (для замера экспозиции) */
+   skip — приборы, свет которых не долетает до кадра */
 let SH_RID = 0;
-function shadowSync(r, skip, initOnly) {
+function shadowSync(r, skip) {
   r.shadowMap.autoUpdate = false;
   if (!r.userData) r.userData = {}; if (!r.userData.rid) r.userData.rid = 'r' + (++SH_RID);
   const rid = r.userData.rid, occ = T3.occVer || 0, per = sceneKeys().per; let any = false;
   if (T3.scene) T3.scene.traverse(l => {
     if (!l.isLight || !l.castShadow || !l.shadow) return;
     l.shadow.autoUpdate = false; const sv = l.userData.shv || (l.userData.shv = {}), key = occ + '|' + (per.get(l.userData.oid) || '');
-    const need = sv[rid] !== key && !(skip && skip.has(l)) && !(initOnly && sv[rid] !== undefined);
+    const need = sv[rid] !== key && !(skip && skip.has(l));
     l.shadow.needsUpdate = need; if (need) { sv[rid] = key; any = true; }
   });
   r.shadowMap.needsUpdate = any;
@@ -8895,60 +9298,197 @@ function cullLights(sc, cam) {
   });
   return { off, restore: () => saved.forEach(([l, i]) => { l.intensity = i; }) };
 }
-function sceneExposureSync(r, sc, lit) {
-  if (!lit) return 1.05;
-  const ek = expoKey(lit); if (T3.expKey === ek && T3.exposure) return T3.exposure;
-  return sceneExposureRun(r, sc, lit, ek);
-}
-function sceneExposureRun(r, sc, lit, ek) {
-  const W = 96, H = 54;
-  if (!r.userData) r.userData = {};
-  if (!r.userData.expRT) r.userData.expRT = new THREE.WebGLRenderTarget(W, H, { type: THREE.FloatType });   /* r179 не тонмапит и не кодирует в sRGB при рендере в текстуру — берём линейные значения и считаем ACES сами */
-  const rt = r.userData.expRT, buf = new Float32Array(W * H * 4), prevRT = r.getRenderTarget();
-  const b = t3bounds(), c = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2), dist = Math.max(6, Math.hypot(b.maxx - b.minx, b.maxy - b.miny) * 1.15);
-  const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200); cam.position.set(c.x + dist * Math.cos(0.62) * Math.cos(0.9), c.y + dist * Math.sin(0.62), c.z + dist * Math.cos(0.62) * Math.sin(0.9)); cam.lookAt(c);
-  setCuts(cam.position); if (T3.helpers) T3.helpers.visible = false;
-  const bg = sc.background, cc = r.getClearColor(new THREE.Color()), ca = r.getClearAlpha();
-  sc.background = null; r.setClearColor(0x000000, 0);
-  let E = T3.expRaw || 1, restored = false;
-  const restore = () => { if (restored) return; restored = true; r.setRenderTarget(prevRT); sc.background = bg; r.setClearColor(cc, ca); };
-  const finish = () => {
-    const fit = v => (v * (v + 0.0245786) - 0.000090537) / (v * (0.983729 * v + 0.432951) + 0.238081);
-    const aces = (r0, g0, b0, e) => {
-      r0 *= e / 0.6; g0 *= e / 0.6; b0 *= e / 0.6;
-      const x = fit(0.59719 * r0 + 0.35458 * g0 + 0.04823 * b0), y = fit(0.076 * r0 + 0.90834 * g0 + 0.01566 * b0), z = fit(0.0284 * r0 + 0.13383 * g0 + 0.83777 * b0);
-      const R = Math.min(1, Math.max(0, 1.60475 * x - 0.53108 * y - 0.07367 * z)), G = Math.min(1, Math.max(0, -0.10208 * x + 1.10813 * y - 0.00605 * z)), B = Math.min(1, Math.max(0, -0.00327 * x - 0.07276 * y + 1.07602 * z));
-      return 0.2126 * R + 0.7152 * G + 0.0722 * B;
-    };
-    const px = []; for (let i = 0; i < buf.length; i += 4) if (buf[i + 3] >= 0.5) px.push(buf[i], buf[i + 1], buf[i + 2]);
-    const n = px.length / 3;
-    for (let it = 0; it < 6 && n; it++) {
-      let s = 0; const hist = new Uint32Array(256);
-      for (let i = 0; i < px.length; i += 3) { const y = aces(px[i], px[i + 1], px[i + 2], E); s += y; hist[Math.min(255, Math.round(y * 255))]++; }
-      let acc = 0, p95 = 255; for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= n * 0.95) { p95 = v; break; } }
-      const m = Math.max(0.01, s / n), hi = Math.max(0.02, p95 / 255), k = Math.min(0.27 / m, 0.68 / hi); if (Math.abs(k - 1) < 0.04) break;
-      E = Math.max(0.2, Math.min(1.8, E * Math.pow(k, 1.15)));
-    }
-    restore(); T3.expRaw = E; if (E > 1) E = Math.min(1.12, Math.pow(E, 0.25));
-    T3.exposure = E; T3.expKey = ek; return E;
-  };
-  const fail = e => { console.error('exposure', e); E = 1.05; return finish(); };
-  try {
-    shadowSync(r, null, true); r.setRenderTarget(rt); r.render(sc, cam);
-    r.readRenderTargetPixels(rt, 0, 0, W, H, buf); return finish();
-  } catch (e) { return fail(e); }
-}
-// Общий 3D-вид: мягкая оценка экспозиции по суммарной мощности источников, без второго прохода сцены
-// и без чтения GPU (readback на некоторых драйверах блокировал запуск на несколько секунд).
 function viewExposure(r, sc, lit) {
   if (!lit) return 1.05;
   const ek = expoKey(lit); if (T3.expKey === ek && T3.exposure) return T3.exposure;
   let power = 0;
   sc.traverse(l => { if (!l.isLight || l.isHemisphereLight || l.intensity <= 0) return; power += l.intensity * (l.isRectAreaLight ? Math.max(0.1, l.width * l.height) : 1); });
   // Запас до ACES, чтобы сохранить градации ярко освещённых поверхностей.
-  const E = 0.67 * Math.max(0.55, Math.min(1.12, 1.05 * Math.pow(18 / Math.max(6, power), 0.12)));
+  const E = 0.67 * Math.max(0.32, Math.min(1.12, 1.05 * Math.pow(18 / Math.max(6, power), 0.42)));
   T3.exposure = E; T3.expKey = ek; return E;
 }
+const EXPOSURE_SETTLE = 400, EXPOSURE_FADE = 420;
+const EXPOSURE_LABELS = new Set(['name', 'cap', 'locked', 'showLbl', 'lbl', 'desc']);
+let exposureState, exposureTimer = 0;
+const exposureKeys = {};
+function exposureLightKey() {
+  const textureRev = T3.exposureTextureRev || 0;
+  if (exposureKeys.project !== S.project || exposureKeys.rev !== S.rev || exposureKeys.textureRev !== textureRev) {
+    Object.assign(exposureKeys, { project: S.project, rev: S.rev, textureRev });
+    const lights = objs().filter(o => o.type === 'light' || o.type === 'window').sort((a, b) => a.id.localeCompare(b.id));
+    exposureKeys.key = textureRev + '|' + JSON.stringify(lights, (k, v) => EXPOSURE_LABELS.has(k) ? undefined : v);
+  }
+  return exposureKeys.key;
+}
+const exposureStorageKey = id => 'setboard-exposure-' + id;
+function exposureSignature(token) {
+  // Храним отпечаток настроек, чтобы не дублировать изображения гобо в хранилище.
+  const start = token.indexOf('|') + 1;
+  let hash = 2166136261;
+  for (let i = start; i < token.length; i++) hash = Math.imul(hash ^ token.charCodeAt(i), 16777619);
+  return (token.length - start) + ':' + (hash >>> 0).toString(36);
+}
+function savedExposure(id) {
+  try {
+    const saved = JSON.parse(store.get(exposureStorageKey(id)));
+    if (saved && Number.isFinite(saved.target) && saved.target > 0) return saved;
+  } catch (_) { }
+  return null;
+}
+function exposureValue(entry, now = performance.now()) {
+  if (!entry.start) return entry.target;
+  const t = Math.min(1, (now - entry.start) / EXPOSURE_FADE);
+  const eased = t * t * (3 - 2 * t);
+  return entry.from * Math.pow(entry.target / entry.from, eased);
+}
+function repaintExposure(final) {
+  if (final) T3.exposureRev = (T3.exposureRev || 0) + 1;
+  if (S.view === '3d') V3.dirty = true;
+  if (S.view === 'cams') renderCams();
+  if (S.view === 'plan') {
+    positionPreview();
+    const pip = document.querySelector('#pip canvas');
+    if (pip) { pip._k = ''; schedPipDraw(); }
+  }
+}
+function scheduleExposureRedraw(delay) {
+  clearTimeout(exposureTimer);
+  exposureTimer = setTimeout(() => {
+    const entry = exposureState;
+    if (!entry || entry.project !== S.pid) return;
+    const final = entry.start > 0 && performance.now() >= entry.start + EXPOSURE_FADE;
+    if (final) entry.start = 0;
+    repaintExposure(final);
+    if (entry.start) scheduleExposureRedraw(S.view === '3d' ? 24 : 65);
+  }, delay);
+}
+function frameExposure(r, sc) {
+  const token = exposureLightKey();
+  if (!exposureState || exposureState.project !== S.pid) {
+    clearTimeout(exposureTimer);
+    const saved = savedExposure(S.pid);
+    const measured = !!saved && saved.signature === exposureSignature(token);
+    exposureState = { project: S.pid, token, target: saved?.target ?? viewExposure(r, sc, true), start: 0, due: 0, measured };
+  } else if (exposureState.token !== token) {
+    const value = exposureValue(exposureState);
+    exposureState = { project: S.pid, token, target: value, start: 0, due: performance.now() + EXPOSURE_SETTLE };
+    scheduleExposureRedraw(EXPOSURE_SETTLE + 8);
+  }
+  return exposureState;
+}
+
+function exposureFaces(cam, width, height) {
+  cam.updateMatrixWorld();
+  const boxes = [], right = V(1, 0, 0).applyQuaternion(cam.quaternion), up = V(0, 1, 0).applyQuaternion(cam.quaternion);
+  for (const o of objs()) {
+    const actor = T3.byId[o.id];
+    if (o.type !== 'hero' || !actor?.visible || !actor.meterHead) continue;
+    const [dx, dz] = dirOf(o.rot || 0);
+    const head = actor.meterHead.getWorldPosition(V(0, 0, 0));
+    const toward = cam.position.clone().sub(head).normalize();
+    if (dx * toward.x + dz * toward.z < 0.32) continue;
+    head.x += dx * 0.07; head.y += 0.09; head.z += dz * 0.07;
+    const center = head.clone().project(cam);
+    if (center.z < -1 || center.z > 1) continue;
+    const rx = Math.abs(head.clone().addScaledVector(right, 0.077).project(cam).x - center.x) * width / 2;
+    const ry = Math.abs(head.clone().addScaledVector(up, 0.085).project(cam).y - center.y) * height / 2;
+    const x = (1 + center.x) * width / 2, y = (1 - center.y) * height / 2;
+    if (rx >= 1.5 && ry >= 1.5 && x + rx > 0 && x - rx < width && y + ry > 0 && y - ry < height) {
+      boxes.push({ x, y, rx, ry });
+    }
+  }
+  return boxes;
+}
+
+// Обратная тональная кривая для нейтрального цвета даёт поправку по уже показанному кадру.
+function exposureLinear(level) {
+  const srgb = level / 255;
+  const target = srgb <= 0.04045 ? srgb / 12.92 : Math.pow((srgb + 0.055) / 1.055, 2.4);
+  let low = 0, high = 24;
+  for (let i = 0; i < 15; i++) {
+    const x = (low + high) / 2;
+    const mapped = Math.min(1, Math.max(0, (x * (x + 0.0245786) - 0.000090537) / (x * (0.983729 * x + 0.432951) + 0.238081)));
+    const over = Math.max(0, mapped - 0.55);
+    if (mapped - 0.30 * over * over / (over + 0.2) < target) low = x; else high = x;
+  }
+  return Math.max(0.015, (low + high) / 2);
+}
+function exposurePercentile(hist, count, fraction) {
+  let sum = 0;
+  for (let i = 0; i < hist.length; i++) {
+    sum += hist[i];
+    if (sum >= count * fraction) return i;
+  }
+  return 255;
+}
+let exposureCanvas;
+function measureExposure(bitmap, faces, current, estimate) {
+  const { width, height } = bitmap;
+  if (!exposureCanvas) exposureCanvas = document.createElement('canvas');
+  exposureCanvas.width = width; exposureCanvas.height = height;
+  const ctx = exposureCanvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bitmap, 0, 0);
+  const { data } = ctx.getImageData(0, 0, width, height);
+  const highlights = new Uint32Array(256);
+  for (let i = 0; i < data.length; i += 4) highlights[Math.max(data[i], data[i + 1], data[i + 2])]++;
+  const bright = exposurePercentile(highlights, width * height, 0.99);
+  const faceMid = [], faceHigh = [];
+  for (const { x, y, rx, ry } of faces) {
+    const hist = new Uint32Array(256);
+    let count = 0, skin = 0;
+    for (let j = Math.max(0, Math.floor(y - ry)); j <= Math.min(height - 1, Math.ceil(y + ry)); j++) {
+      for (let k = Math.max(0, Math.floor(x - rx)); k <= Math.min(width - 1, Math.ceil(x + rx)); k++) {
+        if (((k + 0.5 - x) / rx) ** 2 + ((j + 0.5 - y) / ry) ** 2 > 1) continue;
+        const i = 4 * (j * width + k), r = data[i], g = data[i + 1], b = data[i + 2];
+        const skinTone = r - b >= 7 && r > g && g >= b - 2;
+        if (!skinTone && Math.min(r, g, b) < 180) continue;
+        if (skinTone) skin++;
+        hist[Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)]++;
+        count++;
+      }
+    }
+    if (skin < 3 || count < 5) continue;
+    faceMid.push(exposurePercentile(hist, count, 0.5));
+    faceHigh.push(exposurePercentile(hist, count, 0.9));
+  }
+  faceMid.sort((a, b) => a - b);
+  const gain = faceMid.length ? Math.min(
+    exposureLinear(174) / exposureLinear(faceMid[Math.floor(faceMid.length / 2)]),
+    exposureLinear(204) / exposureLinear(Math.max(...faceHigh)),
+    3
+  ) : Math.min(Math.max(1, estimate / current), exposureLinear(224) / exposureLinear(bright));
+  return Math.max(0.08, Math.min(1.12, current * gain));
+}
+
+function meterExposure(entry, source, cam, sourceW, sourceH) {
+  if (entry.pending) return entry.pending;
+  if (entry.measured || performance.now() < entry.due || !window.createImageBitmap) return null;
+  const width = Math.min(224, sourceW), height = Math.max(1, Math.round(width * sourceH / sourceW));
+  const faces = exposureFaces(cam, width, height);
+  const current = exposureValue(entry);
+  const estimate = viewExposure(T3.r, T3.scene, true);
+  entry.measured = true;
+  entry.pending = createImageBitmap(source, 0, 0, sourceW, sourceH, { resizeWidth: width, resizeHeight: height, resizeQuality: 'low' })
+    .then(bitmap => {
+      try {
+        if (exposureState !== entry || S.pid !== entry.project || exposureLightKey() !== entry.token) return false;
+        const next = measureExposure(bitmap, faces, current, estimate);
+        const changed = Math.abs(Math.log2(next / current)) >= 0.09;
+        store.set(exposureStorageKey(entry.project), JSON.stringify({
+          signature: exposureSignature(entry.token), target: changed ? next : entry.target
+        }));
+        if (!changed) return false;
+        entry.from = exposureValue(entry);
+        entry.target = next;
+        entry.start = performance.now();
+        scheduleExposureRedraw(0);
+        return true;
+      } finally { bitmap.close(); }
+    }).catch(() => false)
+    .finally(() => { entry.pending = null; });
+  return entry.pending;
+}
+
 function renderFrame3(cv, cam, opts) {
   const lit = opts && opts.lit !== undefined ? opts.lit : true;
   const sc = t3build(lit, opts && opts.sync); if (T3.pendingBuild) return false;
@@ -8956,19 +9496,22 @@ function renderFrame3(cv, cam, opts) {
   const BW = Math.max(r.domElement.width, cv.width), BH = Math.max(r.domElement.height, cv.height);
   t3size(r, BW, BH);   /* буфер только растёт: черновой/полный кадр и миниатюры не пересоздают его */
   r.setViewport(0, BH - H, W, H); r.setScissor(0, BH - H, W, H); r.setScissorTest(true);   /* область у верхнего левого угла canvas */
-  const ar = W / H, hf = hfov(cam), vf = 2 * Math.atan(Math.tan(hf / 2) / ar);
-  const pc = new THREE.PerspectiveCamera(vf / RAD, ar, 0.05, 100); t3aim(pc, cam);
+  const optics = cameraField(cam, cam.aspect == null ? W / H : aspectOf(cam));
+  const pc = new THREE.PerspectiveCamera(optics.vertical / RAD, optics.aspect, 0.05, 100); t3aim(pc, cam);
   const own = T3.byId[cam.id]; if (own) own.visible = false; if (T3.helpers) T3.helpers.visible = false;
   setCuts(null); (T3.corr || []).forEach(c => c.visible = true); (T3.ceil || []).forEach(c => c.visible = true);
   if (!(opts && opts.sync) && !t3compile(r, sc, pc)) { if (own) own.visible = true; return false; }
-  // Экспозиция общая с 3D-видом: отдельный float-target проход здесь заставлял драйвер
-  // синхронно компилировать второй набор материалов и блокировал вкладку камер на десятки секунд.
-  r.toneMappingExposure = viewExposure(r, sc, lit); if (T3.helpers) T3.helpers.visible = false;
+  const entry = lit && (!opts?.sync || opts.meter)
+    ? frameExposure(r, sc)
+    : null;
+  r.toneMappingExposure = entry ? (opts?.exportFrame ? entry.target : exposureValue(entry)) : viewExposure(r, sc, lit);
+  if (T3.helpers) T3.helpers.visible = false;
   const cl = cullLights(sc, pc); shadowSync(r, cl.off);
   setCuts(null);
   try { r.render(sc, pc); } finally { cl.restore(); }
   if (own) own.visible = true;
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(r.domElement, 0, 0, W, H, 0, 0, cv.width, cv.height);
+  cv._meter = entry && !opts?.thumbnail ? meterExposure(entry, cv, pc, cv.width, cv.height) : null;
   return true;
 }
 function renderFrame(cv, cam, opts) {
@@ -9014,7 +9557,18 @@ function viewLoadCancel() {
   document.body.classList.remove('view-loading');
 }
 // ---------- 3D view ----------
-const V3 = { r: null, az: 0.9, el: 0.62, dist: 10, tgt: null, dirty: true, raf: 0, lit: true, drag: null, fullFrame: false, fastStart: false, fastHoldUntil: 0 };
+const V3 = { r: null, az: 0.9, el: 0.62, dist: 10, tgt: null, dirty: true, raf: 0, lit: true, drag: null, fullFrame: false, fastStart: false, fastHoldUntil: 0, motionUntil: 0, needsClear: true };
+const V3_MOTION_IDLE = 140, V3_NEAR_SCALE = 0.8;
+
+function v3CameraMoved() {
+  V3.motionUntil = performance.now() + V3_MOTION_IDLE;
+  V3.dirty = true;
+}
+function v3CameraSettled() {
+  if (!V3.motionUntil) return;
+  V3.motionUntil = 0;
+  V3.dirty = true;
+}
 // исходный вид 3D: вся площадка целиком помещается в кадр при любой форме окна (на телефоне — узкий вертикальный)
 function v3fitDist(aspect) {
   const b = t3bounds(), R = Math.hypot(b.maxx - b.minx, b.maxy - b.miny) / 2 + 0.3, vf = 45 * RAD, hf = 2 * Math.atan(Math.tan(vf / 2) * aspect);
@@ -9023,13 +9577,26 @@ function v3fitDist(aspect) {
 function v3HomeView() {
   const b = t3bounds(), w = $('v3wrap').getBoundingClientRect(), ar = w.width > 50 && w.height > 50 ? w.width / w.height : 16 / 9;
   V3.az = 0.9; V3.el = 0.62; V3.tgt = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2); V3.dist = v3fitDist(ar);
+  v3CameraSettled();
 }
 function start3d() {
   if (!ensureV3()) { start3d0(); return; }
   // WebGL-холст общий: до первого кадра нового вида очищаем его, чтобы не мелькал кадр прошлой вкладки
-  V3.r.setRenderTarget(null); V3.r.setScissorTest(false); V3.r.clear(true, true, true);
+  if (V3.needsClear) {
+    V3.r.setRenderTarget(null); V3.r.setScissorTest(false); V3.r.clear(true, true, true);
+    V3.needsClear = false;
+  }
   V3.fastStart = !V3.fullFrame; V3.dirty = true; cancelAnimationFrame(V3.raf);
-  const tick = () => { if (S.view !== '3d') return; if (V3.dirty && performance.now() >= V3.fastHoldUntil) { try { draw3(); } catch (e) { console.error(e); } } V3.raf = requestAnimationFrame(tick); };
+  v3CameraSettled();
+  const tick = () => {
+    if (S.view !== '3d') return;
+    const now = performance.now();
+    if (now >= V3.motionUntil) v3CameraSettled();
+    if (V3.dirty && now >= V3.fastHoldUntil) {
+      try { draw3(); } catch (e) { console.error(e); }
+    }
+    V3.raf = requestAnimationFrame(tick);
+  };
   // тяжёлый кадр — после того как вкладка уже отрисовалась (двойной rAF), чтобы переключение было мгновенным
   V3.raf = requestAnimationFrame(() => { V3.raf = requestAnimationFrame(tick); });
 }
@@ -9062,20 +9629,35 @@ function ensureV3() {
           const c = two(); V3.dist = Math.max(1.2, Math.min(40, pinch.dist * pinch.d / c.d));
           const dx = c.x - pinch.x, dy = c.y - pinch.y, k = V3.dist * 0.0016, sa = Math.sin(V3.az), ca = Math.cos(V3.az);
           V3.tgt.x += (-sa * dx - ca * dy) * k; V3.tgt.z += (ca * dx - sa * dy) * k; pinch.x = c.x; pinch.y = c.y;
-          V3.dirty = true; return;
+          v3CameraMoved(); return;
         }
       }
       const d = V3.drag; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; d.x = e.clientX; d.y = e.clientY;
+      if (!dx && !dy) return;
       if (d.pan) { const k = V3.dist * 0.0016, sa = Math.sin(V3.az), ca = Math.cos(V3.az); V3.tgt.x += (-sa * dx - ca * dy) * k; V3.tgt.z += (ca * dx - sa * dy) * k; }
       else { V3.az += dx * 0.006; V3.el = Math.max(0.05, Math.min(1.5, V3.el + dy * 0.006)); }
-      V3.dirty = true;
+      v3CameraMoved();
     });
     const up = (e) => {
-      if (e && e.pointerType === 'touch') { T.delete(e.pointerId); if (pinch) { if (T.size < 2) pinch = null; if (T.size === 1) { const [p] = [...T.values()]; V3.drag = { x: p.x, y: p.y, pan: false }; } else V3.drag = null; V3.dirty = true; return; } }
-      V3.drag = null; cv.classList.remove('grab'); V3.dirty = true;   // после вращения — кадр в полном разрешении
+      if (e.pointerType === 'touch') {
+        T.delete(e.pointerId);
+        if (pinch) {
+          if (T.size >= 2) { pinch = Object.assign(two(), { dist: V3.dist }); return; }
+          pinch = null;
+          if (T.size === 1) { const [p] = T.values(); V3.drag = { x: p.x, y: p.y, pan: false }; return; }
+        }
+      }
+      V3.drag = null; cv.classList.remove('grab'); v3CameraSettled();
     };
-    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-    cv.addEventListener('wheel', (e) => { e.preventDefault(); V3.dist = Math.max(1.2, Math.min(40, V3.dist * Math.exp(e.deltaY * 0.001))); V3.dirty = true; }, { passive: false });   // без отложенного кадра и смены DPR: зум идёт в том же непрерывном цикле
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up); cv.addEventListener('lostpointercapture', e => {
+      if (e.pointerType === 'touch' ? T.has(e.pointerId) : V3.drag) up(e);
+    });
+    cv.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const dist = Math.max(1.2, Math.min(40, V3.dist * Math.exp(e.deltaY * 0.001)));
+      if (dist === V3.dist) return;
+      V3.dist = dist; v3CameraMoved();
+    }, { passive: false });
   }
   if (!V3.tgt) v3HomeView();
   return true;
@@ -9087,7 +9669,7 @@ let lastAct = 0;   // время последнего движения мыши/
 function prewarm3d() {
   if (S.view === '3d' || S.view === 'cams') return;
   // до загрузки моделей не собираем сцену с временными упрощёнными героями и не блокируем схему
-  if (objs().some(o => o.type === 'hero') && HUMAN.state !== 'ready' && HUMAN.state !== 'failed') { schedPrewarm(500); return; }
+  if (humansPending()) { schedPrewarm(500); return; }
   // пока пользователь ставит объект, тянет, рисует стену или просто двигает мышью — откладываем
   if (S.placing || S.wallDraw || drag || S.ruler || performance.now() - lastAct < 2500) { schedPrewarm(900); return; }
   if (!ensureV3()) return;
@@ -9136,17 +9718,18 @@ function draw3(quiet) {
     if (!T3.scene || (T3.key !== key && (T3.structKey !== K.struct || T3.lit !== V3.lit || T3.buildQ !== T3.quality || !objs().some(o => o.type === 'wall')))) { busy.hidden = false; V3.dirty = true; return false; }
   }
   V3.dirty = false; const wrap = (S.view === '3d' ? $('v3wrap') : $('stagewrap')).getBoundingClientRect(); const W = Math.max(50, Math.floor(wrap.width)), H = Math.max(50, Math.floor(wrap.height));
-  // облегчаем только активное вращение; зум сохраняет текущий DPR и не пересоздаёт GPU-буфер после остановки
-  const moving = !!V3.drag;
-  const r = V3.r, ratio = T3.quality === 'high' && !moving ? Math.min(2, window.devicePixelRatio || 1) : Math.min(1, window.devicePixelRatio || 1); t3size(r, W, H, ratio);
-  r.setScissorTest(false); r.setViewport(0, 0, W, H);
+  const near = v3Near(W / H), moving = !quiet && V3.motionUntil > performance.now();
+  const dpr = window.devicePixelRatio || 1;
+  const ratio = moving ? Math.min(1, dpr) * (near ? V3_NEAR_SCALE : 1) : Math.min(T3.quality === 'high' ? 2 : 1, dpr);
+  const r = V3.r;
   viewLoadProgress(32); const sc = t3build(V3.lit); if (T3.pendingBuild) return false;
   if (T3.helpers) T3.helpers.visible = false;
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200); const t = V3.tgt;
   cam.position.set(t.x + V3.dist * Math.cos(V3.el) * Math.cos(V3.az), t.y + V3.dist * Math.sin(V3.el), t.z + V3.dist * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
-  setCuts(cam.position, v3Near(W / H)); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
+  setCuts(cam.position, near); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
   if (V3.fastStart && !quiet) {
     V3.fastStart = false; if (busy) busy.hidden = true;
+    t3size(r, W, H, ratio); r.setScissorTest(false); r.setViewport(0, 0, W, H);
     draw3Fast(r, sc, cam);
     // Даём браузеру показать стартовый кадр до тяжёлой полноценной отрисовки.
     V3.fastHoldUntil = performance.now() + 350;
@@ -9154,10 +9737,14 @@ function draw3(quiet) {
     return true;
   }
   if (!t3compile(r, sc, cam)) { if (busy && !quiet) busy.hidden = false; return false; }
+  t3size(r, W, H, ratio); r.setScissorTest(false); r.setViewport(0, 0, W, H);
   if (busy) busy.hidden = true;
-  r.toneMappingExposure = viewExposure(r, sc, V3.lit); shadowSync(r);
-  setCuts(cam.position, v3Near(W / H));
+  const exposure = V3.lit && !quiet ? frameExposure(r, sc) : null;
+  r.toneMappingExposure = exposure ? exposureValue(exposure) : viewExposure(r, sc, V3.lit);
+  shadowSync(r);
+  setCuts(cam.position, near);
   r.render(sc, cam); V3.fullFrame = true;
+  if (exposure && !moving) meterExposure(exposure, r.domElement, cam, r.domElement.width, r.domElement.height);
   if (!quiet) viewLoadFinish('3d');
   if (quiet) {   // высокий LOD загружаем в GPU заранее; крошечный scissor не тратит время на лишние пиксели
     const states = [];
@@ -9211,8 +9798,8 @@ function drawPreview() {
   let h = Math.round(w / ar); let ww = w; if (h > 104) { h = 104; ww = Math.round(h * ar); }   /* превью не раздувает панель — иначе появляется прокрутка */
   if (cv._w !== ww || cv._h !== h) { sizeCanvas(cv, ww, h); cv.style.width = ww + 'px'; cv.style.margin = '0 auto'; cv._w = ww; cv._h = h; }
   const pc = document.querySelector('#pip canvas'); if (pc && S.project.pip && S.project.pip.cam === o.id && pc.width > cv.width) { cv.width = pc.width; cv.height = Math.round(pc.width / ar); }   // общий кадр сразу в большем размере — копия в PIP остаётся чёткой
-  if (objs().some(x => x.type === 'hero') && HUMAN.state !== 'ready' && HUMAN.state !== 'failed') { loadingFrame(cv); cv._frameKey = ''; return; }   // не показываем упрощённых героев, пока загружается модель
-  if (renderFrame(cv, o, { lit: true }) === false) { if (!firstFrameDone) loadingFrame(cv); }   // кольцо только на первой загрузке; дальше оставляем прошлый кадр
+  if (humansPending()) { loadingFrame(cv); cv._frameKey = ''; return; }
+  if (renderFrame(cv, o, { lit: true }) === false) { if (!firstFrameDone) loadingFrame(cv); }
   else { firstFrameDone = true; stopLoadingFrame(cv); cv._frameKey = camFrameKey(o.id); }
   if (!cv._rev) { cv._rev = 1; setTimeout(() => revealSel(), 30); }   // панель снизу выросла на высоту превью — объект не должен оказаться под ней
 }
@@ -9223,7 +9810,7 @@ const lblShown = (o) => NO_LBL.includes(o.type) ? false : o.showLbl != null ? o.
 const camName = (c) => capOf(c).split('\n').map(s => s.trim()).filter(Boolean).join(' · ') || ('Камера ' + (c.letter || ''));   // название камеры = её подпись
 const capOf = (o) => o.type === 'camera' ? (o.cap ? o.cap : (o.letter || '')) : (o.name || '');
 function typeName(o) {
-  if (o.type === 'camera') return 'Камера'; if (o.type === 'hero') return 'Герой';
+  if (o.type === 'camera') return 'Камера'; if (o.type === 'hero') return heroSex(o) === 'f' ? 'Героиня' : 'Герой';
   if (o.type === 'light') return ((LIGHTS[o.kind] || {}).prac ? 'Свет в кадре · ' : 'Свет · ') + ((LIGHTS[o.kind] || {}).name || '');
   if (o.type === 'prop') return 'Реквизит · ' + ((PROPS[o.kind] || {}).name || '');
   if (ROOM[o.type]) return ROOM[o.type].name; if (o.type === 'note') return 'Заметка'; if (o.type === 'floor') return 'Пол'; return 'Рисунок';
@@ -9231,13 +9818,13 @@ function typeName(o) {
 function capBlock(o) {
   const lock = `<label class="chk"><input type="checkbox" id="inLock" ${o.locked ? 'checked' : ''}> Закрепить</label>`;
   if (NO_LBL.includes(o.type)) return `<div class="capb">${lock}</div>`;   // у стен, окон и дверей подписи нет — только «Закрепить»
-  const val = o.type === 'camera' ? capOf(o) : (o.name || ''), ph = o.type === 'camera' ? (o.letter || 'Подпись') : o.type === 'hero' ? 'Имя героя' : 'Подпись';
+  const val = o.type === 'camera' ? capOf(o) : (o.name || ''), ph = o.type === 'camera' ? (o.letter || 'Подпись') : o.type === 'hero' ? 'Имя персонажа' : 'Подпись';
   return `<div class="capb"><textarea id="inCap" rows="${Math.max(1, val.split('\n').length)}" aria-label="Подпись" placeholder="${esc(ph)}">${esc(val)}</textarea><div class="chks"><label class="chk"><input type="checkbox" id="inShow" ${lblShown(o) ? 'checked' : ''}> Показать подпись</label>${lock}</div></div>`;
 }
 // блок цвета прибора: CCT / HSI и яркость — ползунок + поле с числом
 function slider(id, label, min, max, step, val, unit, track) {
-  return `<div class="sld"><div class="sld-h"><span>${label}</span><span class="sld-v"><input type="number" class="nostp" id="${id}N" data-pair="${id}" min="${min}" max="${max}" step="${step}" value="${val}">${unit}</span></div>`
-    + `<input type="range" id="${id}" data-pair="${id}N" min="${min}" max="${max}" step="${step}" value="${val}" ${track ? `style="--trk:${track}"` : ''}></div>`;
+  return `<div class="sld"><div class="sld-h"><span id="${id}Label">${label}</span><span class="sld-v"><input type="number" class="nostp" id="${id}N" aria-labelledby="${id}Label" data-pair="${id}" min="${min}" max="${max}" step="${step}" value="${val}">${unit}</span></div>`
+    + `<input type="range" id="${id}" aria-labelledby="${id}Label" data-pair="${id}N" min="${min}" max="${max}" step="${step}" value="${val}" ${track ? `style="--trk:${track}"` : ''}></div>`;
 }
 // наклон прибора: схема «вид сбоку» (прибор, луч, горизонт) + ползунок от −90° (вниз) до +90° (вверх)
 function tiltSvg(a) {
@@ -9318,10 +9905,11 @@ function renderInspector() {
     h += `<span class="seg" role="group" aria-label="Тип">${['S35', 'FF'].map(k => `<button data-act="sensor" data-v="${k}" aria-pressed="${o.sensor === k}">${k === 'FF' ? 'Full Frame' : 'S35'}</button>`).join('')}</span>`;
     h += field('Объектив', `<select id="inLens">${LENSES.map(l => `<option value="${l}" ${l === o.lens ? 'selected' : ''}>${l} мм</option>`).join('')}</select>`);
     h += '<h3 class="ins-section">Положение</h3>';
-    h += field('Высота', `<input type="number" id="inH" step="0.05" min="0.1" max="5" value="${o.h}"> м`);
+    h += field('Высота оси', `<input type="number" id="inH" step="0.05" min="0.1" max="5" value="${cameraHeight(o)}" title="Высота оптической оси над полом при нулевом наклоне"> м`);
     h += field('Наклон', `<input type="number" id="inTilt" step="1" min="-60" max="60" value="${o.tilt}">°`);
   } else if (o.type === 'hero') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
+    h += `<span class="seg" role="group" aria-label="Персонаж"><button data-act="heroSex" data-v="m" aria-pressed="${heroSex(o) === 'm'}">Мужчина</button><button data-act="heroSex" data-v="f" aria-pressed="${heroSex(o) === 'f'}">Женщина</button></span>`;
     h += `<span class="row" role="group" aria-label="Цвет">${HERO_COLORS.map((c, i) => `<button class="swatch" data-act="color" data-v="${i}" aria-label="Цвет ${i + 1}" aria-pressed="${!o.hcol && (o.color || 0) === i}" style="background:var(--${c})"></button>`).join('')}${customSwatch('inHCol', hero3d(o), !!o.hcol)}</span>`;
     h += `<span class="seg" role="group" aria-label="Поза"><button data-act="pose" data-v="stand" aria-pressed="${o.pose !== 'sit'}">Стоит</button><button data-act="pose" data-v="sit" aria-pressed="${o.pose === 'sit'}">Сидит</button></span>`;
   } else if (o.type === 'light') {
@@ -9394,6 +9982,7 @@ function renderInspector() {
     }
     if (o.type === 'window') h += field('Высота', `<input type="number" id="inWH" step="0.05" min="0.3" max="${fx(winMaxH(o), 2).replace(',', '.')}" value="${o.h || 1.2}"> м`) + `<label class="chk solo"><input type="checkbox" id="inFloor" ${o.floor ? 'checked' : ''}> Окно в пол</label>`;
     if (o.type === 'window') h += field('Вид из окна', `<select id="inWView">${[['street', 'Улица'], ['park', 'Парк'], ['city', 'Город'], ['sunset', 'Закат'], ['night', 'Ночной город'], ['country', 'Загородный дом'], ['', 'Нет']].map(([v, n]) => `<option value="${v}" ${(o.view || '') === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`);
+    if (o.type === 'window') h += slider('inSkyPower', 'Свет из окна', 0, 100, 0.5, windowLightPercent(o), ' %', 'linear-gradient(90deg,#333,#fff)');
     if (o.type === 'door') {
       const di = doorInfo(o);
       h += `<span class="seg" role="group" aria-label="Состояние двери"><button data-act="dstate" data-v="closed" aria-pressed="${o.open === false}">Закрыта</button><button data-act="dstate" data-v="open" aria-pressed="${o.open !== false}">Открыта</button></span>`;
@@ -9461,6 +10050,7 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'dswing') { const di = doorInfo(o); if (di.inward !== (b.dataset.v === 'in')) o.swing = -(o.swing || 1); }
   if (a === 'dhinge') { const di = doorInfo(o); if (di.left !== (b.dataset.v === 'l')) { [o.x1, o.x2] = [o.x2, o.x1]; [o.y1, o.y2] = [o.y2, o.y1]; o.swing = -(o.swing || 1); } }
   if (a === 'pose') o.pose = b.dataset.v;
+  if (a === 'heroSex') { if (b.dataset.v === 'f') o.sex = 'f'; else delete o.sex; }
   if (a === 'ltilt') { if (b.dataset.v === 'auto') delete o.ltilt; else o.ltilt = +b.dataset.v; }
   if (a === 'lmode') { o.mode = b.dataset.v; if (o.mode === 'hsi') { if (o.hue == null) o.hue = 200; if (o.sat == null) o.sat = 100; } if (window.THREE && T3.scene) t3lightUpdate(o); }
   if (a === 'horiz') { o.horiz = b.dataset.v === 'h'; if (o.kind === 'astera') o.h = asteraH(o); }
@@ -9498,8 +10088,24 @@ async function goboUpload(input) {
   } catch (err) { toast(err && err.message ? err.message : 'Не удалось прочитать изображение'); }
   finally { input.value = ''; }
 }
+function syncWindowLightInputs(o, editing) {
+  const power = windowLightPercent(o);
+  for (const id of ['inSkyPower', 'inSkyPowerN']) {
+    const input = $(id);
+    if (input && input !== editing) input.value = power;
+  }
+}
+function windowsOnWall(o) {
+  const wall = hostWall(o);
+  return objs().filter(w => w.type === 'window' && (w === o || (wall && hostWall(w) === wall)));
+}
 $('inspector').addEventListener('change', (e) => {
   const t = e.target; if (t.id === 'goboFile') { goboUpload(t); return; }
+  if (t.id === 'inSkyPowerN') {
+    const o = byId(S.sel);
+    if (o?.type === 'window') syncWindowLightInputs(o);
+    return;
+  }
   if (!CUSTOM_COL.includes(t.id)) return;
   if (!colorPending && t.value.toLowerCase() === t.defaultValue.toLowerCase()) return;   // цвет не меняли
   colorPending = { oid: (colorPending && colorPending.oid) || S.sel, id: t.id, v: t.value.toUpperCase() };
@@ -9516,7 +10122,15 @@ $('inspector').addEventListener('input', (e) => {
     case 'inLens': o.lens = +t.value; break;
     case 'inWFin': o.fin = t.value; delete o.wcol; renderInspector(); break;   // новая отделка — со своим цветом по умолчанию
     case 'inAspect': o.aspect = t.value; break;
-    case 'inH': if (ok) o.h = Math.max(0, num); break;
+    case 'inH': {
+      if (!Number.isFinite(num)) break;
+      const height = Math.max(0, num);
+      if (height === o.h) break;
+      // Сохраняем текущий угол старых приборов перед изменением высоты.
+      if (o.type === 'light' && tiltable(o) && o.ltilt == null) o.ltilt = lightTilt(o);
+      o.h = height;
+      break;
+    }
     case 'inTilt': if (ok) o.tilt = Math.max(-60, Math.min(60, num)); break;
     case 'inKind': o.kind = t.value; break;
     case 'inLTilt': case 'inLTiltN': if (ok) { o.ltilt = Math.max(-90, Math.min(90, Math.round(num))); const pr = t.dataset.pair && document.getElementById(t.dataset.pair); if (pr && document.activeElement !== pr) pr.value = o.ltilt; const v = document.getElementById('tiltV'); if (v) v.innerHTML = tiltSvg(o.ltilt); } break;
@@ -9557,7 +10171,21 @@ $('inspector').addEventListener('input', (e) => {
     case 'inShow': o.showLbl = t.checked; break;
     case 'inLock': o.locked = t.checked; break;
     case 'inWH': if (ok && num > 0) o.h = Math.max(0.3, Math.min(winMaxH(o), num)); break;
-    case 'inWView': { const hw = hostWall(o); objs().forEach(w => { if (w.type !== 'window' || (w !== o && (!hw || hostWall(w) !== hw))) return; if (t.value) w.view = t.value; else delete w.view; }); break; }   // у всех окон одной стены — общий вид
+    case 'inWView': {
+      windowsOnWall(o).forEach(w => {
+        if (t.value) w.view = t.value; else delete w.view;
+      });
+      syncWindowLightInputs(o);
+      break;
+    }
+    case 'inSkyPower': case 'inSkyPowerN': {
+      const power = Math.max(0, Math.min(WINDOW_LIGHT_POWER_MAX, Math.round(num * WINDOW_LIGHT_POWER_MAX / 100)));
+      windowsOnWall(o).forEach(w => {
+        if (ok) w.skyPower = power; else delete w.skyPower;
+      });
+      syncWindowLightInputs(o, t);
+      break;
+    }
     case 'inFloor': o.floor = t.checked; o.h = o.floor ? Math.max(o.h || 1.2, 2.4) : Math.min(o.h || 1.2, 1.2); o.h = Math.min(o.h, winMaxH(o)); renderInspector(); break;
     case 'inSkirt': S.project.skirt = t.checked; if (t.checked && !S.project.skirtCol) S.project.skirtCol = '#F2F0EA'; renderInspector(); break;
     case 'inStand': o.stand = t.checked; T3.key = ''; V3.dirty = true; break;
@@ -9707,7 +10335,7 @@ function addObject(type, v) {
   let o;
   if (type === 'camera') { const l = nextLetter(); o = { type, letter: l, cap: l, name: 'Камера ' + l, desc: '', x: cx, y: cy, rot: 0, sensor: v || 'S35', lens: 35, h: 1.4, tilt: 0, aspect: '1.78' }; }
   else if (type === 'hero') { o = { type, name: '', x: cx, y: cy, rot: 180, color: +v || 0, pose: 'stand' }; }
-  else if (type === 'light') { const L = LIGHTS[v]; o = { type, kind: v, name: L.name, x: cx, y: cy, rot: LIGHTS[v].rotIcon ? 180 : 0, h: v === 'practical' ? 1.6 : 2.0, power: 100 }; if (v === 'astera') { o.alen = 1; o.ah = 0; o.h = asteraH(o); } if (v === 'softbox') o.size = 90; if (v === 'panel') { o.w = 0.62; o.ph = 0.3; } if (v === 'p_fabric') o.h = 0.42; if (v === 'p_neon') { o.h = 1.5; o.neonText = 'NEON'; o.letterH = 25; o.w = neonDims(o).w; o.d = 0.04; o.name = ''; o.showLbl = false; } if (v === 'p_candle') o.h = 0.14; }
+  else if (type === 'light') { const L = LIGHTS[v]; o = { type, kind: v, name: L.name, x: cx, y: cy, rot: LIGHTS[v].rotIcon ? 180 : 0, h: v === 'practical' ? 1.6 : 2.0, power: DEFAULT_LIGHT_POWER }; if (v === 'astera') { o.alen = 1; o.ah = 0; o.h = asteraH(o); } if (v === 'softbox') o.size = 90; if (v === 'panel') { o.w = 0.62; o.ph = 0.3; } if (v === 'p_fabric') o.h = 0.42; if (v === 'p_neon') { o.h = 1.5; o.neonText = 'NEON'; o.letterH = 25; o.w = neonDims(o).w; o.d = 0.04; o.name = ''; o.showLbl = false; } if (v === 'p_candle') o.h = 0.14; }
   else if (type === 'prop') { const P = PROPS[v]; o = { type, kind: v, name: P.name, x: cx, y: cy, rot: 0, w: P.w, d: ON_TABLE.includes(v) ? P.d : Math.max(0.2, P.d), h: P.h }; if (v === 'shelf') { o.shelves = 5; o.h = 2.206; } if (FURN_DEF[v]) o.fc = FURN_DEF[v]; }
   else if (ROOM[type]) { const L = ROOM[type].len; if (type === 'wall') { cx = snap(cx, WALL_STEP); cy = snap(cy, WALL_STEP); } o = { type, x1: cx - L / 2, y1: cy, x2: cx + L / 2, y2: cy }; if (type === 'door') o.open = true; if (type === 'window') o.view = 'street'; }
   else if (type === 'note') { o = { type: 'note', text: 'Заметка', x: cx, y: cy }; }
@@ -9854,7 +10482,7 @@ function projectsDialog() {
         box.innerHTML = 'Точно удалить?<button class="btn danger" data-yes>Да, удалить</button><button class="btn ghost" data-no>Отмена</button>';
         del.replaceWith(box);
         box.querySelector('[data-yes]').onclick = () => {
-          store.set('setboard-proj-' + id, ''); try { localStorage.removeItem('setboard-proj-' + id); } catch (er) { }
+          store.set('setboard-proj-' + id, ''); try { localStorage.removeItem('setboard-proj-' + id); localStorage.removeItem(exposureStorageKey(id)); } catch (er) { }
           projSaveIndex(projIndex().filter(x => x.id !== id));
           if (id === S.pid) { S.pid = null; const nx = projIndex()[0]; if (nx) switchProject(nx.id, null); else switchProject(null, { v: 1, name: 'Новый проект', objects: [] }); }
           d.querySelector('.plist').innerHTML = rows();
@@ -9923,7 +10551,7 @@ plan.addEventListener('pointermove', (e) => {
 const touchEnd = (e) => { if (e.pointerType !== 'touch') return; TOUCH.delete(e.pointerId); if (!TOUCH.size) document.body.classList.remove('ptouch'); if (GEST) { e.stopImmediatePropagation(); if (TOUCH.size < 2) GEST = TOUCH.size ? GEST : null; } };
 plan.addEventListener('pointerup', touchEnd, true); plan.addEventListener('pointercancel', touchEnd, true);
 // касание схемы не порождает «призрачный» клик: иначе после выбора объекта клик попадал в открывшуюся под пальцем панель свойств (например, в «Закрепить»)
-let planTouchUp = 0;   // время, когда отпустили палец, коснувшийся схемы
+let planTouchUp = -Infinity;   // время, когда отпустили палец, коснувшийся схемы
 plan.addEventListener('pointerup', (e) => { if (e.pointerType === 'touch') planTouchUp = performance.now(); }, true);
 // «призрачный» клик после касания схемы (браузер шлёт его в ту же точку ~через 0–300 мс) не должен попасть в открывшуюся под пальцем панель свойств
 ['click', 'mousedown', 'mouseup'].forEach(ev => window.addEventListener(ev, (e) => {
@@ -10254,9 +10882,22 @@ async function export3D() {
   const t = V((b.minx + b.maxx) / 2, 0.8, (b.miny + b.maxy) / 2), d = Math.max(v3fitDist(W / H), 1.2);
   const cam = new THREE.PerspectiveCamera(45, W / H, 0.05, 200);
   cam.position.set(t.x + d * Math.cos(V3.el) * Math.cos(V3.az), t.y + d * Math.sin(V3.el), t.z + d * Math.cos(V3.el) * Math.sin(V3.az)); cam.lookAt(t);
-  t3size(r, W, H); r.setScissorTest(false); r.setViewport(0, 0, W, H); r.toneMappingExposure = viewExposure(r, sc, V3.lit); shadowSync(r);
-  if (T3.helpers) T3.helpers.visible = false; setCuts(cam.position); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
-  r.render(sc, cam); const blob = await toBlob(r.domElement);
+  const lit = V3.lit, exposure = lit ? frameExposure(r, sc) : null;
+  const render = () => {
+    t3size(r, W, H); r.setScissorTest(false); r.setViewport(0, 0, W, H);
+    r.toneMappingExposure = exposure?.target ?? viewExposure(r, sc, lit);
+    shadowSync(r);
+    if (T3.helpers) T3.helpers.visible = false;
+    setCuts(cam.position); (T3.corr || []).forEach(c => c.visible = false); (T3.ceil || []).forEach(c => c.visible = cam.position.y < WALL_H - 0.05);
+    r.render(sc, cam);
+  };
+  render();
+  if (exposure) {
+    const changed = await meterExposure(exposure, r.domElement, cam, W, H);
+    if (T3.scene !== sc) return;
+    if (changed) render();
+  }
+  const blob = await toBlob(r.domElement);
   V3.dirty = true;   // вернуть обычный кадр окна
   if (prevView !== '3d') setView(prevView);
   if (blob) await saveFile('3D-вид.png', blob);
@@ -10264,7 +10905,14 @@ async function export3D() {
 async function exportCams() {
   const list = cams(); if (!list.length) { toast('На схеме нет камер'); return; }
   const CW = 1280, cols = list.length > 1 ? 2 : 1, cap = 56, pad = 24;
-  const shots = list.map(c => { const cv = document.createElement('canvas'); cv.width = CW; cv.height = Math.round(CW / aspectOf(c)); renderFrame(cv, c, { lit: S.ov.lit, sync: true }); return { c, cv }; });
+  const shots = [], lit = S.ov.lit;
+  for (const c of list) {
+    const cv = document.createElement('canvas'); cv.width = CW; cv.height = Math.round(CW / aspectOf(c));
+    const opts = { lit, sync: true, meter: true, exportFrame: true };
+    renderFrame(cv, c, opts);
+    if (await cv._meter) renderFrame(cv, c, opts);
+    shots.push({ c, cv });
+  }
   const rows = Math.ceil(shots.length / cols), rowH = shots.map(s => s.cv.height);
   const rh = []; for (let r = 0; r < rows; r++) rh.push(Math.max(...rowH.slice(r * cols, r * cols + cols)) + cap);
   const out = document.createElement('canvas'); out.width = pad + cols * (CW + pad); out.height = pad + rh.reduce((a, b) => a + b + pad, 0);
@@ -10294,6 +10942,38 @@ $('toPlanBtn').onclick = () => setView('plan');
 document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAll(true); });   // вкладка снова видна — перерисовать
 $('helpBtn').onclick = () => keysDialog();
 $('startWalls').onclick = () => addObject('wall');
+const roomSizeForm = $('roomSizeForm');
+const roomWidth = roomSizeForm.elements.namedItem('width'), roomLength = roomSizeForm.elements.namedItem('depth');
+roomSizeForm.addEventListener('input', () => {
+  roomWidth.setCustomValidity('');
+  roomLength.setCustomValidity('');
+});
+roomSizeForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (S.view !== 'plan' || objs().length || S.wallDraw || S.placing) return;
+  const w = Number(roomWidth.value.replace(',', '.')), l = Number(roomLength.value.replace(',', '.'));
+  for (const [field, size] of [[roomWidth, w], [roomLength, l]]) {
+    if (Number.isFinite(size) && size >= 0.1) continue;
+    field.setCustomValidity('Введите размер от 0,1 м.');
+    field.reportValidity();
+    return;
+  }
+  if (!Number.isFinite(w * l) || w * l <= 0.05) {
+    roomLength.setCustomValidity('Укажите размеры комнаты с площадью больше 0,05 м².');
+    roomLength.reportValidity();
+    return;
+  }
+  const corners = [[0, 0], [w, 0], [w, l], [0, l]];
+  checkpoint();
+  corners.forEach(([x1, y1], i) => {
+    const [x2, y2] = corners[(i + 1) % corners.length];
+    objs().push({ id: uid(), type: 'wall', x1, y1, x2, y2 });
+  });
+  recenter();
+  renderAll(true);
+  save();
+  plan.focus();
+});
 $('v3ToPlan').onclick = () => setView('plan');
 $('exportBtn').onclick = (e) => { e.stopPropagation(); exportMenu(!$('exportMenu')); };
 document.addEventListener('pointerdown', (e) => { if ($('exportMenu') && !e.target.closest('#exportMenu, #exportBtn')) exportMenu(false); });
@@ -10386,6 +11066,7 @@ function setView(v) {
   if (v !== 'plan' && S.wallDraw) endWallDraw();
   if (v !== 'plan' && S.ruler) setRuler(false);
   if (v !== 'plan') { if (S.pop) { S.pop = null; renderMenus(); } if (S.draw) { S.draw = false; $('drawBtn').setAttribute('aria-pressed', false); plan.classList.remove('draw'); } }
+  if (v === '3d' && S.view !== '3d') V3.needsClear = true;
   S.view = v; $('tab-plan').setAttribute('aria-selected', v === 'plan'); $('tab-cams').setAttribute('aria-selected', v === 'cams'); $('tab-3d').setAttribute('aria-selected', v === '3d');
   $('planView').hidden = v !== 'plan'; $('camView').hidden = v !== 'cams'; $('view3d').hidden = v !== '3d';
   $('helpBtn').disabled = v !== 'plan';   /* справка по клавишам нужна только на схеме */
@@ -10414,9 +11095,9 @@ function renderCams() {
   }
   cl.querySelectorAll('[data-cam]').forEach(b => b.setAttribute('aria-current', b.dataset.cam === c.id));
   // миниатюры: берём из кэша; если сцена изменилась — перерисовываем с задержкой, а не на каждое действие
-  const base = frameSceneKey() + '|' + S.ov.lit; let stale = false;
+  const base = frameSceneKey() + '|' + S.ov.lit + '|' + (T3.exposureRev || 0); let stale = false;
   const liveIds = new Set(list.map(k => k.id)); Object.keys(THUMB).forEach(id => { if (!liveIds.has(id)) delete THUMB[id]; });
-  const waitHumans = objs().some(x => x.type === 'hero') && HUMAN.state !== 'ready' && HUMAN.state !== 'failed';
+  const waitHumans = humansPending();
   cl.querySelectorAll('canvas').forEach((cv, i) => {
     const k = list[i]; let c0 = THUMB[k.id];
     if (!c0) { stale = true; return; }   /* миниатюры без кэша дорисовываются позже, после главного кадра — вид открывается быстрее */
@@ -10427,12 +11108,12 @@ function renderCams() {
     THUMB_T = setTimeout(function next() {
       if (gen !== THUMB_G || S.view !== 'cams') return;
       if (drag || S.placing || performance.now() - lastAct < 180) { THUMB_T = setTimeout(next, 200); return; }
-      const L2 = cams(), b2 = frameSceneKey() + '|' + S.ov.lit, cvs = $('camlist').querySelectorAll('canvas');
+      const L2 = cams(), b2 = frameSceneKey() + '|' + S.ov.lit + '|' + (T3.exposureRev || 0), cvs = $('camlist').querySelectorAll('canvas');
       let i = 0; while (i < L2.length && THUMB[L2[i].id] && THUMB[L2[i].id].key === b2) i++;
       if (i >= L2.length || !cvs[i]) return;
       const k = L2[i], cv = cvs[i], ar = aspectOf(k), off = document.createElement('canvas');
       off.width = Math.max(1, Math.min(cv.width, Math.round(cv.height * ar))); off.height = Math.max(1, Math.round(off.width / ar));
-      if (!renderFrame(off, k, { lit: S.ov.lit })) return;   /* идёт асинхронная компиляция — по её завершении renderCams перезапустит очередь */
+      if (!renderFrame(off, k, { lit: S.ov.lit, thumbnail: true })) return;
       const g = cv.getContext('2d'); g.fillStyle = '#151413'; g.fillRect(0, 0, cv.width, cv.height);
       g.drawImage(off, Math.round((cv.width - off.width) / 2), Math.round((cv.height - off.height) / 2));
       const cached = document.createElement('canvas'); cached.width = cv.width; cached.height = cv.height; cached.getContext('2d').drawImage(cv, 0, 0);
@@ -10444,10 +11125,22 @@ function renderCams() {
   let w = Math.min(st.width, st.height * ar), h = w / ar; w = Math.max(80, Math.floor(w)); h = Math.max(40, Math.floor(h));
   $('camMeta').style.width = `${w}px`;
   const fr = $('frame'); fr.style.width = w + 'px'; fr.style.height = h + 'px';
-  const mc = $('mainCanvas'); sizeCanvas(mc, w, h, 1.5); clearTimeout(CAMD);   /* плотность пикселей не выше 1,5 — на экранах ×2 кадр в 1,8 раза дешевле */
+  const mc = $('mainCanvas'); clearTimeout(CAMD);
   if (!waitHumans) CAMD = setTimeout(() => {
     if (S.view !== 'cams' || S.activeCam !== c.id || !byId(c.id)) return;
-    if (renderFrame(mc, c, { lit: S.ov.lit }) === false) { if (!firstFrameDone) loadingFrame(mc); } else { firstFrameDone = true; stopLoadingFrame(mc); viewLoadFinish('cams'); }
+    const dpr = Math.min(1.5, window.devicePixelRatio || 1);
+    const resized = mc.width !== Math.round(w * dpr) || mc.height !== Math.round(h * dpr);
+    const canvas = resized ? document.createElement('canvas') : mc;
+    sizeCanvas(canvas, w, h, 1.5);
+    if (renderFrame(canvas, c, { lit: S.ov.lit }) === false) {
+      if (!firstFrameDone) loadingFrame(mc);
+      return;
+    }
+    if (resized) {
+      sizeCanvas(mc, w, h, 1.5);
+      mc.getContext('2d').drawImage(canvas, 0, 0);
+    }
+    firstFrameDone = true; stopLoadingFrame(mc); viewLoadFinish('cams');
   }, 30);
 }
 $('camlist').addEventListener('click', (e) => { const b = e.target.closest('[data-cam]'); if (!b) return; S.activeCam = b.dataset.cam; S.sel = S.activeCam; renderCams(); });
@@ -10487,14 +11180,15 @@ function focusPipArea() {
 
   // Берём середину снимаемого сектора, ограничивая лучи стенами.
   const bounds = t3bounds(), depth = Math.max(4, Math.hypot(bounds.maxx - bounds.minx, bounds.maxy - bounds.miny));
-  const half = hfov(cam) / RAD / 2, rotation = cam.rot || 0;
+  const half = cameraPlanHalf(cam) / RAD, rotation = cam.rot || 0;
+  const [lensX, lensH, lensY] = cameraPose(cam).position;
   const tilt = (cam.tilt || 0) * RAD;
-  const floorDistance = tilt < -0.01 ? (cam.h || 1.4) / Math.tan(-tilt) : Infinity;
+  const floorDistance = tilt < -0.01 ? Math.max(0, lensH) / Math.tan(-tilt) : Infinity;
   const targets = [-half * 0.75, 0, half * 0.75].map(offset => {
     const [dx, dy] = dirOf(rotation + offset);
-    const wall = rayToWall(cam.x, cam.y, dx, dy);
+    const wall = rayToWall(lensX, lensY, dx, dy);
     const distance = Math.min(depth * 0.65, wall * 0.65, floorDistance);
-    return [cam.x + dx * distance, cam.y + dy * distance];
+    return [lensX + dx * distance, lensY + dy * distance];
   });
   const [x, y] = targets.reduce(([sx, sy], [tx, ty]) => [sx + tx / targets.length, sy + ty / targets.length], [0, 0]);
   const cameraMargin = 0.4;
@@ -10545,13 +11239,16 @@ function camFrameKey(id) { return frameSceneKey() + '|' + id; }
 function pipDraw() {
   const P = S.project.pip, el = $('pip'); if (!P || !el || el.hidden) return; const cam = byId(P.cam); if (!cam) return;
   const cv = el.querySelector('canvas');
-  if (objs().some(x => x.type === 'hero') && HUMAN.state !== 'ready' && HUMAN.state !== 'failed') { loadingFrame(cv); return; }   // готовый кадр появится сразу с настоящими моделями
+  if (humansPending()) { loadingFrame(cv); return; }
   const base = camFrameKey(P.cam), k = base + '|' + cv._w + 'x' + cv._h; if (cv._k === k) return; cv._k = k;   // кадр перерисовывается, только если что-то поменялось
   const ins = document.getElementById('insCanvas');
   if (S.sel === P.cam && ins && ins._frameKey === base && ins.width >= cv.width && ins.height >= cv.height) {
     const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(ins, 0, 0, cv.width, cv.height); return;   // та же камера: используем уже готовый кадр, не рендерим сцену повторно
   }
-  try { if (renderFrame(cv, cam, { lit: true }) === false) { if (!firstFrameDone) loadingFrame(cv); } else { firstFrameDone = true; stopLoadingFrame(cv); } } catch (e) { console.error('pip', e); }
+  try {
+    if (renderFrame(cv, cam, { lit: true }) === false) { if (!firstFrameDone) loadingFrame(cv); }
+    else { firstFrameDone = true; stopLoadingFrame(cv); }
+  } catch (e) { console.error('pip', e); }
 }
 // один кадровый цикл с превью в свойствах: оно ставится в очередь раньше и обновляет сцену,
 // поэтому «Вид с камеры» рисуется следом без искусственной задержки и промежуточного размытия
@@ -10575,7 +11272,7 @@ function bindPip(el) {
 function renderAll(full) {
   loadNeededModels();
   S.rev = (S.rev || 0) + 1; WALL_H = Math.max(WALL_H_MIN, S.project.wh || 3);
-  { const loading = HUMAN.state !== 'ready' && HUMAN.state !== 'failed' && objs().some(o => o.type === 'hero');   // плашка загрузки героев в 3D и «Камерах»
+  { const loading = humansPending();
     document.querySelectorAll('[data-load]').forEach(el => el.hidden = !loading);
     const ve = $('v3Empty'); if (ve) ve.hidden = objs().length > 0; }
   { const pn = $('pname'); if (pn && document.activeElement !== pn) pn.value = S.project.name || 'Без названия'; if (typeof fitName === 'function') fitName(); }   // название проекта в шапке

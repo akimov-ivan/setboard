@@ -1,0 +1,7 @@
+Sophia Animated 003 - Animated 3D Woman by Renderpeople
+Source: https://sketchfab.com/3d-models/sophia-animated-003-animated-3d-woman-dc448c3be0e74f96a55fb475a13433cf
+License: Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+
+Adapted for Setboard: compressed base color atlas, standing and seated poses,
+and a material mask for blouse tint and skin color correction.
