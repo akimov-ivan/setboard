@@ -5233,19 +5233,18 @@ function lightHalf(o) {
   if (o.kind === 'spot') return (o.beam === 36 ? 36 : 19) / 2;
   if (o.grid && GRID_KINDS.includes(o.kind)) return 45;
   if (['softbox', 'stripbox', 'panel', 'mat'].includes(o.kind)) return 80;
-  if (['fresnel', 'kino'].includes(o.kind)) return L.half + 12;
+  if (['fresnel', 'pot', 'kino'].includes(o.kind)) return L.half + 12;
   return L.half;
 }
 function lightPenumbra(o) {
   if (o.kind === 'spot') return 0.1;
-  if (o.kind === 'pot') return 0.045;
   if (o.grid && GRID_KINDS.includes(o.kind)) return 0.35;
   if (o.kind === 'softbox' || o.kind === 'stripbox') return 0.85;
   return o.kind === 'panel' ? 1 : 0.7;
 }
-function lightHalfPower(o) {
-  const half = lightHalf(o) * RAD;
-  return Math.acos((Math.cos(half) + Math.cos(half * (1 - lightPenumbra(o)))) / 2);
+function planLightHalf(o) {
+  if (o.kind === 'spot') return (o.beam === 36 ? 36 : 19) * 0.56;
+  return lightHalf(o);
 }
 const LIGHT_REAL = { p_desk: 0.4, p_torch: 0.5, p_floor: 0.45, p_small: 0.25, softbox: 0.9, mat: 0.6, pot: 0.45, astera: 1.0, spot: 0.6, china: 0.72, fresnel: 0.45, practical: 0.4, reflector: 1.0, panel: 0.6, kino: 1.32, sun: 0.6 };
 function cobBeamFrame(o) {
@@ -5257,26 +5256,6 @@ function cobBeamFrame(o) {
   const cos = Math.cos(tilt), sin = Math.sin(tilt), shift = optical * cos - COB_OPTICAL_Y * sin - retreat;
   const h = o.h ?? 2, y = h + optical * sin + COB_OPTICAL_Y * cos;
   return { x: o.x + dx * shift, y: h < WALL_H ? Math.min(y, WALL_H - 0.03) : y, z: o.y + dz * shift, dx, dz, cos, sin };
-}
-function beamProjection(frame, half, reach, aperture) {
-  const { x, z, dx, dz, cos } = frame, edge = Math.cos(half), span = Math.sin(half);
-  const points = [];
-  // Для каждого направления на плане ищем край конуса, видимый сверху.
-  for (let i = 0; i < 48; i++) {
-    const phase = i * Math.PI / 24, a = Math.cos(phase), b = Math.sin(phase), dot = a * cos;
-    let forward = a, side = b;
-    if (dot < edge) {
-      const ortho = Math.sqrt(Math.max(0, 1 - dot * dot));
-      const scale = ortho > 1e-10 && dot * edge + ortho * span > 0 ? span / ortho : 0;
-      forward = scale ? edge * cos + (a - dot * cos) * scale : 0;
-      side = b * scale;
-    }
-    forward *= reach;
-    side = side * reach + aperture * Math.sign(b);
-    const point = `${(x + forward * dx - side * dz).toFixed(4)} ${(z + forward * dz + side * dx).toFixed(4)}`;
-    if (point !== points[points.length - 1]) points.push(point);
-  }
-  return 'M' + points.join('L') + 'Z';
 }
 const _lsz = {};
 // значок вертикальной Astera — вид сверху на трубку на треноге
@@ -5474,25 +5453,16 @@ function renderPlan() {
     return `M${x} ${y}L${x + ax * R} ${y + ay * R}A${R} ${R} 0 ${half > 90 ? 1 : 0} 1 ${x + bx * R} ${y + by * R}Z`;
   };
   const grad = (id, x, y, R, col, a) => `<defs><radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${x}" cy="${y}" r="${R}"><stop offset="0" stop-color="${col}" stop-opacity="${a}"/><stop offset=".65" stop-color="${col}" stop-opacity="${a * 0.45}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient></defs>`;
-  const areaId = S.layers.light && T3.quality === 'high' && list.some(o => o.type === 'light' && o.kind === 'softbox')
-    ? areaShadowFixture(shadowPicks(HIGH_LIGHT_SHADOWS, true), HIGH_LIGHT_SHADOWS) : null;
   list.forEach(o => {
     if (o.type === 'light' && S.layers.light) {
       const L = LIGHTS[o.kind] || LIGHTS.fresnel; const on = isSel(o.id);
       if (o.kind === 'sun' && objs().some(w => w.type === 'window')) { beams += sunPlan(o, on); return; }
       const R = L.omni ? Math.min(L.len, 2.2) : Math.min(L.len, o.kind === 'sun' ? 4.5 : 2.8), id = 'lb' + o.id;
       if (L.omni) { beams += grad(id, o.x, o.y, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11) + `<circle cx="${o.x}" cy="${o.y}" r="${R}" fill="url(#${id})" pointer-events="none"/>`; }
-      else if (COB_BEAM_KINDS.includes(o.kind)) {
-        const frame = cobBeamFrame(o), aperture = o.kind === 'softbox' && o.id === areaId ? emitOf(o.kind, o) * 0.32 : 0;
-        const col = lightCss(o) || 'var(--light)', outer = beamProjection(frame, lightHalf(o) * RAD, R, aperture);
-        const core = beamProjection(frame, lightHalfPower(o), R, aperture);
-        const paint = (suffix, d, alpha) => grad(id + suffix, frame.x, frame.z, R + aperture, col, alpha)
-          + `<path d="${d}" fill="url(#${id + suffix})" pointer-events="none"/>`;
-        beams += paint('edge', outer, on ? 0.11 : 0.045) + paint('core', core, on ? 0.22 : 0.11);
-      }
       else {
         // луч начинается от передней (светящей) плоскости прибора и имеет её ширину — у софтбокса от рассеивающего полотна
-        const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85, half = Math.min(lightHalf(o), 89);
+        const k = lightSize(o.kind, o) / 24, ib = iconBox(lightIcon(o)), fo = Math.max(0, 12 - ib.y) * k * 0.97, hw = ib.w / 2 * k * 0.85;
+        const half = Math.min(planLightHalf(o), 89);
         const [fx, fy] = dirOf(o.rot), cx = o.x + fx * fo, cy = o.y + fy * fo, [lx, ly] = dirOf(o.rot - 90), [ax, ay] = dirOf(o.rot - half), [bx, by] = dirOf(o.rot + half);
         const p1 = [cx + lx * hw, cy + ly * hw], p2 = [cx - lx * hw, cy - ly * hw];
         beams += grad(id, cx, cy, R, (lightCss(o) || 'var(--light)'), on ? 0.26 : 0.11);
@@ -6231,7 +6201,7 @@ let WALL_H = 3; const WALL_T = 0.08, WALL_H_MIN = 2.3, wallH = () => WALL_H;   /
    Полутень: несколько выборок по углу, ширина зависит от размера прибора (SOFT_R) и расстояний до стены. */
 const WOCC = { AN: 512, HITS: 4, SLOTS: 80, list: [], ver: 0, key: '', C: [], nc: 0, pt: new Float32Array(32), sp: new Float32Array(32), ra: new Float32Array(16) };   /* слоты карты: точечные 0–31, прожекторы 32–63, площадные 64–79 (по порядку источников в шейдере) */
 /* радиус («размер») источника по типу прибора: чем больше светящая поверхность, тем мягче тень */
-const SOFT_R = { china: 0.7, softbox: 0.55, stripbox: 0.55, kino: 0.5, panel: 0.45, astera: 0.35, mat: 0.3, reflector: 0.5, practical: 0.2, pot: 0.05, p_floor: 0.18, p_torch: 0.15, p_desk: 0.1, p_small: 0.05, fresnel: 0.06, spot: 0.04 }, softR2 = (kind) => SOFT_R[kind] !== undefined ? SOFT_R[kind] : 0.2;
+const SOFT_R = { china: 0.7, softbox: 0.55, stripbox: 0.55, kino: 0.5, panel: 0.45, astera: 0.35, mat: 0.3, reflector: 0.5, practical: 0.2, pot: 0.12, p_floor: 0.18, p_torch: 0.15, p_desk: 0.1, p_small: 0.05, fresnel: 0.06, spot: 0.04 }, softR2 = (kind) => SOFT_R[kind] !== undefined ? SOFT_R[kind] : 0.2;
 WOCC.tex = new THREE.DataTexture(new Float32Array(WOCC.AN * WOCC.SLOTS * WOCC.HITS * 4), WOCC.AN, WOCC.SLOTS * WOCC.HITS, THREE.RGBAFormat, THREE.FloatType);
 WOCC.tex.magFilter = WOCC.tex.minFilter = THREE.NearestFilter; WOCC.tex.generateMipmaps = false; WOCC.tex.needsUpdate = true;
 for (let i = 0; i < 16; i++) WOCC.C.push(new THREE.Vector4());   /* потолок: рамки (minx, minz, maxx, maxz) над каждой комнатой */
@@ -6322,7 +6292,7 @@ float wallVis( const in mat4 iv, const in vec3 pv, const in vec3 nv, const in ve
   THREE.Material.prototype.onBeforeRender = function (renderer, scene, camera) { if (camera && camera.isCamera) WOCC_U.wallIV.value.copy(camera.matrixWorld); };
 })();
 // размер светящей поверхности (м) → мягкость тени
-const EMIT = { p_desk: 0.25, p_torch: 0.45, p_floor: 0.4, p_small: 0.15, softbox: 0.9, mat: 0.6, kino: 1.2, reflector: 1.0, china: 0.6, panel: 0.5, astera: 0.35, practical: 0.35, pot: 0.09, fresnel: 0.15, spot: 0.05, sun: 0.02 };
+const EMIT = { p_desk: 0.25, p_torch: 0.45, p_floor: 0.4, p_small: 0.15, softbox: 0.9, mat: 0.6, kino: 1.2, reflector: 1.0, china: 0.6, panel: 0.5, astera: 0.35, practical: 0.35, pot: 0.4, fresnel: 0.15, spot: 0.05, sun: 0.02 };
 function emitOf(kind, o) {
   if (kind === 'stripbox') { const { w, h } = stripboxDims(o); return Math.sqrt(w * h); }
   if (kind === 'softbox') return softboxSize(o) / 100;
@@ -6331,7 +6301,7 @@ function emitOf(kind, o) {
 }
 /* карта теней: чем шире конус, тем больше текселей нужно, иначе край тени «пилится» */
 const shadowMapFor = (kind, hq, angRad) => {
-  if (kind === 'spot' || kind === 'pot') return hq ? 2048 : 1024;
+  if (kind === 'spot') return hq ? 2048 : 1024;
   const sharp = kind === 'fresnel', deg = angRad * 180 / Math.PI;
   if (!hq) return deg >= 60 ? 1024 : (sharp ? 512 : 256);
   if (deg >= 60) return 2048;
@@ -6341,7 +6311,6 @@ const shadowMapFor = (kind, hq, angRad) => {
 /* радиус PCF задаём в сантиметрах на стене и переводим в тексели для конкретной карты и дистанции */
 const shadowRadiusFor = (kind, mapSize, halfAngle, dist, o) => {
   if (kind === 'spot') return 1.25;   // проекционная насадка: фильтр только сглаживает пиксели карты
-  if (kind === 'pot') return 1.35;    // жёсткий рисунок от маленького COB в рефлекторе
   const span = 2 * Math.tan(halfAngle) * Math.max(0.5, dist);
   const texelCm = span * 100 / mapSize;
   const softCm = 1.5 + emitOf(kind, o) * 9;                                // желаемая ширина размытия края растёт вместе с диаметром софтбокса
@@ -8752,7 +8721,7 @@ function buildLight(sc, g, o, lit, shadowBudget) {
         // Карта теней покрывает весь луч: за её краем источник светил сквозь предметы.
         const size = Math.min(shadowMapFor(k, hq, ang), areaShadow ? 1024 : Infinity);
         sp.shadow.mapSize.set(size, size);
-        sp.shadow.bias = k === 'spot' ? -0.00005 : k === 'pot' ? -0.00012 : -0.0008;
+        sp.shadow.bias = k === 'spot' ? -0.00005 : -0.0008;
         sp.shadow.camera.near = 0.1;
         sp.shadow.radius = shadowRadiusFor(k, size, ang, Math.min(3, L.len * 3.2), o);
       }
@@ -9130,7 +9099,7 @@ function t3obj(sc, o, lit, budget) {
     else if (o.type === 'light') {
       const n0 = sc.children.length; buildLight(sc, g, o, lit, budget);
       const nodes = sc.children.slice(n0); (T3.nodesOf || (T3.nodesOf = {}))[o.id] = nodes;   // источники, их цели и солнечный диск живут в корне сцены — удаляем вместе с прибором
-      const ls = nodes.filter(l => l.isLight); ls.forEach(l => { l.userData.base = l.intensity; l.userData.oid = o.id; l.userData.soft = softR2(o.kind) * (o.kind === 'softbox' || o.kind === 'stripbox' ? emitOf(o.kind, o) / 0.9 : o.kind === 'panel' ? Math.max(panelW(o), panelH(o)) / 0.5 : 1); if (l.castShadow && l.shadow) l.shadow.normalBias = l.userData.sun || o.kind === 'pot' ? 0.01 : o.kind === 'spot' ? 0.005 : 0.03; });
+      const ls = nodes.filter(l => l.isLight); ls.forEach(l => { l.userData.base = l.intensity; l.userData.oid = o.id; l.userData.soft = softR2(o.kind) * (o.kind === 'softbox' || o.kind === 'stripbox' ? emitOf(o.kind, o) / 0.9 : o.kind === 'panel' ? Math.max(panelW(o), panelH(o)) / 0.5 : 1); if (l.castShadow && l.shadow) l.shadow.normalBias = l.userData.sun ? 0.01 : o.kind === 'spot' ? 0.005 : 0.03; });
       if (o.kind !== 'sun' && (o.h || 0) < WALL_H) ls.forEach(l => {
         const drop = l.position.y - (WALL_H - 0.03);
         if (drop > 0) { l.position.y -= drop; if (l.target) l.target.position.y -= drop; }
