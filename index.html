@@ -5200,11 +5200,18 @@ function cameraField(c, aspect = aspectOf(c)) {
 }
 const CAMERA_BODY_Z = 0.035, CAMERA_BODY_LENGTH = 0.19;
 const cameraHeight = c => Math.max(0.1, c.h ?? 1.4);
-function cameraLensProfile(c) {
+function ursaCameraLensProfile(c) {
   const lens = Number(c.lens) > 0 ? Number(c.lens) : 35;
   const length = 0.085 + Math.min(0.16, lens * 0.00055);
   const mountZ = CAMERA_BODY_Z - CAMERA_BODY_LENGTH / 2 - 0.009, startZ = mountZ - 0.0225;
   return { length, mountZ, startZ, glassZ: startZ - length - 0.003 };
+}
+// BMPCC 6K Pro: ось камеры проходит через байонет; оба зума имеют внутреннее зумирование.
+function cameraLensProfile(c) {
+  const lens = Number(c.lens) > 0 ? Number(c.lens) : 35;
+  const tele = lens >= 70, length = tele ? 0.199 : 0.121;
+  const mountZ = -0.044, startZ = -0.050;
+  return { tele, length, mountZ, startZ, glassZ: startZ - length + 0.005 };
 }
 function cameraPose(c) {
   const [dx, dy] = dirOf(c.rot || 0), tilt = (c.tilt || 0) * RAD;
@@ -5219,6 +5226,35 @@ const segOf = (o) => { const dx = o.x2 - o.x1, dy = o.y2 - o.y1, len = Math.hypo
 function centerOf(o) { return o.x1 !== undefined ? [(o.x1 + o.x2) / 2, (o.y1 + o.y2) / 2] : o.type === 'stroke' ? (o.pts[0] || [0, 0]) : [o.x, o.y]; }
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); }
 
+// Крепление — свойство прибора; координаты опоры бума хранятся относительно его точки на схеме.
+const LIGHT_MOUNTS = [['stand','Стойка'],['boom','Бум'],['hang','Подвес']];
+const BOOM_MIN_REACH = .35, BOOM_MAX_REACH = 2.2;
+function lightMountable(o) { return o?.type === 'light' && o.kind !== 'sun' && !PRAC_FIXED.includes(o.kind); }
+function lightMount(o) {
+  if (LIGHT_MOUNTS.some(([k]) => k === o.mount)) return o.mount;
+  return o.kind === 'china' || o.kind === 'practical' ? 'hang' : 'stand';
+}
+function boomOffset(o) {
+  if (Number.isFinite(o.boomDx) && Number.isFinite(o.boomDy)) {
+    const d=Math.hypot(o.boomDx,o.boomDy);
+    if(d>=BOOM_MIN_REACH){const k=Math.min(1,BOOM_MAX_REACH/d);return [o.boomDx*k,o.boomDy*k];}
+  }
+  const [dx,dy]=dirOf((o.rot||0)+135); return [dx*1.45,dy*1.45];
+}
+function boomBase(o) { const [dx,dy]=boomOffset(o);return [o.x+dx,o.y+dy]; }
+function setBoomBase(o,x,y) {
+  let dx=x-o.x,dy=y-o.y,d=Math.hypot(dx,dy);
+  if(d<.001){[dx,dy]=boomOffset(o);d=Math.hypot(dx,dy);}
+  const reach=Math.max(BOOM_MIN_REACH,Math.min(BOOM_MAX_REACH,d));
+  dx*=reach/d;dy*=reach/d;
+  o.boomDx=+dx.toFixed(4);o.boomDy=+dy.toFixed(4);
+}
+function setLightMount(o,mount) {
+  if(!lightMountable(o)||!LIGHT_MOUNTS.some(([k])=>k===mount))return;
+  if(mount==='boom'){const[x,y]=boomBase(o);setBoomBase(o,x,y);}
+  o.mount=mount;
+  if(o.kind==='astera'&&mount!=='stand'&&!(o.ah>=.5)){o.ah=1.6;o.h=asteraH(o);}
+}
 // ---------- plan rendering ----------
 const plan = $('plan');
 const W2S = (x, y) => [x * S.vp.s + S.vp.ox, y * S.vp.s + S.vp.oy];
@@ -5506,6 +5542,12 @@ function renderPlan() {
       geo += `<g data-id="${o.id}" class="${g}" style="color:var(--prop)" transform="translate(${o.x} ${o.y}) rotate(${o.kind === 'mic' ? 0 : o.rot})"><rect x="${-hw / 2}" y="${-hd / 2}" width="${hw}" height="${hd}" fill="transparent"/><g class="glyph" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="scale(${o.w / bb.w} ${o.d / bb.h}) translate(${-bb.x - bb.w / 2} ${-bb.y - bb.h / 2})">${propPaint(P.icon, o.kind === 'carpet')}</g></g>`;
     } else if (o.type === 'light') {
       const L = LIGHTS[o.kind] || LIGHTS.fresnel;
+      if(lightMountable(o)&&lightMount(o)==='boom') {
+        const [bx,by]=boomBase(o), r=Math.max(.19,13/s), col=lightCss(o)||'var(--light)';
+        geo += `<line x1="${o.x}" y1="${o.y}" x2="${bx}" y2="${by}" stroke="${col}" stroke-opacity=".65" stroke-width="1.6" stroke-dasharray="5 4" vector-effect="non-scaling-stroke" pointer-events="none"/>`;
+        const legs=[0,120,240].map(a=>{const [dx,dy]=dirOf(a);return `<path d="M0 0L${dx*r*.83} ${dy*r*.83}" stroke="currentColor" stroke-width="2.1" vector-effect="non-scaling-stroke" stroke-linecap="round"/>`;}).join('');
+        top += `<g data-boom="${o.id}" class="${g} boom-handle" style="color:${col};cursor:${o.locked?'default':'grab'}" transform="translate(${bx} ${by})"><title>Стойка бума · перетащите для перемещения</title><circle r="${Math.max(r,22/s)}" fill="transparent"/><circle r="${r}" fill="var(--canvas)" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${legs}<circle r="${r*.21}" fill="currentColor"/></g>`;
+      }
       let ix = o.x, iy = o.y; if (o.kind === 'p_neon' && o.wall) { const [fx, fy] = dirOf(o.rot), off = neonDims(o).h / 2 + 0.04; ix -= fx * off; iy -= fy * off; }
       const lsz = lightSize(o.kind, o); geo += `<g data-id="${o.id}" class="${g}" style="color:${lightCss(o) || 'var(--light)'}"><circle cx="${ix}" cy="${iy}" r="${Math.max(0.2, lsz * 0.35)}" fill="transparent"/>${o.kind === 'p_neon' ? neonGlyph(o, ix, iy, o.rot) : glyph(lightIcon(o), ix, iy, ((L.omni && !L.rotIcon) || o.kind === 'sun' || L.prac) ? 0 : o.rot, lsz, (lightCss(o) || 'var(--light)'))}</g>`;
     } else if (o.type === 'hero') {
@@ -5537,6 +5579,7 @@ function renderPlan() {
     if (o.x1 !== undefined) { segs.push([W2S(o.x1, o.y1), W2S(o.x2, o.y2)]); return; }
     if (o.type === 'prop') { if (o.kind === 'carpet') return; const a = (o.rot || 0) * RAD, hx = (Math.abs(o.w * Math.cos(a)) + Math.abs(o.d * Math.sin(a))) / 2 * s, hy = (Math.abs(o.w * Math.sin(a)) + Math.abs(o.d * Math.cos(a))) / 2 * s; const [x, y] = W2S(o.x, o.y); soft.push({ id: o.id, x0: x - hx, y0: y - hy, x1: x + hx, y1: y + hy }); return; }
     if (['camera', 'hero', 'light'].includes(o.type)) { const [x, y] = W2S(o.x, o.y), r = iconR(o) * s; hard.push({ id: o.id, x0: x - r, y0: y - r, x1: x + r, y1: y + r }); }
+    if(lightMountable(o)&&lightMount(o)==='boom'){const [x,y]=W2S(...boomBase(o)),r=Math.max(.19*s,13);hard.push({id:o.id+'-boom',x0:x-r,y0:y-r,x1:x+r,y1:y+r});}
   });
   const ov = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
   const segHit = (R) => { let n = 0; segs.forEach(([p, q]) => { const L = Math.hypot(q[0] - p[0], q[1] - p[1]), k = Math.max(1, Math.ceil(L / 5)); for (let i = 0; i <= k; i++) { const x = p[0] + (q[0] - p[0]) * i / k, y = p[1] + (q[1] - p[1]) * i / k; if (x > R.x0 - 2 && x < R.x1 + 2 && y > R.y0 - 2 && y < R.y1 + 2) n++; } }); return n * 60; };
@@ -5852,7 +5895,7 @@ const MAT = {};
 let modelRefreshTimer = 0;
 function modelsChanged() {
   clearTimeout(modelRefreshTimer);
-  modelRefreshTimer = setTimeout(() => { T3.modelRev = (T3.modelRev || 0) + 1; T3.key = ''; V3.dirty = true; renderAll(true); }, 60);
+  modelRefreshTimer = setTimeout(() => { T3.modelRev = (T3.modelRev || 0) + 1; V3.dirty = true; renderAll(true); }, 60);
 }
 function loadNeededModels() {
   humansLoad(); plantLoad(); chairLoad(); curtainLoad(); cabinetLoad();
@@ -5953,34 +5996,64 @@ function t3compileRedraw() {
 }
 /* Перед первым кадром переносим готовые текстуры на GPU небольшими порциями.
    WeakMap не удерживает удалённые текстуры; version учитывает их обновления. */
-function t3warmTextures(r, sc) {
+function t3textureQueue(r,sc) {
+  if(!r.userData)r.userData={};
   const textures = new Set(), done = r.userData.warmedTextures || (r.userData.warmedTextures = new WeakMap());
   sc.traverse(o => {
     const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
     ms.forEach(m => Object.values(m).forEach(t => { if (t && t.isTexture && t.image && done.get(t) !== t.version) textures.add(t); }));
   });
-  const queue = [...textures];
+  return [...textures];
+}
+function t3warmTextures(r, sc, queue=t3textureQueue(r,sc)) {
+  const done=r.userData.warmedTextures;
+  if(!queue.length)return Promise.resolve();
   return new Promise((resolve, reject) => {
     const next = () => {
       if (sc !== T3.scene || !queue.length) { resolve(); return; }
       try {
-        const t = queue.shift(); r.initTexture(t); done.set(t, t.version);
-        setTimeout(next, 0);
+        const start=performance.now();let n=0;
+        do { const t = queue.shift(); r.initTexture(t); done.set(t, t.version); n++; }
+        while(queue.length&&n<8&&performance.now()-start<7);
+        if(queue.length)setTimeout(next,0);else resolve();
       } catch (e) { reject(e); }
     };
     setTimeout(next, 0);
   });
 }
+// Смена положения или размера объекта обычно не меняет набор GPU-программ.
+// Three.js всё равно проверяет собственный кэш при отрисовке, поэтому пропуск
+// повторной предварительной компиляции не меняет изображение.
+function t3shaderKey(sc) {
+  if(T3.shaderScene===sc&&T3.shaderVer===T3.ver)return T3.shaderKey;
+  const variants=new Set(),lights={};
+  sc.traverse(o=>{
+    if(o.isLight){const k=o.type+'|'+!!o.castShadow+'|'+!!o.map;lights[k]=(lights[k]||0)+1;return;}
+    if(!o.material)return;
+    const geo=o.geometry, attrs=Object.keys(geo?.attributes||{}).sort().join(','), morph=Object.keys(geo?.morphAttributes||{}).sort().join(',');
+    const materials=[...(Array.isArray(o.material)?o.material:[o.material]),...(o.userData.orig?[o.userData.orig]:[])];
+    for(const m of materials){
+      if(!m)continue;
+      const maps=Object.entries(m).filter(([,v])=>v?.isTexture).map(([k,v])=>k+':'+v.mapping+':'+v.channel+':'+v.colorSpace).sort().join(',');
+      variants.add([m.type,m.customProgramCacheKey?.(),JSON.stringify(m.defines||{}),maps,m.side,m.alphaTest>0,m.transparent,m.vertexColors,m.flatShading,m.normalMapType,m.fog,m.toneMapped,!!m.clippingPlanes?.length,!!o.isSkinnedMesh,!!o.isInstancedMesh,!!o.isBatchedMesh,!!o.receiveShadow,attrs,morph].join('|'));
+    }
+  });
+  T3.shaderScene=sc;T3.shaderVer=T3.ver;
+  return T3.shaderKey=JSON.stringify([Object.entries(lights).sort(),[...variants].sort()]);
+}
 function t3compile(r, sc, cam) {
   if (T3.pendingBuild) return false;
   if (!r.userData) r.userData = {};
   if (!r.compileAsync || r.userData.compileAsyncFailed || T3.compiledVer === T3.ver) return true;
+  const shaderKey=t3shaderKey(sc),textures=t3textureQueue(r,sc);
+  if(r.userData.screenShaderKey===shaderKey&&!textures.length){T3.compiledVer=T3.ver;return true;}
   viewLoadProgress(62);
   if (T3.compileBusy) return false;
   const ver = T3.ver; T3.compileVer = ver; T3.compileBusy = true;
   /* Тайм-аут не означает готовность GPU. Не запускаем синхронный тяжёлый кадр
      поверх незавершённой компиляции и не удаляем используемые ею материалы. */
-  Promise.all([r.compileAsync(sc, cam), t3warmTextures(r, sc)]).then(() => {
+  Promise.all([r.userData.screenShaderKey===shaderKey?Promise.resolve():r.compileAsync(sc, cam), t3warmTextures(r, sc,textures)]).then(() => {
+    r.userData.screenShaderKey=shaderKey;
     T3.compiledVer = ver;
   }).catch(e => {
     console.error('3D compile', e); r.userData.compileAsyncFailed = true;
@@ -6149,6 +6222,8 @@ function t3mergeStatic(root) {
     names.forEach(name => { const a0 = gs[0].attributes[name], n = gs.reduce((s, g) => s + g.attributes[name].count, 0), arr = new Float32Array(n * a0.itemSize); let off = 0;
       gs.forEach(g => { const a = g.attributes[name]; arr.set(a.array, off); off += a.array.length; }); out.setAttribute(name, new THREE.BufferAttribute(arr, a0.itemSize, a0.normalized)); });
     out.computeBoundingBox(); out.computeBoundingSphere(); const first = list[0], me = new THREE.Mesh(out, first.material); me.castShadow = first.castShadow; me.receiveShadow = first.receiveShadow; root.add(me);
+    // Для экспозамера сохраняем границы отдельных деталей, а не общий прямоугольник всей стойки.
+    if (exposureExcludedMaterial(first.material)) me.userData.exposureBoxes = gs.map(g => { g.computeBoundingBox(); return g.boundingBox.clone(); });
     list.forEach(m => { m.parent.remove(m); if (!m.userData.shared) m.geometry.dispose(); }); gs.forEach(g => g.dispose());
   });
 }
@@ -6187,7 +6262,7 @@ function t3bounds() {
   const walls = objs().filter(o => o.type === 'wall');
   let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
   const src = walls.length ? walls : objs();
-  src.forEach(o => { const pts = o.x1 !== undefined ? [[o.x1, o.y1], [o.x2, o.y2]] : o.type === 'stroke' ? [] : [[o.x, o.y]]; pts.forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }); });
+  src.forEach(o => { const pts = o.x1 !== undefined ? [[o.x1, o.y1], [o.x2, o.y2]] : o.type === 'stroke' ? [] : [[o.x, o.y]]; if(lightMountable(o)&&lightMount(o)==='boom')pts.push(boomBase(o)); pts.forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }); });
   if (minx > maxx) { minx = 0; miny = 0; maxx = 6; maxy = 5; }
   return { minx, miny, maxx, maxy, walls: walls.length > 0 };
 }
@@ -6291,6 +6366,26 @@ float wallVis( const in mat4 iv, const in vec3 pv, const in vec3 nv, const in ve
   THREE.Material.prototype.onBeforeCompile = function (shader) { Object.assign(shader.uniforms, WOCC_U); };
   THREE.Material.prototype.onBeforeRender = function (renderer, scene, camera) { if (camera && camera.isCamera) WOCC_U.wallIV.value.copy(camera.matrixWorld); };
 })();
+// PCF: 17 сравнений, как в Three.js, но без регулярной сетки. Координаты
+// фиксированы, попарно симметричны; разброс по X/Y соответствует исходному фильтру.
+(function () {
+  const C = THREE.ShaderChunk, source = C.shadowmap_pars_fragment;
+  const start = source.indexOf('#if defined( SHADOWMAP_TYPE_PCF )', source.indexOf('float getShadow('));
+  const end = source.indexOf('#elif defined( SHADOWMAP_TYPE_PCF_SOFT )', start);
+  if (start < 0 || end <= start || (source.slice(start, end).match(/texture2DCompare\(/g) || []).length !== 17) {
+    console.error('Setboard: не удалось обновить 17-точечный фильтр теней'); return;
+  }
+  // Разнесённые точки (аналог Poisson Disk): центр и восемь противоположных пар.
+  // Константы в GLSL разворачиваем при запуске JS, без циклов и тригонометрии на GPU.
+  const pairs = [[1, .154], [-.294, -.994], [-.097, .567], [.908, .819], [-1, .697], [.482, .426], [-.610, .274], [.481, -1]];
+  const offsets = pairs.flatMap(([x, y]) => [[x, y], [-x, -y]]);
+  const samples = ['texture2DCompare( shadowMap, shadowCoord.xy, shadowCoord.z )', ...offsets.map(([x, y]) =>
+    `texture2DCompare( shadowMap, shadowCoord.xy + sbRadius * vec2( ${x.toFixed(3)}, ${y.toFixed(3)} ), shadowCoord.z )`)];
+  C.shadowmap_pars_fragment = source.slice(0, start) + `#if defined( SHADOWMAP_TYPE_PCF )
+    vec2 sbRadius = vec2(1.0) / shadowMapSize * shadowRadius;
+    shadow = ( ${samples.join(' +\n      ')} ) * (1.0 / 17.0);
+    ` + source.slice(end);
+})();
 // размер светящей поверхности (м) → мягкость тени
 const EMIT = { p_desk: 0.25, p_torch: 0.45, p_floor: 0.4, p_small: 0.15, softbox: 0.9, mat: 0.6, kino: 1.2, reflector: 1.0, china: 0.6, panel: 0.5, astera: 0.35, practical: 0.35, pot: 0.4, fresnel: 0.15, spot: 0.05, sun: 0.02 };
 function emitOf(kind, o) {
@@ -6368,7 +6463,7 @@ const floorFin = (o) => o && FLOOR_FIN[o.fin] ? o.fin : 'laminate';
 const floorCol = (o) => (o && o.wcol) || FLOOR_FIN[floorFin(o)].col;
 function finishTex(key, path, srgb, repeat) {
   if (T3.tex[key]) return T3.tex[key];
-  const t = new THREE.TextureLoader().load(path, t3compileRedraw); t.anisotropy = 4;
+  const t = new THREE.TextureLoader().load(path,()=>{T3.textureRev=(T3.textureRev||0)+1;t3compileRedraw();}); t.anisotropy = 4;
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = t.wrapT = repeat ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
   T3.tex[key] = t; return t;
@@ -6579,7 +6674,7 @@ function laminateBaseMap(col) {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.wrapS = t.wrapT = THREE.RepeatWrapping; T3.tex[key] = t;
   let loaded = 0; const draw = () => {
     if (++loaded < 2) return;
-    const x = cv.getContext('2d'); x.globalAlpha = 1; x.drawImage(neutral, 0, 0); x.globalAlpha = mix; x.drawImage(color, 0, 0); x.globalAlpha = 1; t.needsUpdate = true; t3compileRedraw();
+    const x = cv.getContext('2d'); x.globalAlpha = 1; x.drawImage(neutral, 0, 0); x.globalAlpha = mix; x.drawImage(color, 0, 0); x.globalAlpha = 1; t.needsUpdate = true; T3.textureRev=(T3.textureRev||0)+1;t3compileRedraw();
   };
   const neutral = new Image(), color = new Image(); neutral.onload = draw; color.onload = draw;
   neutral.src = 'models/finishes/laminate-neutral.webp'; color.src = 'models/finishes/laminate.webp';
@@ -8119,8 +8214,8 @@ function buildHero(g, o) {
     const hd = blob(g, 1, skin, hand.x, hand.y, hand.z, 0.024, 0.075, 0.045); hd.rotation.set(hrot[0], hrot[1], hrot[2]);
   });
 }
-function buildCamera(g, o) { buildUrsaCamera(g, o); }
-function buildUrsaCamera(g, o) {
+function buildCamera(g, o) { buildUrsaCamera(g, o, buildPocket6KBody); }
+function buildUrsaCamera(g, o, replacementBody) {
   const axisHeight = cameraHeight(o), h = Math.max(0.45, axisHeight), ff = o.sensor === 'FF' ? 1.08 : 1;
   const body = mat('ursa-body', '#30363A', { roughness: 0.42, metalness: 0.68 });
   const edge = mat('ursa-edge', '#151A1D', { roughness: 0.5, metalness: 0.55 });
@@ -8143,10 +8238,15 @@ function buildUrsaCamera(g, o) {
   const lineScrew = (s, r) => { const q = mbox(s, r * 1.2, r * 0.16, r * 0.08, edge, 0, 0, -r * 0.22, true); };
   const cylZ = (p, r0, r1, len, m, x, y, z, seg) => { const q = mcyl(p, r0, r1, len, m, x, y, z, seg || 32, true); q.rotation.x = Math.PI / 2; return q; };
 
-  const head = new THREE.Group(); head.position.set(0, axisHeight, 0); head.rotation.x = (o.tilt || 0) * RAD;
-  if (aspectOf(o) < 1) head.rotateZ(Math.PI / 2);
+  const tilt=(o.tilt || 0)*RAD, portrait=aspectOf(o)<1;
+  const head = new THREE.Group(); head.position.set(0, axisHeight, 0); head.rotation.x = tilt;
+  if (portrait) head.rotateZ(Math.PI / 2);
   g.add(head);
-  const BW = 0.145 * ff, BH = 0.15 * ff, BL = CAMERA_BODY_LENGTH, bz = CAMERA_BODY_Z, bf = bz - BL / 2;
+  const mountBottom=portrait?.087:.062, plateZ=.0015, plateBottom=mountBottom+.026;
+  const plateDy=-plateBottom*Math.cos(tilt)-plateZ*Math.sin(tilt), plateDz=-plateBottom*Math.sin(tilt)+plateZ*Math.cos(tilt);
+  const BW = 0.145 * ff, BH = 0.15 * ff, BL = CAMERA_BODY_LENGTH, bz = replacementBody ? plateDz : CAMERA_BODY_Z, bf = bz - BL / 2;
+  if (replacementBody) replacementBody(head, o);
+  else {
   rbox(head, BW, BH, BL, body, 0, 0, bz, 0.008);
   rbox(head, BW * 0.94, 0.018, BL * 0.9, edge, 0, -BH / 2 - 0.006, bz, 0.005);
   rbox(head, BW * 0.78, 0.017, BL * 0.82, body, 0, BH / 2 + 0.006, bz + 0.006, 0.004);
@@ -8162,7 +8262,7 @@ function buildUrsaCamera(g, o) {
   const led = mat('battery-led', '#8FCB68', { emissive: c3('#7BBD55'), emissiveIntensity: 0.6, roughness: 0.4 });
   for (let i = 0; i < 4; i++) msph(head, 0.0022, led, -0.018 + i * 0.012, -0.038, batteryZ + 0.029, true);
 
-  const { mountZ, startZ: lz, length: LL, glassZ } = cameraLensProfile(o);
+  const { mountZ, startZ: lz, length: LL, glassZ } = ursaCameraLensProfile(o);
   cylZ(head, 0.065 * ff, 0.065 * ff, 0.018, edge, 0, 0, mountZ, 48);
   cylZ(head, 0.058 * ff, 0.058 * ff, 0.008, silver, 0, 0, mountZ - 0.012, 64);
   cylZ(head, 0.049 * ff, 0.049 * ff, 0.009, darkMetal, 0, 0, mountZ - 0.018, 64);
@@ -8210,11 +8310,22 @@ function buildUrsaCamera(g, o) {
   for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; cylZ(ports, 0.0024, 0.0024, 0.004, rubber, 0.013 + Math.cos(a) * 0.008, -0.014 + Math.sin(a) * 0.008, -0.012, 12); }
   labelMesh(ports, 'SDI  •  12V', 0.055, 0.008, 0, 0.034, -0.006, Math.PI, '#D5D9DA');
   const rec = mcyl(head, 0.006, 0.006, 0.004, red, BW / 2 + 0.008, BH * 0.3, bz - 0.055, 20, true); rec.rotation.z = Math.PI / 2;
+  }
 
-  const hy = h - BH / 2 - 0.012;
-  rbox(g, 0.135, 0.022, 0.18, darkMetal, 0, hy + 0.014, bz + 0.012);
-  rbox(g, 0.092, 0.012, 0.135, rubber, 0, hy + 0.03, bz - 0.006);
-  for (const sx of [-1, 1]) screw(g, sx * 0.045, hy + 0.038, bz - 0.047, 0.003, false);
+  const hy = replacementBody ? h + plateDy - 0.010 : h - BH / 2 - 0.012;
+  if (replacementBody) {
+    // Площадка наклоняется вместе с корпусом; при вертикальном кадре остаётся под камерой.
+    const mount=new THREE.Group();if(portrait)mount.rotateZ(-Math.PI/2);head.add(mount);
+    rbox(mount,.082,.010,.081,rubber,0,-mountBottom-.004,plateZ,.004);
+    rbox(mount,.105,.018,.105,darkMetal,0,-mountBottom-.017,plateZ,.005);
+    // Поворотный узел соединяет площадку с верхом жидкостной головки.
+    rbox(g,.075,.032,.073,edge,0,hy-.003,bz,.006);
+    const pivot=mcyl(g,.021,.021,.078,darkMetal,0,hy-.005,bz,32);pivot.rotation.z=Math.PI/2;
+  } else {
+    rbox(g,0.135,0.022,0.18,darkMetal,0,hy+0.014,bz+0.012);
+    rbox(g,0.092,0.012,0.135,rubber,0,hy+0.03,bz-0.006);
+    for (const sx of [-1, 1]) screw(g, sx*0.045, hy+0.038, bz-0.047, 0.003, false);
+  }
   const fluid = new THREE.Group(); fluid.position.set(0, hy - 0.055, bz); g.add(fluid);
   rbox(fluid, 0.09, 0.07, 0.092, edge, 0, 0, 0, 0.016);
   const casing = msph(fluid, 0.055, body, -0.028, 0.002, 0, true); casing.scale.set(0.58, 0.88, 0.82);
@@ -8256,19 +8367,260 @@ function buildUrsaCamera(g, o) {
     labelMesh(g, 'Sachtler', 0.047, 0.01, ux * (top + 0.032), y0 - 0.018, bz + uz * (top + 0.032), Math.atan2(ux, uz), '#D9DEDD');
     mrod(g, V(ux * R, 0.06, bz + uz * R), V(ux * R, 0.018, bz + uz * R), 0.008, darkMetal, true);
     const loop = mesh(g, new THREE.TorusGeometry(0.018, 0.0035, 8, 28), rubber, ux * R, 0.043, bz + uz * R, true); loop.rotation.y = -a;
-    mcyl(g, 0.027, 0.029, 0.008, red, ux * R, 0.006, bz + uz * R, 32, true);
+    mcyl(g, 0.027, 0.029, 0.008, mat('ace-foot-red', '#741D23', { roughness: 0.82 }), ux * R, 0.006, bz + uz * R, 32, true);
     mrod(g, P(rm, ym, 0), V(0, hubY, bz), 0.0065, darkMetal, true);
     const spread = rbox(g, 0.04, 0.025, 0.037, edge, ux * rm, ym, bz + uz * rm, 0.004); spread.rotation.y = -a;
   }
   if (axisHeight < h) {
     const supports = new THREE.Group();
     supports.add(...g.children.filter(node => node !== head));
-    supports.scale.y = (axisHeight - BH / 2 + 0.018) / (h - BH / 2 + 0.018);
+    supports.scale.y = replacementBody ? Math.max(0.015, axisHeight + plateDy) / (h + plateDy) : (axisHeight - BH / 2 + 0.018) / (h - BH / 2 + 0.018);
     g.add(supports);
   }
-  g.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  g.traverse(m => { if (m.isMesh && !m.userData.cameraDecal) m.castShadow = true; });
 }
 function brassContact() { return mat('brass-contact', '#C6A75A', { roughness: 0.25, metalness: 0.85 }); }
+// BMPCC 6K Pro. Координаты корпуса и объективов в метрах, ось объектива — локальная -Z.
+function buildPocket6KBody(head, o) {
+  // Вид сверху: тонкая задняя часть, выступающий байонет и более глубокая рукоятка.
+  // Объектив не сжимаем вместе с корпусом; его размеры и оптическая ось остаются физическими.
+  const lensHead = head, body = new THREE.Group(), gripHead = new THREE.Group();
+  body.scale.z=.60; body.position.z=-.007; lensHead.add(body);
+  gripHead.scale.z=.78; gripHead.position.z=-.012; lensHead.add(gripHead);
+  head=body;
+  const pocketBox = (p,w,h,d,m,x,y,z,r) => {
+    if(Math.min(w,h,d)<=.0045)return mbox(p,w,h,d,m,x,y,z);
+    if(Math.min(w,h,d)>.016&&r>=.004)return cachedMesh(p,'pocket-round|'+geoKey([w,h,d,r]),()=>{
+      const g=roundBoxGeo(w,h,d,r,false).clone(),p=g.attributes.position,n=g.attributes.normal,acc=new Map();
+      for(let i=0;i<p.count;i++){const k=geoKey([p.getX(i),p.getY(i),p.getZ(i)]),v=acc.get(k)||[0,0,0];v[0]+=n.getX(i);v[1]+=n.getY(i);v[2]+=n.getZ(i);acc.set(k,v);}
+      for(let i=0;i<p.count;i++){const v=acc.get(geoKey([p.getX(i),p.getY(i),p.getZ(i)])),l=Math.hypot(...v)||1;n.setXYZ(i,v[0]/l,v[1]/l,v[2]/l);}
+      return g;
+    },m,x,y,z);
+    return rbox(p,w,h,d,m,x,y,z,r);
+  };
+  const shell = mat('pocket-shell', '#242629', { roughness: .53, metalness: .10 });
+  const bezel = mat('pocket-bezel', '#1b1d20', { roughness: .48, metalness: .19 });
+  const rubber = mat('pocket-rubber', '#191b1d', { roughness: .88 });
+  const recess = mat('pocket-recess', '#101214', { roughness: .77 });
+  const metal = mat('pocket-metal', '#adb3b7', { roughness: .23, metalness: .87 });
+  const barrel = mat('pocket-lens-black', '#212528', { roughness: .43, metalness: .30 });
+  const canon = mat('pocket-canon-white', '#d7d1c5', { roughness: .43, metalness: .15 });
+  const red = mat('pocket-red', '#ba252d', { roughness: .36, metalness: .15 });
+  const tally = mat('pocket-tally', '#d71e27', { emissive: c3('#d71e27'), emissiveIntensity: .46, roughness: .35 });
+  const cylZ = (p, back, front, len, m, x, y, z, n=48) => { const q=mcyl(p,back,front,len,m,x,y,z,n); q.rotation.x=Math.PI/2; return q; };
+  const flat = (p, material, w, h, x, y, z, turn=0) => {
+    const m=mesh(p,new THREE.PlaneGeometry(w,h),material,x,y,z,true); m.rotation.y=turn; m.userData.cameraDecal=true; m.receiveShadow=false; return m;
+  };
+  const mapMat = (key,w,h,draw,opt={}) => {
+    const tex=canvasTex('pocket|'+key,w,h,draw);
+    return mat('pocket-map|'+key,'#ffffff',{map:tex,roughness:.6,...opt});
+  };
+  const decal = (p,key,w,h,x,y,z,turn,draw) => flat(p,mapMat(key,512,128,draw,{transparent:true,depthWrite:false}),w,h,x,y,z,turn);
+  const text = (c,s,x,y,size=27,col='#e1e0db',align='center',bold=false) => {
+    c.fillStyle=col; c.font=(bold?'600 ':'')+size+'px Arial, sans-serif'; c.textAlign=align; c.textBaseline='middle'; c.fillText(s,x,y);
+  };
+  const mark = (p,s,w,h,x,y,z,turn,col) => decal(p,'mark|'+s+'|'+(col||''),w,h,x,y,z,turn,(c,W,H)=>text(c,s,W/2,H/2,64,col||'#e7e6e2','center',true));
+  const logo = (p,w,h,x,y,z,turn) => decal(p,'blackmagic-logo',w,h,x,y,z,turn,(c,W,H)=>{
+    text(c,'Blackmagicdesign',230,64,46,'#dedcd7','center'); c.strokeStyle='#d49c31'; c.lineWidth=5;
+    for(let i=0;i<3;i++){c.beginPath();c.roundRect(451,18+i*31,24,22,5);c.stroke();}
+  });
+  const screwZ=(x,y,z,r=.0021)=>{
+    cylZ(head,r,r,.0013,metal,x,y,z,16);
+    const s=mbox(head,r*1.15,.00055,.00045,recess,x,y,z-.00084,true);s.rotation.z=.58;s.userData.cameraDecal=true;
+  };
+  const screwTop=(x,y,z,r=.0044)=>{mcyl(head,r,r,.0017,metal,x,y,z,24);mbox(head,r*1.25,.0006,.0012,recess,x,y+.001,z,true).userData.cameraDecal=true;};
+
+  // Цельный округлый корпус, выступающий передний кожух байонета и верхний EVF-блок.
+  pocketBox(head,.154,.103,.092,shell,-.007,-.005,.012,.013);
+  pocketBox(head,.099,.008,.078,bezel,0,-.058,.014,.003);
+  const noseGeo=()=>{
+    const sections=[[-.057,.088,.094,0,-.002],[-.053,.104,.104,0,-.002],[-.036,.116,.109,-.003,-.002],[-.010,.120,.108,-.005,-.002],[.012,.114,.102,-.004,-.002]], N=40;
+    const vertices=[],indices=[];
+    for(const [z,w,h,x,y] of sections) for(let i=0;i<N;i++){
+      const a=2*Math.PI*i/N, u=Math.cos(a),v=Math.sin(a);
+      vertices.push(x+Math.sign(u)*Math.pow(Math.abs(u),.55)*w/2,y+Math.sign(v)*Math.pow(Math.abs(v),.55)*h/2,z);
+    }
+    for(let s=0;s<sections.length-1;s++)for(let i=0;i<N;i++){
+      const a=s*N+i,b=s*N+(i+1)%N,d=(s+1)*N+i,e=(s+1)*N+(i+1)%N; indices.push(a,b,e,a,e,d);
+    }
+    for(const s of [0,sections.length-1]){
+      const [z,, ,x,y]=sections[s], center=vertices.length/3;vertices.push(x,y,z);
+      for(let i=0;i<N;i++){const a=s*N+i,b=s*N+(i+1)%N;indices.push(center,...(s===0?[b,a]:[a,b]));}
+    }
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();return geo;
+  };
+  cachedMesh(head,'pocket-nose-v1',noseGeo,shell,0,0,0);
+  pocketBox(head,.076,.025,.072,shell,-.005,.048,.012,.010);
+  pocketBox(head,.047,.005,.030,bezel,-.005,.062,.004,.004);
+  screwTop(-.005,.065,.002,.004);
+  pocketBox(head,.066,.005,.027,bezel,-.006,.059,.035,.004);
+  pocketBox(head,.026,.002,.016,recess,-.006,.062,.038,.002);
+  screwTop(-.006,.064,.038,.0034);
+
+  // Выраженная правая рукоятка: литой корпус и диагональная резиновая фактура.
+  head=gripHead;
+  const gripMap=mapMat('grip-rubber',256,256,(c,w,h)=>{
+    c.fillStyle='#222426';c.fillRect(0,0,w,h);
+    for(let n=-h;n<w+h;n+=10){c.strokeStyle='#141719';c.lineWidth=4;c.beginPath();c.moveTo(n,h);c.lineTo(n+h,0);c.stroke();c.strokeStyle='#383b3d';c.lineWidth=1.8;c.beginPath();c.moveTo(n+3,h);c.lineTo(n+h+3,0);c.stroke();}
+  },{roughness:.87});
+  pocketBox(head,.056,.101,.112,shell,.064,-.006,-.001,.014);
+  const wrapGrip=()=>{
+    const rings=[[-.045,.053,.102],[-.041,.061,.116],[-.012,.061,.116],[.021,.061,.116],[.029,.056,.108]], N=56;
+    const pos=[],uv=[],idx=[];
+    for(let k=0;k<rings.length;k++){
+      const [y,w,d]=rings[k];for(let i=0;i<=N;i++){
+        const a=Math.PI+2*Math.PI*i/N,c=Math.cos(a),s=Math.sin(a);
+        pos.push(Math.sign(c)*Math.pow(Math.abs(c),.55)*w/2,y,Math.sign(s)*Math.pow(Math.abs(s),.55)*d/2);
+        uv.push(i/N,k/(rings.length-1));
+      }
+    }
+    for(let k=0;k<rings.length-1;k++)for(let i=0;i<N;i++){const a=k*(N+1)+i,b=a+1,d=a+N+1,e=d+1;idx.push(a,d,b,b,d,e);}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g;
+  };
+  cachedMesh(head,'pocket-grip-wrap-v1',wrapGrip,gripMap,.064,0,-.001);
+  pocketBox(head,.057,.023,.110,shell,.064,.037,-.002,.012);
+  pocketBox(head,.056,.017,.101,bezel,.064,-.052,-.001,.007);
+  flat(head,gripMap,.039,.067,.065,-.013,.057,0);
+  // Верхние органы управления и кнопка записи с красным кольцом.
+  const buttonTop=(x,z,r)=>mcyl(head,r,r,.0035,bezel,x,.051,z,20);
+  for(const [x,z] of [[.052,-.004],[.066,-.004],[.080,-.004]])buttonTop(x,z,.0045);
+  mcyl(head,.008,.008,.003,recess,.066,.052,-.034,28);
+  mcyl(head,.0061,.0061,.0027,red,.066,.054,-.034,28);
+  mcyl(head,.0048,.0048,.0027,bezel,.066,.0552,-.034,28);
+  buttonTop(.084,-.021,.0048);
+  pocketBox(head,.036,.003,.017,recess,.061,.050,.027,.003);
+  for(let i=0;i<3;i++)pocketBox(head,.008,.003,.012,bezel,.050+i*.011,.052,.026,.0018);
+  const dial=mcyl(head,.007,.007,.007,rubber,.081,.042,-.045,24);dial.rotation.z=Math.PI/2;
+
+  // Вентиляция, решётка микрофона, tally и надписи передней панели.
+  head=body;
+  pocketBox(head,.027,.025,.005,recess,-.048,.028,-.043,.004);
+  for(let i=0;i<5;i++)pocketBox(head,.0023,.020,.004,bezel,-.058+i*.005,.028,-.046,.001);
+  pocketBox(head,.025,.010,.005,recess,-.066,.021,-.033,.003);
+  pocketBox(head,.016,.0032,.002,tally,-.066,.021,-.0368,.001);
+  const micMap=mapMat('mic-grille',128,160,(c,w,h)=>{c.fillStyle='#222427';c.fillRect(0,0,w,h);c.fillStyle='#101112';for(let y=4;y<h;y+=8)for(let x=4;x<w;x+=8){c.beginPath();c.arc(x+(y%16?0:4),y,2.5,0,Math.PI*2);c.fill();}});
+  pocketBox(head,.023,.031,.004,bezel,-.066,-.017,-.033,.004);
+  flat(head,micMap,.018,.026,-.066,-.017,-.036,Math.PI);
+  mark(head,'6K',.023,.010,-.065,-.042,-.034,Math.PI,'#c4c5c6');
+  logo(head,.058,.009,0,.043,-.0585,Math.PI);
+  for(const [x,y] of [[-.040,.028],[.040,.028],[-.040,-.031],[.040,-.031]])screwZ(x,y,-.058,.0023);
+
+  // Боковые крышки разъёмов с рельефными разделителями и оригинальной раскладкой.
+  const ports=new THREE.Group();ports.position.set(-.085,-.004,.012);ports.rotation.y=-Math.PI/2;head.add(ports);
+  pocketBox(ports,.075,.087,.003,bezel,0,0,0,.009);
+  const portMap=mapMat('ports',256,320,(c,w,h)=>{
+    c.fillStyle='#272a2d';c.fillRect(0,0,w,h);c.strokeStyle='#111315';c.lineWidth=5;
+    for(const y of [87,158,228]){c.beginPath();c.moveTo(0,y);c.quadraticCurveTo(w*.7,y+5,w,y-3);c.stroke();}
+    text(c,'MIC',128,29,18);text(c,'◉',128,59,21);text(c,'HDMI',128,122,27,'#e1e1df','center',true);
+    text(c,'USB',128,194,25);text(c,'AUDIO IN  •  12V',128,251,17);text(c,'1       2',128,284,25);
+  });
+  flat(ports,portMap,.062,.073,0,0,.0021,0);
+  for(const y of [-.032,.029])pocketBox(ports,.012,.005,.006,bezel,.036,y,.001,.0014);
+
+  // Большой задний дисплей с панелью меню и отдельной панелью ND/кнопок.
+  pocketBox(head,.130,.084,.011,bezel,-.015,-.004,.059,.007);
+  pocketBox(head,.124,.073,.005,recess,-.015,-.001,.065,.003);
+  const monitorTex=canvasTex('pocket-monitor-ui',640,400,(c,w,h)=>{
+    c.fillStyle='#15171a';c.fillRect(0,0,w,h);c.fillStyle='#232528';c.fillRect(0,0,w,48);
+    const tabs=['RECORD','MONITOR','AUDIO','SETUP','PRESETS','LUTS'];
+    tabs.forEach((s,i)=>{const x=i*w/6;if(!i){c.fillStyle='#eef0f0';c.fillRect(x+3,4,w/6-6,38);}text(c,s,x+w/12,24,15,i?'#d8d9d9':'#24272a','center',true);});
+    const item=(x,y,ww,hh,caption,values,active)=>{
+      text(c,caption,x,y,13,'#b6b8b9','left');const gap=4,tw=(ww-gap*(values.length-1))/values.length;
+      values.forEach((s,i)=>{const xx=x+i*(tw+gap);c.fillStyle=i===active?'#3d444b':'#2b2e32';c.fillRect(xx,y+14,tw,hh);text(c,s,xx+tw/2,y+14+hh/2,17,i===active?'#e5e5e5':'#a1a3a5');if(i===active){c.fillStyle='#379de8';c.fillRect(xx,y+hh+10,tw,4);}});
+    };
+    item(18,65,386,66,'DYNAMIC RANGE',['Video','Extended Video','Film'],1);item(420,65,200,66,'WINDOW SENSOR',['● OFF'],0);
+    item(18,161,196,63,'PROJECT FRAME RATE',['‹ 24 fps ›'],0);item(225,161,175,63,'OFF SPEED RECORDING',['● OFF'],0);item(415,161,205,63,'OFF SPEED FRAME RATE',['‹ 60 fps ›'],0);
+    item(18,258,365,74,'PREFERRED CARD FOR',['CFast Card','SD Card','Fullest Card'],0);item(400,258,220,74,'STOP REC IF CARD DROPS FRAME',['● OFF'],0);
+    text(c,'●  ●  ●',w/2,380,12,'#9a9da0');
+  });
+  const screen=mat('pocket-screen','#ffffff',{map:monitorTex,emissive:c3('#ffffff'),emissiveMap:monitorTex,emissiveIntensity:.43,roughness:.48,metalness:0});
+  flat(head,screen,.116,.064,-.015,-.001,.068,0);
+  logo(head,.048,.007,-.014,-.039,.067,0);
+  pocketBox(head,.039,.004,.011,bezel,.020,.044,.058,.002);
+  for(const x of [.013,.031])pocketBox(head,.015,.007,.003,recess,x,.043,.062,.002);
+  mark(head,'−',.006,.005,.013,.043,.064,0);mark(head,'+',.006,.005,.031,.043,.064,0);
+  mark(head,'ND FILTER',.027,.006,-.016,.044,.0615,0,'#b9bbbc');
+  for(const [i,s] of ['◉','⊕','HFR','⌕','≡','▶'].entries()){
+    const y=.028-i*.011; pocketBox(gripHead,.015,.008,.005,bezel,.060,y,.060,.0025); mark(gripHead,s,.010,.005,.060,y,.0631,0);
+  }
+
+  head=lensHead;
+  const {tele,length:L,mountZ,startZ,glassZ}=cameraLensProfile(o), frontZ=startZ-L;
+  // Серебряный EF-байонет и чёрная прокладка: линза начинается на передней плоскости фланца.
+  cylZ(head,.039,.039,.006,bezel,0,0,mountZ+.004,48);
+  cylZ(head,.0365,.0365,.006,metal,0,0,mountZ-.001,56);
+  cylZ(head,.033,.033,.006,barrel,0,0,startZ+.003,48);
+  for(let i=0;i<4;i++){const a=.45+i*Math.PI/2;screwZ(Math.cos(a)*.0345,Math.sin(a)*.0345,mountZ-.0044,.0015);}
+  const dot=msph(head,.0016,red,0,.036,mountZ-.0047,true);dot.scale.z=.45;
+
+  // Продольные рёбра резиновых колец: карта фактуры вместо сотен отдельных деталей.
+  const ribMap=mapMat('lens-ribs',512,64,(c,w,h)=>{
+    c.fillStyle='#24282a';c.fillRect(0,0,w,h);
+    for(let x=0;x<w;x+=8){c.fillStyle='#141719';c.fillRect(x,0,2,h);c.fillStyle='#3b3e40';c.fillRect(x+2,0,2,h);c.fillStyle='#303436';c.fillRect(x+4,0,2,h);}
+  },{roughness:.81});
+  const printSleeve=(key,bg,fg,name,detail)=>mapMat(key,1024,192,(c,w,h)=>{
+    c.fillStyle=bg;c.fillRect(0,0,w,h);
+    for(const x of [w*.25,w*.75]){text(c,name,x,55,46,fg,'center',true);text(c,detail,x,111,24,fg);}
+  },{roughness:.46,metalness:.14});
+  const sigmaPrint=printSleeve('sigma-print','#303437','#dbdddd','SIGMA','18–35mm 1:1.8 DC Ø72');
+  const canonPrint=printSleeve('canon-print','#d6d0c5','#303133','Canon','70–200mm 1:2.8 L IS USM');
+  const indexRing=(key,bg,fg,values)=>mapMat(key,768,96,(c,w,h)=>{
+    c.fillStyle=bg;c.fillRect(0,0,w,h);const step=w/(values.length*2);
+    for(let i=0;i<values.length*2;i++){const x=(i+.5)*step;c.fillStyle=fg;c.fillRect(x-1,12,2,17);text(c,values[i%values.length],x,59,25,fg);}
+  });
+  const tube=(a,b,back,front,m)=>cylZ(head,back,front,(b-a)*L+.0003,m,0,0,startZ-(a+b)*L/2,48);
+  if(!tele){
+    tube(0,.085,.031,.034,barrel);tube(.085,.17,.034,.037,barrel);
+    tube(.17,.37,.038,.038,ribMap);tube(.37,.405,.0375,.0375,barrel);
+    tube(.405,.44,.0374,.0374,indexRing('sigma-index','#303437','#e0e0df',['18','20','24','28','35']));
+    tube(.44,.60,.037,.038,sigmaPrint);tube(.60,.87,.0395,.0395,ribMap);
+    tube(.87,.94,.039,.039,barrel);
+    // Окошко шкалы фокусировки и переключатель AF/MF на цилиндрической части.
+    const pane=new THREE.Group();pane.position.set(-.037,0,startZ-L*.52);pane.rotation.y=-Math.PI/2;head.add(pane);
+    pocketBox(pane,.033,.015,.003,recess,0,.010,0,.003);
+    const windowMap=mapMat('sigma-distance',256,96,(c,w,h)=>{c.fillStyle='#181b1d';c.fillRect(0,0,w,h);text(c,'0.5   0.7   1    ∞',w/2,30,24);text(c,'m       ft',w/2,65,19,'#9b9e9f');});
+    flat(pane,windowMap,.028,.010,0,.010,.0017);
+    pocketBox(pane,.015,.007,.003,bezel,.006,-.009,.001,.001);
+  }else{
+    tube(0,.08,.032,.036,barrel);tube(.08,.17,.037,.041,canon);
+    tube(.17,.29,.043,.043,canon);tube(.29,.49,.0435,.0435,ribMap);
+    tube(.49,.53,.043,.043,indexRing('canon-index','#d6d0c5','#333638',['70','100','135','200']));
+    tube(.53,.64,.0425,.043,canonPrint);tube(.64,.88,.0445,.0445,ribMap);
+    tube(.88,.94,.044,.045,canon);tube(.94,.95,.045,.045,red);
+    const control=new THREE.Group();control.position.set(-.043,0,startZ-L*.585);control.rotation.y=-Math.PI/2;head.add(control);
+    pocketBox(control,.020,.038,.0035,canon,0,0,0,.0025);
+    for(let i=0;i<3;i++){const y=.012-i*.012;pocketBox(control,.011,.006,.002,bezel,0,y,.002,.001);pocketBox(control,.006,.0045,.003,canon,-.002,y,.003,.001);}
+    // Белое кольцо штативного крепления и небольшая лапка длинного объектива.
+    tube(.20,.265,.0458,.0458,canon);
+    const footZ=startZ-L*.23;
+    pocketBox(head,.021,.018,.026,canon,0,-.049,footZ,.003);
+    pocketBox(head,.027,.006,.056,canon,0,-.061,footZ-.011,.002);
+    const knob=mcyl(head,.008,.008,.010,canon,.047,-.010,footZ,24);knob.rotation.z=Math.PI/2;
+  }
+  // Открытая передняя резьба и слегка выпуклая линза. Её передняя точка совпадает с cameraPose().
+  const outer=tele?.0448:.0398, inner=tele?.039:.0348;
+  const rimBack=frontZ+(tele?.011:.0095), rimLen=rimBack-frontZ;
+  cylZ(head,outer-.001,outer-.001,.0018,barrel,0,0,frontZ+.0105,56);
+  const rimGeo=new THREE.CylinderGeometry(outer,outer,rimLen,56,1,true);
+  const rim=mesh(head,rimGeo,barrel,0,0,frontZ+rimLen/2);rim.rotation.x=Math.PI/2;
+  const face=mesh(head,new THREE.RingGeometry(inner,outer,56),bezel,0,0,frontZ);face.rotation.y=Math.PI;
+  const innerRim=mat('pocket-rim-inner','#101214',{roughness:.77,side:THREE.BackSide});
+  const inside=mesh(head,new THREE.CylinderGeometry(inner,inner,rimLen,56,1,true),innerRim,0,0,frontZ+rimLen/2);inside.rotation.x=Math.PI/2;
+  for(let i=0;i<2;i++){const ring=mesh(head,new THREE.TorusGeometry(inner+.0008,.00055,7,56),barrel,0,0,frontZ+.0016+i*.0015,true);ring.userData.cameraDecal=true;}
+  const coating=canvasTex('pocket-glass-coating',256,256,(c,w,h)=>{
+    const grad=c.createRadialGradient(120,130,12,128,128,128);grad.addColorStop(0,'#14292d');grad.addColorStop(.67,'#1d3034');grad.addColorStop(.9,'#304249');grad.addColorStop(1,'#11191c');c.fillStyle=grad;c.fillRect(0,0,w,h);
+    c.save();c.translate(77,72);c.rotate(-.55);c.scale(.52,1);const refl=c.createRadialGradient(0,0,1,0,0,55);refl.addColorStop(0,'rgba(161,187,192,.57)');refl.addColorStop(.6,'rgba(88,126,134,.18)');refl.addColorStop(1,'rgba(88,126,134,0)');c.fillStyle=refl;c.fillRect(-55,-55,110,110);c.restore();
+  });
+  const optics=mat('pocket-optical-glass','#ffffff',{map:coating,roughness:.13,metalness:.38,emissive:c3('#102329'),emissiveIntensity:.07});
+  const radius=inner-.00065, glassGeo=()=>{
+    const pos=[0,0,0],uv=[.5,.5],idx=[],N=56,R=7;
+    for(let r=1;r<=R;r++)for(let i=0;i<N;i++){const a=i*2*Math.PI/N,k=r/R,x=Math.cos(a)*k,y=Math.sin(a)*k;pos.push(x*radius,y*radius,.0027*k*k);uv.push((1-x)*.5,(1+y)*.5);}
+    for(let i=0;i<N;i++)idx.push(0,1+(i+1)%N,1+i);
+    for(let r=1;r<R;r++)for(let i=0;i<N;i++){const a=1+(r-1)*N+i,b=1+(r-1)*N+(i+1)%N,d=a+N,e=b+N;idx.push(a,e,d,a,b,e);}
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));geo.setIndex(idx);geo.computeVertexNormals();return geo;
+  };
+  const glass=cachedMesh(head,'pocket-glass|'+radius.toFixed(5),glassGeo,optics,0,0,glassZ,true);glass.name='camera-front-glass';glass.userData.cameraDecal=true;
+}
 // бытовые светильники: геометрия от пола (или от столешницы), лампа — точечный источник у абажура
 function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
   const k = o.kind, e = ON_TABLE.includes(k) && !o.wall ? supportTop(o) : 0;
@@ -8355,12 +8707,12 @@ function buildPractical(sc, g, o, L, lit, col, emi, budget, hq) {
 }
 // Astera: при нулевой высоте стоит на маленькой треноге или лежит на поверхности; выше нуля — закреплена за центр на C-stand
 const asteraLen = (o) => Math.max(0.3, Math.min(2.5, o.alen || 1));
-const asteraBaseH = (o) => Math.max(0, Math.min(8, o.ah || 0));
+const asteraBaseH = (o) => Math.max(lightMount(o)==='stand'?0:.5, Math.min(8, o.ah || 0));
 const asteraH = (o) => asteraBaseH(o) || (o.horiz ? 0.03 : 0.07 + asteraLen(o) / 2);   // сохранённая высота центра трубки
 function buildCStand(g, h) {
   // C-stand: три ноги выходят горизонтально из узла на разной высоте и загибаются вниз к синим пяткам;
   // хромированная колонна: толстая нижняя секция и две тонкие с рычажными зажимами у верха, сверху штырь
-  const chrome = mat('chrome2', '#D9DBDE', { roughness: 0.14, metalness: 0.95 }), knob = mat('cknob', '#B4B9BF', { roughness: 0.4, metalness: 0.3 }), foot = mat('cfoot', '#2F6FB5', { roughness: 0.7 });
+  const chrome = rigStandMetal(), knob = rigChrome(), foot = mat('cfoot', '#2F6FB5', { roughness: 0.7 });
   const top = Math.max(0.6, h - 0.03), s1 = Math.max(0.5, top - 0.55), s2 = Math.max(s1 + 0.05, top - 0.3);
   mcyl(g, 0.01, 0.012, 0.16, chrome, 0, 0.2, 0, 10);
   mcyl(g, 0.0175, 0.0175, s1 - 0.26, chrome, 0, (0.26 + s1) / 2, 0, 14);
@@ -8387,12 +8739,13 @@ const tiltable = (o) => TILT_KINDS.includes(o.kind) && !(o.kind === 'astera' && 
 const lightTilt = (o) => o.kind === 'astera' && !o.horiz ? 0 : o.ltilt != null ? o.ltilt : (o.kind === 'astera' ? 0 : -Math.round(Math.atan2((o.h ?? 2) - 1.2, 3) / RAD));
 function buildAstera(sc, g, o, L, lit, col, emi, budget, hq) {
   const base = asteraBaseH(o), e = base > 0 ? 0 : supportTop(o), len = asteraLen(o), r = 0.023;
+  const mount=lightMount(o), showHardware=mount==='hang'||o.stand!==false;
   const cy = base > 0 ? base : o.horiz ? e + r + 0.002 : e + 0.07 + len / 2;
   const cap = mat('astcap', '#9A9EA4', { roughness: 0.35, metalness: 0.6 }), blk = mat('asttri', '#1A1B1E', { roughness: 0.55, metalness: 0.3 });
   const tg = new THREE.Group(); tg.position.set(0, cy, 0); tg.rotation.x = lightTilt(o) * RAD; g.add(tg);
   const tube = new THREE.Group(); tg.add(tube);
   if (o.horiz) tube.rotation.z = Math.PI / 2;
-  else if (base === 0) {
+  else if (base === 0 && showHardware) {
     mcyl(g, 0.018, 0.022, 0.05, blk, 0, e + 0.045, 0, 14);
     for (let i = 0; i < 3; i++) {
       const a = -Math.PI / 2 + i * 2.094, ux = Math.cos(a), uz = Math.sin(a);
@@ -8400,14 +8753,15 @@ function buildAstera(sc, g, o, L, lit, col, emi, budget, hq) {
       mcyl(g, 0.012, 0.012, 0.01, blk, ux * 0.175, e + 0.005, uz * 0.175, 10);
     }
   }
-  if (base > 0 && o.stand !== false) {
-    const stand = new THREE.Group(); stand.position.z = 0.09; g.add(stand); buildCStand(stand, base);
-    mrod(g, V(0, base, 0.09), V(0, base, 0), 0.012, cap);
-  }
   mcyl(tube, r, r, len - 0.06, emi, 0, 0, 0, 20, true);                                                 // светящийся рассеиватель
   mcyl(tube, r + 0.001, r + 0.001, 0.03, cap, 0, len / 2 - 0.015, 0, 20, true); mcyl(tube, r + 0.001, r + 0.001, 0.03, cap, 0, -len / 2 + 0.015, 0, 20, true);   // торцы
   mbox(tube, 0.012, 0.07, 0.03, blk, 0, -len / 2 + 0.11, r * 0.75, true);                        // панель управления сзади
-  if (base > 0) { const clamp = mcyl(tube, r + 0.009, r + 0.009, 0.045, blk, 0, 0, 0, 16, true); clamp.visible = o.stand !== false; }
+  if (base > 0 && showHardware) {
+    mcyl(tube,r+.009,r+.009,.045,blk,0,0,0,16,true);
+    const pivot=V(0,base,.047);mbox(g,.032,.038,.041,blk,0,base,.028);g.updateWorldMatrix(true,true);
+    const top=new THREE.Box3().setFromObject(tg).max.y, above=mount==='hang'||mount==='boom'&&lightTilt(o)>=60;
+    buildDirectFixtureMount(g,o,pivot,above,top+.06);
+  }
   if (!lit) return;
   g.updateWorldMatrix(true, true);
   // свет идёт сплошной мягкой полосой по всей длине трубки: прямоугольный (площадной) источник, обращённый вперёд
@@ -8434,9 +8788,9 @@ function cobBody(head) {
   mbox(head, BW + 0.004, 0.004, BL * 0.6, dk, 0, AY - 0.005, 0.02, true);                          // шов корпуса
   [[0.045, AY + 0.07], [0.045, AY - 0.07]].forEach(([zz, yy]) => mbox(head, 0.03, 0.018, 0.07, gry, 0, yy, BL / 2 + zz - 0.01, true));   // ручка сзади
   mbox(head, 0.03, 0.16, 0.02, gry, 0, AY, BL / 2 + 0.07, true);
-  mbox(head, 0.07, 0.03, 0.08, dk, 0, AY - BH / 2 - 0.012, 0.02, true);                             // крепёжная площадка
-  mbox(head, 0.03, AY - BH / 2 - 0.02, 0.05, dk, 0, (AY - BH / 2 - 0.02) / 2, 0.02, true);          // вилка-втулка
-  const lev = mbox(head, 0.025, 0.02, 0.12, dk, 0.03, 0.03, -0.05, true); lev.rotation.x = 0.35;    // рычаг фиксации
+  const yoke=mat('cob-yoke','#292b2e',{roughness:.46,metalness:.38});
+  rbox(head,.074,.014,.071,yoke,0,AY-BH/2-.005,.007,.003); // площадка снизу корпуса
+  for(const x of [-.028,.028])rbox(head,.012,.050,.050,yoke,x,.017,.003,.005); // вилка вокруг оси поворота
   head.userData.ay = AY;   // ось оптики выше точки крепления — свет выходим строго по ней
   return { AY, z0, gry, dk };
 }
@@ -8477,15 +8831,17 @@ function buildLight(sc, g, o, lit, shadowBudget) {
   }
   if (PRAC_FIXED.includes(o.kind)) { buildPractical(sc, g, o, L, lit, col, emi, shadowBudget, hq); return; }
   if (o.kind === 'astera') { buildAstera(sc, g, o, L, lit, col, emi, shadowBudget, hq); return; }
-  const stand = !(L.omni || o.kind === 'practical');
-  const showStand = stand && o.stand !== false;   // галочка «C-stand» в свойствах
-  if (showStand) buildCStand(g, h);
-  else if (!stand) mcyl(g, 0.004, 0.004, Math.max(0.05, WALL_H - h), black, 0, (WALL_H + h) / 2, 0, 6);
+  const mount=lightMount(o), stand = !(L.omni || o.kind === 'practical'); // stand здесь задаёт геометрию направленного корпуса
+  const showHardware=mount==='hang'||o.stand!==false, showStand = stand && mount==='stand' && showHardware;
   const pitch = L.omni || o.kind === 'reflector' ? 0 : -lightTilt(o) * RAD;   // наклон прибора (вниз — отрицательный); отражатель висит строго вертикально
   // вынос вперёд не даёт стойке проходить через панель; у большой LED-панели вынос растёт вместе с высотой
   const arm = stand && o.kind === 'mat' ? 0.16 : stand && o.kind === 'panel' ? 0.12 + panelH(o) * 0.45 : 0;
   const head = new THREE.Group(); head.position.set(0, h, -arm); head.rotation.x = -pitch; g.add(head);
-  if (arm && showStand) mrod(g, V(0, h, 0), V(0, h, -arm), 0.012, black);
+  if (arm && showStand && o.kind==='mat') {
+    mrod(g, V(0, h, 0), V(0, h, -arm), 0.012, rigStandMetal());
+    const socket=buildManfrottoGripHead(g,V(0,h,0),V(0,0,-1));
+    buildStandAtSocket(g,socket);
+  }
   const k = o.kind;
   if (k === 'softbox') {
     // глубокий параболический софтбокс (16 граней) на COB-приборе; диаметр и глубина масштабируются выбранным размером
@@ -8648,17 +9004,41 @@ function buildLight(sc, g, o, lit, shadowBudget) {
     else if (k === 'kino') eggCrate(head, { w: 1.24, h: 0.28 }, 0, 0, -0.052, 0.045, 0.03);
     else { const W = k === 'mat' ? 0.6 : panelW(o), H = k === 'mat' ? 0.6 : panelH(o); eggCrate(head, { w: W - 0.02, h: H - 0.02 }, 0, 0, k === 'mat' ? -0.035 : -0.008, 0.042, 0.03); }
   }
+  let backShift=0;
   if (stand) {
     // сдвигаем корпус вперёд так, чтобы его задняя часть оказалась в точке поворота на верху стойки
     let back = 0; const bb = new THREE.Box3();
     head.children.forEach(ch => { if (!ch.geometry) return; ch.updateMatrix(); ch.geometry.computeBoundingBox(); bb.copy(ch.geometry.boundingBox).applyMatrix4(ch.matrix); if (isFinite(bb.max.z)) back = Math.max(back, bb.max.z); });
-    if (!head.userData.custom) head.children.forEach(ch => { ch.position.z -= back; });   // у софтбокса крепление уже на вилке под корпусом
+    if (!head.userData.custom) {backShift=back;head.children.forEach(ch => { ch.position.z -= back; });}   // у софтбокса крепление уже на вилке под корпусом
     head.userData.front = 0; bb.makeEmpty(); head.children.forEach(ch => { if (!ch.geometry) return; ch.updateMatrix(); if (!ch.geometry.boundingBox) ch.geometry.computeBoundingBox(); bb.copy(ch.geometry.boundingBox).applyMatrix4(ch.matrix); if (isFinite(bb.min.z)) head.userData.front = Math.min(head.userData.front, bb.min.z); });
-    if (showStand) { const kn = mcyl(head, 0.028, 0.028, 0.1, black, 0, 0, 0, 12); kn.rotation.z = Math.PI / 2; }
     // точка на схеме = середина прибора: сдвигаем стойку и прибор назад на половину длины прибора
     let bk = -1e9; bb.makeEmpty(); head.children.forEach(ch => { if (!ch.geometry) return; ch.updateMatrix(); if (!ch.geometry.boundingBox) ch.geometry.computeBoundingBox(); bb.copy(ch.geometry.boundingBox).applyMatrix4(ch.matrix); if (isFinite(bb.max.z)) bk = Math.max(bk, bb.max.z); });
-    const zc = ((head.userData.front || 0) + Math.max(0, bk)) / 2 - arm;
+    const zc = ((head.userData.front || 0) + Math.max(.028, bk)) / 2 - arm;
     if (zc < 0) g.children.forEach(ch => { ch.position.z -= zc; });
+  }
+  const cob=COB_BEAM_KINDS.includes(k)||k==='stripbox', invertible=cob||k==='panel'||k==='kino';
+  // Переворот вокруг оптической оси: направление и положение светящейся плоскости сохраняются.
+  // Для бума крутой наклон вверх удобнее с перевёрнутым корпусом. Стойка
+  // остаётся снизу: переворот на ней при таком угле пересёк бы корпус колонной.
+  const inverted=invertible&&(mount==='hang'||mount==='boom'&&lightTilt(o)>=60);
+  let mountPivot=V(0,0,0);
+  if(k==='panel') {
+    const W=panelW(o),H=panelH(o),z=.02-backShift, y=-H/2-.038,steel=rigDark();
+    if(showHardware){for(const x of [-W/2-.016,W/2+.016]){rigBar(head,V(x,0,z),V(x,y,z),.024,.022,steel);const pin=mcyl(head,.020,.020,.025,steel,x,0,z,16);pin.rotation.z=Math.PI/2;}
+      rigBar(head,V(-W/2-.016,y,z),V(W/2+.016,y,z),.023,.026,steel);}
+    mountPivot=V(0,y,z);
+  } else if(k==='kino') {
+    const z=.075-backShift;if(showHardware)rbox(head,.058,.075,.045,rigDark(),0,-.035,z-.018,.005);mountPivot=V(0,-.062,z);
+  }
+  if(inverted){const ay=head.userData.ay||0;head.position.add(V(0,2*ay,0).applyQuaternion(head.quaternion));head.rotateZ(Math.PI);}
+  if(showHardware){
+    g.updateWorldMatrix(true,true);const clear=new THREE.Box3().setFromObject(head).max.y+.06;
+    if(k==='mat'&&mount!=='stand'){const anchor=fixtureOverheadAnchor(g,head,o);buildLightMountRig(g,o,anchor,clear,{direct:true,fromAbove:true});}
+    else if(!stand){const anchor=fixtureOverheadAnchor(g,head,o);if(mount==='stand')buildOverheadCStand(g,anchor,k);else buildLightMountRig(g,o,anchor,clear,{direct:true,fromAbove:true});}
+    else if(k!=='mat'){
+      head.updateMatrix();const pivot=mountPivot.applyMatrix4(head.matrix),above=mount==='hang'||mount==='boom'&&(inverted||k==='reflector');
+      buildDirectFixtureMount(g,o,pivot,above,clear);
+    }
   }
   if (!lit) return;
   const wp = V(o.x, h, o.y);
@@ -8929,6 +9309,159 @@ async function goboImageFile(file) {
     return { image: cv.toDataURL('image/webp', 0.94), gain: goboGain(cv), name: file.name };
   } finally { bmp.close(); }
 }
+// Студийный крепёж в масштабе помещения. Все координаты локальны группе прибора.
+const rigChrome=()=>mat('rig-chrome','#cad0d3',{roughness:.09,metalness:.82});
+const rigStandMetal=()=>rigChrome();
+const rigPolishedDark=()=>mat('rig-polished-dark','#BFC5C9',{roughness:.12,metalness:.78});
+const rigDark=()=>mat('rig-clamp','#282b2d',{roughness:.46,metalness:.44});
+const rigRubber=()=>mat('rig-rubber','#1b1d1e',{roughness:.82});
+function rigBar(g,a,b,w,d,m) {
+  const delta=b.clone().sub(a), len=delta.length();if(len<.001)return;
+  const mid=a.clone().add(b).multiplyScalar(.5), q=mbox(g,w,len,d,m,mid.x,mid.y,mid.z);
+  q.quaternion.setFromUnitVectors(V(0,1,0),delta.normalize());return q;
+}
+function rigKnob(g,x,y,z,rot=0) {
+  const steel=rigChrome(),dark=rigDark(); const stem=mcyl(g,.005,.005,.038,steel,x,y,z,10);stem.rotation.z=Math.PI/2;
+  const knob=mbox(g,.011,.036,.014,dark,x+.019,y,z);knob.rotation.x=rot;
+}
+// Avenger Combo Stand: три прямые раздвижные ноги, распорки, телескопическая колонна.
+function buildComboStand(g,height) {
+  const chrome=rigStandMetal(),dark=rigPolishedDark(),rubber=rigRubber(),top=Math.max(.53,height),base=Math.min(.86,top*.72), lower=base*.46;
+  const s1=base+(top-base)*.48,s2=base+(top-base)*.76;
+  // Колонна заканчивается в нижней распорной муфте, а не на полу.
+  const bottom=lower-.025;
+  mcyl(g,.025,.025,s1-bottom+.024,chrome,0,(bottom+s1)/2,0,18);
+  mcyl(g,.016,.016,Math.max(.05,s2-s1+.035),chrome,0,(s2+s1)/2,0,16);
+  mcyl(g,.012,.012,Math.max(.04,top-s2+.025),chrome,0,(top+s2)/2,0,14);
+  mcyl(g,.014,.014,.045,chrome,0,top+.014,0,14);
+  for(const y of [s1,s2]){mcyl(g,.026,.026,.035,chrome,0,y,0,16);rigKnob(g,.033,y,0,.4);}
+  mcyl(g,.043,.043,.058,chrome,0,base,0,18);mcyl(g,.038,.038,.04,chrome,0,lower,0,18);
+  for(let i=0;i<3;i++){
+    const a=-Math.PI/2+i*2*Math.PI/3,ux=Math.cos(a),uz=Math.sin(a),R=i===0?.77:.72;
+    const P=(rr,y)=>V(ux*rr,y,uz*rr),upper=P(.046,base),end=P(R,.016),brace=upper.clone().lerp(end,(base-lower)/(base-end.y));
+    const endCap=upper.clone().lerp(end,.965);
+    rigBar(g,upper,endCap,.031,.021,chrome);rigBar(g,endCap,end,.034,.023,rubber);
+    rigBar(g,P(.030,lower),brace,.019,.013,chrome);
+    const hinge=mbox(g,.040,.027,.032,chrome,upper.x,base,upper.z);hinge.rotation.y=-a-Math.PI/2;
+    const joint=mcyl(g,.012,.012,.026,dark,brace.x,brace.y,brace.z,12);joint.rotation.z=Math.PI/2;
+  }
+}
+function boomLocalBase(o) {
+  const [dx,dy]=boomOffset(o),a=(o.rot||0)*RAD,ca=Math.cos(a),sa=Math.sin(a);
+  return V(ca*dx+sa*dy,0,-sa*dx+ca*dy);
+}
+function boomSocketAxis(o,point) {
+  const base=boomLocalBase(o);base.y=Math.max(.585,point.y);
+  const axis=base.sub(point);return axis.lengthSq()>1e-6?axis.normalize():V(0,0,1);
+}
+// Junior Boom: зажим на вершине стойки, три вложенные секции и красный противовес.
+function buildJuniorBoom(g,o,anchor,clearance,opts={}) {
+  const chrome=rigChrome(),dark=rigPolishedDark(),red=mat('rig-counterweight-orange','#d94b24',{roughness:.59,metalness:.18});
+  const base=boomLocalBase(o),axis=opts.axis||boomSocketAxis(o,anchor);
+  // Шток — прямое продолжение последней секции, соосное с гнездом прибора.
+  const end=anchor.clone().addScaledVector(axis,.018);
+  const pivot=V(base.x,Math.max(.585,anchor.y),base.z),v=end.clone().sub(pivot),len=Math.max(.01,v.length()),dir=v.divideScalar(len);
+  const stand=new THREE.Group();stand.name='Avenger Combo Stand';stand.position.copy(base);stand.rotation.y=Math.atan2(-dir.x,-dir.z);g.add(stand);buildComboStand(stand,pivot.y-.055);
+  const point=t=>pivot.clone().addScaledVector(dir,t),rear=point(-.58),j1=point(len*.36),j2=point(len*.72);
+  mrod(g,rear,j1,.020,chrome);mrod(g,point(len*.36-.04),j2,.016,chrome);mrod(g,point(len*.72-.04),end,.011,chrome);
+  mrod(g,rear,rear.clone().addScaledVector(dir,-.0012),.0165,rigRubber()); // открытый тёмный торец трубы
+  for(const t of [len*.36,len*.72]){const q=point(t);mrod(g,point(t-.032),point(t+.032),.024,chrome);rigKnob(g,q.x+.013,q.y+.028,q.z);}
+  mrod(g,point(-.10),point(.10),.033,dark);
+  const pivotHead=mcyl(g,.049,.049,.035,dark,pivot.x,pivot.y-.027,pivot.z,22);pivotHead.rotation.z=Math.PI/2;
+  rigKnob(g,pivot.x+.035,pivot.y-.027,pivot.z,.7);
+  const counter=rear.clone().addScaledVector(dir,.095);
+  // Литой противовес с ушами по обе стороны трубы, прижимной скобой и болтом сверху.
+  const weight=new THREE.Group();weight.position.copy(counter);weight.rotation.y=Math.atan2(dir.x,dir.z);weight.rotateX(-Math.asin(Math.max(-1,Math.min(1,dir.y))));g.add(weight);
+  const weightGeo=()=>{const s=new THREE.Shape();s.moveTo(-.068,-.031);s.lineTo(.068,-.031);s.lineTo(.105,-.071);s.lineTo(.073,-.114);s.lineTo(-.073,-.114);s.lineTo(-.105,-.071);s.closePath();return new THREE.ExtrudeGeometry(s,{depth:.096,bevelEnabled:true,bevelSize:.006,bevelThickness:.005,bevelSegments:3});};
+  const cast=cachedMesh(weight,'junior-boom-weight-v2',weightGeo,red,-.048,0,0);cast.rotation.y=Math.PI/2;
+  for(const x of [-.033,.033])rbox(weight,.020,.076,.060,red,x,-.025,0,.004);
+  mrod(weight,V(0,0,-.041),V(0,0,.041),.026,dark);
+  rbox(weight,.082,.008,.061,dark,0,.020,0,.002);
+  for(const x of [-.029,.029]){mcyl(weight,.007,.007,.010,chrome,x,.028,0,6);mcyl(weight,.009,.009,.003,chrome,x,.023,0,18);}
+  const tip=anchor.clone().addScaledVector(axis,-.024);
+  mrod(g,end,tip,.008,chrome);
+}
+// Квадратная четырёхтрубная ферма. К нижней перемычке крепится grip head и удлинитель.
+function buildSuspensionTruss(g,anchor,clearance) {
+  const chrome=rigChrome(),dark=rigPolishedDark(),L=1.20,H=.24,centerY=Math.max(WALL_H-.15,clearance+.17,anchor.y+.28),z=anchor.z,x=anchor.x;
+  const corners=[[-1,-1],[1,-1],[1,1],[-1,1]],N=4,P=(i,j)=>V(x-L/2+i*L/N,centerY+corners[j][0]*H/2,z+corners[j][1]*H/2);
+  for(let j=0;j<4;j++){
+    mrod(g,P(0,j),P(N,j),.022,chrome);
+    for(const t of [0,N]){const q=P(t,j),n=t===0?-.035:.035;mrod(g,q,q.clone().add(V(n,0,0)),.024,chrome);}
+  }
+  // Рамы и чередующиеся диагонали на всех четырёх сторонах.
+  for(let i=0;i<=N;i++)for(let j=0;j<4;j++){const k=(j+1)%4;if(i===0||i===N||i===N/2)mrod(g,P(i,j),P(i,k),.0115,chrome);if(i<N){const forward=(i+j)%2===0;mrod(g,P(i,forward?j:k),P(i+1,forward?k:j),.010,chrome);}}
+  const clampY=centerY-H/2-.038,top=V(x,clampY,z);
+  // Манфротто: двойная головка с ручкой и стальной вертикальный extension.
+  const claw=mcyl(g,.036,.036,.035,chrome,x,clampY+.007,z,24);claw.rotation.z=Math.PI/2;
+  const grip=mcyl(g,.029,.029,.04,dark,x,clampY-.015,z,20);grip.rotation.x=Math.PI/2;
+  rigKnob(g,x+.043,clampY-.008,z,.8);
+  const mid=top.clone().lerp(anchor,.45);mrod(g,top,mid,.0125,chrome);mrod(g,mid.clone().add(V(0,.035,0)),anchor,.0085,chrome);
+  mcyl(g,.017,.017,.035,chrome,mid.x,mid.y,mid.z,16);rigKnob(g,mid.x+.02,mid.y,mid.z);
+  mcyl(g,.017,.017,.035,chrome,anchor.x,anchor.y+.008,anchor.z,16);
+}
+function buildLightMountRig(g,o,anchor,clearance,opts) {
+  const mount=lightMount(o);
+  if(mount==='boom'&&o.stand!==false)buildJuniorBoom(g,o,anchor,clearance,opts);
+  if(mount==='hang')buildSuspensionTruss(g,anchor,clearance);
+}
+// Штатное поворотное основание прибора: поперечная ось, ручка затяжки и гнездо baby pin.
+// Корпус вращается вокруг этой оси, гнездо остаётся направлено к стойке/буму.
+function buildFixtureSwivel(g,pivot,fromAbove=false,axis=null) {
+  const dark=rigDark(),metal=rigStandMetal(),s=fromAbove?1:-1,j=new THREE.Group();j.position.copy(pivot);g.add(j);
+  const axle=mcyl(j,.029,.029,.075,dark,0,0,0,24);axle.rotation.z=Math.PI/2;
+  for(const x of [-.039,.039]){const cap=mcyl(j,.019,.019,.007,metal,x,0,0,22);cap.rotation.z=Math.PI/2;}
+  mcyl(j,s===1?.018:.023,s===1?.023:.018,.050,dark,0,s*.039,0,20);
+  mcyl(j,.019,.019,.012,dark,0,s*.065,0,20);
+  const lock=mcyl(j,.009,.009,.034,metal,-.020,s*.050,0,12);lock.rotation.z=Math.PI/2;
+  rbox(j,.014,.043,.018,dark,-.038,s*.050,0,.004);
+  const lever=mcyl(j,.012,.012,.043,dark,.057,0,0,14);lever.rotation.z=Math.PI/2;
+  const handle=rbox(j,.018,.051,.020,dark,.076,-s*.026,0,.006);handle.rotation.x=.16;
+  if(axis)j.quaternion.setFromUnitVectors(V(0,s,0),axis);
+  return pivot.clone().addScaledVector(axis||V(0,s,0),.071);
+}
+function buildStandAtSocket(g,socket) {
+  const stand=new THREE.Group();stand.position.set(socket.x,0,socket.z);g.add(stand);
+  const target=Math.max(.08,socket.y+.022),height=Math.max(.66,target-.015);
+  buildCStand(stand,height);stand.scale.y=Math.min(1,target/(height+.015));
+}
+function buildDirectFixtureMount(g,o,pivot,fromAbove,clearance) {
+  const mount=lightMount(o),axis=mount==='boom'?boomSocketAxis(o,pivot):null;
+  const socket=buildFixtureSwivel(g,pivot,fromAbove,axis);
+  if(mount==='stand')buildStandAtSocket(g,socket);
+  else buildLightMountRig(g,o,socket,clearance,{direct:true,fromAbove,axis});
+}
+// Для подвесного China Ball/абажура обычная стойка держит прибор сверху сбоку.
+function buildOverheadCStand(g,anchor,k) {
+  const chrome=rigChrome(),d=k==='china'?.58:.32,stand=new THREE.Group();stand.position.set(anchor.x+d,0,anchor.z);g.add(stand);buildCStand(stand,anchor.y+.035);
+  mrod(g,V(anchor.x+d,anchor.y+.035,anchor.z),V(anchor.x,anchor.y+.035,anchor.z),.012,chrome);mrod(g,V(anchor.x,anchor.y+.035,anchor.z),anchor,.01,chrome);
+}
+// Manfrotto Grip Head: хромированный ресивер, две дисковые щеки, прижим и рычаги.
+function buildManfrottoGripHead(parent,point,direction,fromAbove=false,axis=null) {
+  const g=new THREE.Group(),steel=rigChrome(),dark=rigPolishedDark(),sign=fromAbove?1:-1;
+  g.position.copy(point);g.rotation.y=Math.atan2(direction.x,direction.z);parent.add(g);
+  mcyl(g,.019,.019,.045,steel,0,sign*.028,0,24);
+  rbox(g,.037,.053,.044,steel,.016,sign*.007,0,.005);
+  const disc=(x,r,h,m)=>{const q=mcyl(g,r,r,h,m,x,0,0,32);q.rotation.z=Math.PI/2;return q;};
+  disc(-.006,.034,.014,steel);disc(-.019,.033,.009,dark);disc(-.030,.034,.014,steel);
+  disc(-.046,.013,.019,steel);disc(-.060,.008,.019,steel);
+  rbox(g,.014,.074,.025,dark,-.067,0,0,.004);
+  for(const y of [-.026,.026])rbox(g,.018,.025,.027,dark,-.067,y,0,.005);
+  disc(.042,.010,.022,steel);
+  rbox(g,.012,.052,.018,steel,.057,0,0,.003);
+  if(axis)g.quaternion.premultiply(new THREE.Quaternion().setFromUnitVectors(V(0,sign,0),axis));
+  return point.clone().addScaledVector(axis||V(0,sign,0),.0505);
+}
+function fixtureOverheadAnchor(g,head,o) {
+  head.updateMatrix();const k=o.kind,point=(x,y,z)=>V(x,y,z).applyMatrix4(head.matrix);
+  if(k==='china')return point(0,.505,0);
+  if(k==='practical')return point(0,.115,0);
+  // Переходник за прибором: удлинитель не закрывает рассеивающую плоскость.
+  const rear=COB_BEAM_KINDS.includes(k)||k==='stripbox' ? COB_BACK+.04 : k==='reflector'?.07:.13;
+  const p=point(0,0,0),q=point(0,0,rear);mrod(g,p,q,.012,k==='mat'?rigStandMetal():rigDark());
+  if(k==='mat'&&lightMount(o)==='boom')return buildManfrottoGripHead(g,q,p.clone().sub(q),true,boomSocketAxis(o,q));
+  return q;
+}
 let NEON_MEASURE = null;
 function neonDims(o) {
   const lines = String(o && o.neonText != null ? o.neonText : '').split(/\r?\n/).slice(0, 2), letterH = Math.max(10, Math.min(50, o && o.letterH || 25)) / 100;
@@ -8993,21 +9526,32 @@ function sceneKeyFilter(k, v) { if (k === 'gobo') return undefined; return NON3D
 // стены, проёмы и пол требуют полной сборки; приборы и остальные объекты обновляются по одному
 const STRUCT_T = ['light', 'wall', 'window', 'door', 'floor'], STATIC_T = ['wall', 'window', 'door', 'floor'];
 const KEYS = { rev: -1, full: '', light: '', struct: '', per: new Map() };
+function objectModelKey(o) {
+  if(o.type==='hero')return o.sex==='f'?'f:'+HUMAN.fState:'m:'+HUMAN.state+':'+!!HUMAN.mLod;
+  if(o.type!=='prop')return '';
+  if(o.kind==='plant')return (o.plant&&o.plant!=='monstera'&&PLANT.variants[o.plant])?'variant':PLANT.model?'base':'placeholder';
+  if(o.kind==='ochair')return CHAIR.model?'model':'placeholder';
+  if(o.kind==='cabinet')return CABINET.model?'model':'placeholder';
+  if(o.kind==='curtain')return CURTAIN_MODEL.model?'model':'placeholder';
+  return '';
+}
 function sceneKeys() {
-  if (KEYS.rev !== S.rev || KEYS.p !== S.project) {
-    KEYS.rev = S.rev; KEYS.p = S.project; KEYS.per = new Map(); const all = [], lt = [], st = [];
-    objs().forEach(o => { const s = JSON.stringify(o, sceneKeyFilter); KEYS.per.set(o.id, s); all.push(s); if (STRUCT_T.includes(o.type)) lt.push(s); if (STATIC_T.includes(o.type)) st.push(s); });
-    all.push('h' + WALL_H); lt.push('h' + WALL_H); st.push('h' + WALL_H);
-    const skirt = 'skirt|' + !!S.project.skirt + '|' + (S.project.skirtCol || '#F2F0EA'); all.push(skirt); lt.push(skirt); st.push(skirt);
-    KEYS.full = all.join(','); KEYS.light = lt.join(',') + '|w' + objs().some(o => o.type === 'wall'); KEYS.struct = st.join(',') + '|w' + objs().some(o => o.type === 'wall');
+  const modelRev=T3.modelRev||0;
+  if (KEYS.rev !== S.rev || KEYS.p !== S.project || KEYS.modelRev!==modelRev) {
+    KEYS.rev = S.rev; KEYS.p = S.project; KEYS.modelRev=modelRev; KEYS.per = new Map(); const all = [], base = [], lt = [], st = [];
+    objs().forEach(o => { const s = JSON.stringify(o, sceneKeyFilter), mk=objectModelKey(o), k=mk?s.slice(0,-1)+',"_model":'+JSON.stringify(mk)+'}':s; KEYS.per.set(o.id,k); all.push(k); base.push(s); if (STRUCT_T.includes(o.type)) lt.push(s); if (STATIC_T.includes(o.type)) st.push(s); });
+    all.push('h' + WALL_H); base.push('h'+WALL_H); lt.push('h' + WALL_H); st.push('h' + WALL_H);
+    const skirt = 'skirt|' + !!S.project.skirt + '|' + (S.project.skirtCol || '#F2F0EA'); all.push(skirt); base.push(skirt); lt.push(skirt); st.push(skirt);
+    KEYS.full = all.join(','); KEYS.base=base.join(','); KEYS.light = lt.join(',') + '|w' + objs().some(o => o.type === 'wall'); KEYS.struct = st.join(',') + '|w' + objs().some(o => o.type === 'wall');
   }
   return KEYS;
 }
 const expoKey = (lit) => sceneKeys().light + '|' + lit + '|' + T3.quality;
 function t3build(lit, sync) {
   const key = sceneKeys().full + '|' + lit + '|' + T3.quality;
+  const baseKey=sceneKeys().base+'|'+lit+'|'+T3.quality;
   if (T3.pendingBuild) {
-    if (T3.pendingBuild.key === key && T3.key) {
+    if (T3.pendingBuild.baseKey === baseKey && T3.pendingBuild.project===S.project && T3.key) {
       if (sync) T3.pendingBuild.run(true);
       return T3.scene;
     }
@@ -9066,16 +9610,15 @@ function t3build(lit, sync) {
     else if (o.type === 'window' || o.type === 'door') buildOpening(sc, o, lit);
     else t3obj(sc, o, lit, budget);
   };
-  const modelRev = T3.modelRev || 0;
   const finishBuild = () => {
   if (lit) { try { t3bounce(sc); } catch (e) { console.error('bounce', e); } }
   t3helpers(sc);
-  t3softSync(sc); T3.scene = sc; T3.key = modelRev === (T3.modelRev || 0) ? key : ''; T3.structKey = K.struct; T3.lit = lit; T3.buildQ = T3.quality; T3.per = new Map(K.per); T3.ver = (T3.ver || 0) + 1; T3.occVer = (T3.occVer || 0) + 1;
+  t3softSync(sc); T3.scene = sc; T3.key = key; T3.structKey = K.struct; T3.lit = lit; T3.buildQ = T3.quality; T3.per = new Map(K.per); T3.ver = (T3.ver || 0) + 1; T3.occVer = (T3.occVer || 0) + 1;
   };
   if (sync || roomOnly) { objs().forEach(buildObject); finishBuild(); }
   else {
     T3.scene = sc; T3.key = key;
-    const pending = { key, jobs: objs().slice(), timer: 0, run: null };
+    const pending = { key, baseKey, project:S.project, jobs: objs().slice(), timer: 0, run: null };
     pending.run = all => {
       if (T3.pendingBuild !== pending) return;
       clearTimeout(pending.timer);
@@ -9146,7 +9689,7 @@ function t3partial(sc, lit, K) {
   const occChanged = [...ids].some(id => {   // наклон/свет меняют только карту своего прибора; перестановка корпуса может влиять и на остальные
     const o = byId(id), old = was(id), q = o || old; if (!q || q.type === 'camera') return false;
     if (q.type !== 'light') return true; if (!o || !old) return true;
-    return ['x', 'y', 'h', 'rot', 'stand', 'horiz', 'alen'].some(k => o[k] !== old[k]);
+    return ['x', 'y', 'h', 'rot', 'stand', 'horiz', 'alen', 'mount', 'boomDx', 'boomDy', 'ah', 'ltilt'].some(k => o[k] !== old[k]);
   });
   if (occChanged) T3.occVer = (T3.occVer || 0) + 1;
   ids.forEach(id => {
@@ -9334,8 +9877,10 @@ function viewExposure(r, sc, lit) {
   const E = 0.67 * Math.max(0.32, Math.min(1.12, 1.05 * Math.pow(18 / Math.max(6, power), 0.42)));
   T3.exposure = E; T3.expKey = ek; return E;
 }
-const EXPOSURE_SETTLE = 400, EXPOSURE_FADE = 420;
-const EXPOSURE_LABELS = new Set(['name', 'cap', 'locked', 'showLbl', 'lbl', 'desc']);
+const EXPOSURE_SETTLE = 400, EXPOSURE_FADE = 650, EXPOSURE_CACHE_VERSION = 5;
+// Стойки и крепёж меняют геометрию/локальные тени, но не настройки света.
+// Их положение и вид не должны заставлять автоматику затемнять весь кадр.
+const EXPOSURE_LABELS = new Set(['name', 'cap', 'locked', 'showLbl', 'lbl', 'desc', 'stand', 'mount', 'boomDx', 'boomDy']);
 let exposureState, exposureTimer = 0;
 const exposureKeys = {};
 function exposureLightKey() {
@@ -9394,8 +9939,11 @@ function frameExposure(r, sc) {
   if (!exposureState || exposureState.project !== S.pid) {
     clearTimeout(exposureTimer);
     const saved = savedExposure(S.pid);
-    const measured = !!saved && saved.signature === exposureSignature(token);
-    exposureState = { project: S.pid, token, target: saved?.target ?? viewExposure(r, sc, true), start: 0, due: 0, measured };
+    const measured = !!saved && saved.version===EXPOSURE_CACHE_VERSION && saved.signature === exposureSignature(token);
+    // Из старого алгоритма не наследуем заведомо пересвеченный первый кадр.
+    const estimate=viewExposure(r,sc,true);
+    const target=saved?.version===EXPOSURE_CACHE_VERSION?saved.target:Math.min(saved?.target??Infinity,estimate);
+    exposureState = { project: S.pid, token, target, start: 0, due: 0, measured };
   } else if (exposureState.token !== token) {
     const value = exposureValue(exposureState);
     exposureState = { project: S.pid, token, target: value, start: 0, due: performance.now() + EXPOSURE_SETTLE };
@@ -9449,7 +9997,44 @@ function exposurePercentile(hist, count, fraction) {
   return 255;
 }
 let exposureCanvas;
-function measureExposure(bitmap, faces, current, estimate) {
+// Светящиеся поверхности и хромированный крепёж — не освещённые объекты.
+// Исключаем их проекции только из замера, не меняя итоговый рендер и тени.
+function exposureExcludedMaterial(v) {
+  return !!v && (v === MAT['rig-chrome'] || v === MAT['rig-stand-metal'] || v === MAT['rig-polished-dark'] || (v.userData?.own && v.userData.glow !== false && v.emissiveIntensity > .01 && v.emissive?.getHex()));
+}
+function exposureFixtureMask(cam, width, height) {
+  const mask = new Uint8Array(width * height);
+  const screen = V(0, 0, 0);
+  for (const o of objs()) {
+    if (o.type !== 'light') continue;
+    const group = T3.byId[o.id];
+    if (!group?.visible) continue;
+    group.traverseVisible(m => {
+      if (!m.isMesh || !m.geometry) return;
+      const materials = Array.isArray(m.material) ? m.material : [m.material];
+      if (!materials.some(exposureExcludedMaterial)) return;
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+      for (const b of m.userData.exposureBoxes || [m.geometry.boundingBox]) {
+      if (!b || b.isEmpty()) continue;
+      const points = [];
+      for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) {
+        screen.set(x,y,z).applyMatrix4(m.matrixWorld).project(cam);
+        if (screen.z < -1 || screen.z > 1) continue;
+        points.push([(screen.x+1)*width/2,(1-screen.y)*height/2]);
+      }
+      if (!points.length) continue;
+      const x0=Math.max(0,Math.floor(Math.min(...points.map(p=>p[0])))-1), x1=Math.min(width-1,Math.ceil(Math.max(...points.map(p=>p[0])))+1);
+      const y0=Math.max(0,Math.floor(Math.min(...points.map(p=>p[1])))-1), y1=Math.min(height-1,Math.ceil(Math.max(...points.map(p=>p[1])))+1);
+      // Не маскируем весь кадр, если камера вплотную к прибору.
+      if ((x1-x0+1)*(y1-y0+1)>width*height*.40) continue;
+      if(x1<x0||y1<y0)continue;
+      for(let y=y0;y<=y1;y++)mask.fill(1,y*width+x0,y*width+x1+1);
+      }
+    });
+  }
+  return mask;
+}
+function measureExposureStats(bitmap, faces, current, estimate, mask) {
   const { width, height } = bitmap;
   if (!exposureCanvas) exposureCanvas = document.createElement('canvas');
   exposureCanvas.width = width; exposureCanvas.height = height;
@@ -9457,8 +10042,14 @@ function measureExposure(bitmap, faces, current, estimate) {
   ctx.drawImage(bitmap, 0, 0);
   const { data } = ctx.getImageData(0, 0, width, height);
   const highlights = new Uint32Array(256);
-  for (let i = 0; i < data.length; i += 4) highlights[Math.max(data[i], data[i + 1], data[i + 2])]++;
-  const bright = exposurePercentile(highlights, width * height, 0.99);
+  let countHighlights = 0;
+  for (let i = 0; i < data.length; i += 4) if (!mask?.[i/4]) {
+    highlights[Math.round(0.2126*data[i]+0.7152*data[i+1]+0.0722*data[i+2])]++; countHighlights++;
+  }
+  if (!countHighlights) return { face: Infinity, highlight: Infinity, fallback: current };
+  // Яркие диффузные детали — потолок экспозиции; мелкие единичные блики не управляют всем кадром.
+  const bright = exposurePercentile(highlights, countHighlights, 0.995);
+  const highlight = current * exposureLinear(230) / exposureLinear(bright);
   const faceMid = [], faceHigh = [];
   for (const { x, y, rx, ry } of faces) {
     const hist = new Uint32Array(256);
@@ -9478,40 +10069,156 @@ function measureExposure(bitmap, faces, current, estimate) {
     faceMid.push(exposurePercentile(hist, count, 0.5));
     faceHigh.push(exposurePercentile(hist, count, 0.9));
   }
-  faceMid.sort((a, b) => a - b);
-  const gain = faceMid.length ? Math.min(
-    exposureLinear(174) / exposureLinear(faceMid[Math.floor(faceMid.length / 2)]),
+  // Ориентируемся на наиболее светлое лицо, а не на среднее лицо в тени.
+  const face = faceMid.length ? current * Math.min(
+    exposureLinear(174) / exposureLinear(Math.max(...faceMid)),
     exposureLinear(204) / exposureLinear(Math.max(...faceHigh)),
     3
-  ) : Math.min(Math.max(1, estimate / current), exposureLinear(224) / exposureLinear(bright));
-  return Math.max(0.08, Math.min(1.12, current * gain));
+  ) : Infinity;
+  return { face, highlight, fallback: Math.min(estimate * 1.4, highlight) };
+}
+function exposureTarget(samples) {
+  const face = Math.min(...samples.map(s=>s.face));
+  const highlight = Math.min(...samples.map(s=>s.highlight));
+  const fallback = Math.min(...samples.map(s=>s.fallback));
+  return Math.max(0.04, Math.min(1.12, Number.isFinite(face) ? face : fallback, highlight));
+}
+function measureExposure(bitmap, faces, current, estimate, mask) {
+  return exposureTarget([measureExposureStats(bitmap, faces, current, estimate, mask)]);
+}
+
+// Линейный HDR-зонд: измеряем свет до тональной кривой (включая очень яркие участки).
+// Float-буфер мал и не затрагивает видимый WebGL-холст, общий для 3D и камер.
+let exposureProbeTarget;
+function exposureHdrStats(pixels, faces, width, height, estimate, mask) {
+  const light = (r,g,b)=>Math.max(0,.2126*r+.7152*g+.0722*b);
+  const pixel = (x,y)=>4*((height-1-y)*width+x);
+  const quantile = (values,p)=>{values.sort((a,b)=>a-b);return values[Math.min(values.length-1,Math.floor(values.length*p))];};
+  const highlights=[], faceMid=[], faceHigh=[];
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    if(mask[y*width+x])continue;
+    const i=pixel(x,y), v=light(pixels[i],pixels[i+1],pixels[i+2]);
+    if(Number.isFinite(v))highlights.push(v);
+  }
+  const level = (srgb,v)=>.6*exposureLinear(srgb)/Math.max(.00001,v);
+  const highlight=highlights.length?level(230,quantile(highlights,.995)):Infinity;
+  const paleThreshold=.6*exposureLinear(180)/Math.max(.00001,estimate);
+  for(const {x,y,rx,ry} of faces){
+    const values=[];let skin=0;
+    for(let j=Math.max(0,Math.floor(y-ry));j<=Math.min(height-1,Math.ceil(y+ry));j++)for(let k=Math.max(0,Math.floor(x-rx));k<=Math.min(width-1,Math.ceil(x+rx));k++){
+      if(((k+.5-x)/rx)**2+((j+.5-y)/ry)**2>1)continue;
+      const i=pixel(k,j),r=pixels[i],g=pixels[i+1],b=pixels[i+2],v=light(r,g,b);
+      const isSkin=r>g&&g>=b*.95&&r-b>Math.max(.003,r*.035);
+      if(!isSkin&&Math.min(r,g,b)<paleThreshold)continue;
+      if(isSkin)skin++;
+      if(Number.isFinite(v))values.push(v);
+    }
+    if(skin<3||values.length<5)continue;
+    faceMid.push(quantile(values,.5));faceHigh.push(quantile(values,.9));
+  }
+  const face=faceMid.length?Math.min(level(174,Math.max(...faceMid)),level(204,Math.max(...faceHigh))):Infinity;
+  return {face,highlight,fallback:Math.min(estimate*1.4,highlight)};
+}
+function probeExposureCamera(c, estimate) {
+  const r=T3.r,sc=T3.scene;
+  if(!r?.extensions.has('EXT_color_buffer_float'))return null;
+  const ar=aspectOf(c),width=Math.max(256,Math.min(440,Math.round(184*ar))),height=Math.max(1,Math.round(width/ar));
+  const field=cameraField(c,ar),pc=new THREE.PerspectiveCamera(field.vertical/RAD,field.aspect,.05,100);t3aim(pc,c);
+  if(!exposureProbeTarget)exposureProbeTarget=new THREE.WebGLRenderTarget(width,height,{type:THREE.FloatType,depthBuffer:true});
+  const target=exposureProbeTarget;
+  if(target.width!==width||target.height!==height)target.setSize(width,height);
+  const savedTarget=r.getRenderTarget(),viewport=r.getViewport(new THREE.Vector4()),scissor=r.getScissor(new THREE.Vector4()),scissorTest=r.getScissorTest();
+  const own=T3.byId[c.id],visible=[own,T3.helpers,...(T3.corr||[]),...(T3.ceil||[])].filter(Boolean).map(o=>[o,o.visible]);
+  const cuts=(T3.cut||[]).map(c=>[c,c.mesh.material,c.mesh.userData.orig,c.stub?.visible]);
+  let cl;
+  try{
+    if(own)own.visible=false;if(T3.helpers)T3.helpers.visible=false;
+    setCuts(null);(T3.corr||[]).forEach(o=>o.visible=true);(T3.ceil||[]).forEach(o=>o.visible=true);
+    cl=cullLights(sc,pc);shadowSync(r,cl.off);
+    r.setRenderTarget(target);r.render(sc,pc);
+    const pixels=new Float32Array(width*height*4);r.readRenderTargetPixels(target,0,0,width,height,pixels);
+    return {stats:exposureHdrStats(pixels,exposureFaces(pc,width,height),width,height,estimate,exposureFixtureMask(pc,width,height)),frame:{pixels,width,height}};
+  }finally{
+    cl?.restore();visible.forEach(([o,v])=>o.visible=v);
+    cuts.forEach(([c,m,orig,stub])=>{c.mesh.material=m;c.mesh.userData.orig=orig;if(c.stub)c.stub.visible=stub;});
+    r.setRenderTarget(savedTarget);r.setViewport(viewport);r.setScissor(scissor);r.setScissorTest(scissorTest);
+  }
+}
+// Та же ACES-кривая и мягкое плечо, что в GPU-шейдере. Миниатюра из уже
+// измеренного HDR-кадра не требует ещё одного рендера всей сцены.
+function drawExposureThumbnail(cv,{pixels,width,height},exposure){
+  const source=document.createElement('canvas');source.width=width;source.height=height;
+  const ctx=source.getContext('2d'),image=ctx.createImageData(width,height),out=image.data;
+  const fit=x=>(x*(x+.0245786)-.000090537)/(x*(.983729*x+.432951)+.238081);
+  const clamp=x=>Math.max(0,Math.min(1,x));
+  const srgb=x=>255*(x<=.0031308?12.92*x:1.055*Math.pow(x,1/2.4)-.055);
+  const E=exposure/.6;
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const i=4*((height-1-y)*width+x),j=4*(y*width+x);
+    const r=pixels[i]*E,g=pixels[i+1]*E,b=pixels[i+2]*E;
+    const a=fit(.59719*r+.35458*g+.04823*b),d=fit(.076*r+.90834*g+.01566*b),c=fit(.0284*r+.13383*g+.83777*b);
+    const rr=clamp(1.60475*a-.53108*d-.07367*c),gg=clamp(-.10208*a+1.10813*d-.00605*c),bb=clamp(-.00327*a-.07276*d+1.07602*c);
+    const lum=.2126*rr+.7152*gg+.0722*bb,over=Math.max(0,lum-.55),k=1-.30*over*over/(over+.2)/Math.max(lum,.00001);
+    out[j]=srgb(rr*k);out[j+1]=srgb(gg*k);out[j+2]=srgb(bb*k);out[j+3]=255;
+  }
+  ctx.putImageData(image,0,0);
+  const dest=cv.getContext('2d');dest.imageSmoothingEnabled=true;dest.imageSmoothingQuality='high';dest.drawImage(source,0,0,cv.width,cv.height);
 }
 
 function meterExposure(entry, source, cam, sourceW, sourceH) {
   if (entry.pending) return entry.pending;
   if (entry.measured || performance.now() < entry.due || !window.createImageBitmap) return null;
-  const width = Math.min(224, sourceW), height = Math.max(1, Math.round(width * sourceH / sourceW));
-  const faces = exposureFaces(cam, width, height);
   const current = exposureValue(entry);
   const estimate = viewExposure(T3.r, T3.scene, true);
-  entry.measured = true;
-  entry.pending = createImageBitmap(source, 0, 0, sourceW, sourceH, { resizeWidth: width, resizeHeight: height, resizeQuality: 'low' })
-    .then(bitmap => {
-      try {
-        if (exposureState !== entry || S.pid !== entry.project || exposureLightKey() !== entry.token) return false;
-        const next = measureExposure(bitmap, faces, current, estimate);
-        const changed = Math.abs(Math.log2(next / current)) >= 0.09;
-        store.set(exposureStorageKey(entry.project), JSON.stringify({
-          signature: exposureSignature(entry.token), target: changed ? next : entry.target
-        }));
-        if (!changed) return false;
-        entry.from = exposureValue(entry);
-        entry.target = next;
-        entry.start = performance.now();
-        scheduleExposureRedraw(0);
-        return true;
-      } finally { bitmap.close(); }
-    }).catch(() => false)
+  const valid = () => exposureState === entry && S.pid === entry.project && exposureLightKey() === entry.token;
+  const cameras = cams().map(c => ({ ...c }));
+  const width = Math.min(256, sourceW), height = Math.max(1, Math.round(width * sourceH / sourceW));
+  const samples = [];
+  // Если камер нет, замеряем текущий 3D-кадр. Иначе результат не зависит от того,
+  // какой ракурс пользователь открыл первым: проверяем все камеры одним общим замером.
+  const initial = !cameras.length || !T3.r?.extensions.has('EXT_color_buffer_float') ? {
+    faces: exposureFaces(cam, width, height), mask: exposureFixtureMask(cam, width, height),
+    bitmap: createImageBitmap(source, 0, 0, sourceW, sourceH, { resizeWidth: width, resizeHeight: height, resizeQuality: 'low' })
+  } : null;
+  entry.pending = (async () => {
+    const frames=new Map();let frameKey;
+    if(initial){
+      const bitmap=await initial.bitmap;
+      try { if(valid())samples.push(measureExposureStats(bitmap,initial.faces,current,estimate,initial.mask)); }
+      finally { bitmap.close(); }
+    } else {
+      // Компилируем HDR асинхронно до первого зонда; этот же комплект
+      // материалов затем используется вкладкой «Камеры».
+      const first=cameras[0],field=cameraField(first),pc=new THREE.PerspectiveCamera(field.vertical/RAD,field.aspect,.05,100);t3aim(pc,first);
+      do {
+        await new Promise(resolve=>setTimeout(resolve,50));
+        if(!valid()||!T3.lit)return false;
+      } while(T3.pendingBuild||T3.compileBusy||!prepareCameraDof(T3.r,T3.scene,pc));
+      frameKey=frameSceneKey();
+      for(const c of cameras){
+        // Маленькие кадры без ГРИП, по одному за задачу, только после изменения света.
+        await new Promise(resolve=>setTimeout(resolve,24));
+        while(valid()&&(T3.compileBusy||T3.pendingBuild||V3.motionUntil>performance.now())) await new Promise(resolve=>setTimeout(resolve,80));
+        if(!valid()||!T3.lit)return false;
+        const result=probeExposureCamera(c,estimate);
+        if(result){samples.push(result.stats);frames.set(c.id,result.frame);}
+      }
+    }
+    if (!valid() || !samples.length) return false;
+    const next = exposureTarget(samples);
+    if(frames.size&&frameKey===frameSceneKey())T3.exposureThumbnails={key:frameKey,frames};
+    entry.measured = true;
+    const changed = Math.abs(Math.log2(next / current)) >= 0.03;
+    store.set(exposureStorageKey(entry.project), JSON.stringify({
+      version:EXPOSURE_CACHE_VERSION, signature: exposureSignature(entry.token), target: changed ? next : entry.target
+    }));
+    if (!changed) return false;
+    entry.from = exposureValue(entry);
+    entry.target = next;
+    entry.start = performance.now();
+    scheduleExposureRedraw(0);
+    return true;
+    })().catch(error => { console.warn('Exposure meter',error); return false; })
     .finally(() => { entry.pending = null; });
   return entry.pending;
 }
@@ -9527,15 +10234,25 @@ function renderFrame3(cv, cam, opts) {
   const pc = new THREE.PerspectiveCamera(optics.vertical / RAD, optics.aspect, 0.05, 100); t3aim(pc, cam);
   const own = T3.byId[cam.id]; if (own) own.visible = false; if (T3.helpers) T3.helpers.visible = false;
   setCuts(null); (T3.corr || []).forEach(c => c.visible = true); (T3.ceil || []).forEach(c => c.visible = true);
-  if (!(opts && opts.sync) && !t3compile(r, sc, pc)) { if (own) own.visible = true; return false; }
+  const cameraHdr = opts?.dof || opts?.thumbnail;
+  if (!opts?.sync && !(cameraHdr ? prepareCameraDof(r, sc, pc) : t3compile(r, sc, pc))) { if (own) own.visible = true; return false; }
   const entry = lit && (!opts?.sync || opts.meter)
     ? frameExposure(r, sc)
     : null;
-  r.toneMappingExposure = entry ? (opts?.exportFrame ? entry.target : exposureValue(entry)) : viewExposure(r, sc, lit);
+  r.toneMappingExposure = opts?.exposureProbe ?? (entry ? (opts?.exportFrame ? entry.target : exposureValue(entry)) : (lit && exposureState?.project===S.pid && exposureState.token===exposureLightKey() ? exposureValue(exposureState) : viewExposure(r, sc, lit)));
   if (T3.helpers) T3.helpers.visible = false;
   const cl = cullLights(sc, pc); shadowSync(r, cl.off);
   setCuts(null);
-  try { r.render(sc, pc); } finally { cl.restore(); }
+  try {
+    if (cameraHdr) {
+      try { cv._focusDistance = renderCameraDof(r, sc, pc, cam, W, H, BH, opts.thumbnail); }
+      catch (error) {
+        console.warn('Camera depth of field', error);
+        r.setViewport(0, BH - H, W, H); r.setScissor(0, BH - H, W, H); r.setScissorTest(true);
+        r.render(sc, pc);
+      }
+    } else r.render(sc, pc);
+  } finally { cl.restore(); }
   if (own) own.visible = true;
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(r.domElement, 0, 0, W, H, 0, 0, cv.width, cv.height);
   cv._meter = entry && !opts?.thumbnail ? meterExposure(entry, cv, pc, cv.width, cv.height) : null;
@@ -9544,6 +10261,265 @@ function renderFrame3(cv, cam, opts) {
 function renderFrame(cv, cam, opts) {
   if (t3init()) { try { return renderFrame3(cv, cam, opts); } catch (e) { console.error(e); T3.failed = true; } }
   renderFrameLegacy(cv, cam, opts); return true;
+}
+// Камерный ГРИП: круг нерезкости тонкой линзы, диафрагма f/2.8.
+const CAMERA_APERTURE = 2.8;
+let cameraDof;
+function cameraFocusDistance(pc, pixels, size) {
+  const sample = (x, y) => {
+    const i = 4 * (Math.min(size - 1, Math.max(0, Math.floor(y * size))) * size
+      + Math.min(size - 1, Math.max(0, Math.floor(x * size))));
+    return { depth: (pixels[i] * 256 + pixels[i + 1]) / 65535 * pc.far, light: pixels[i + 2] / 255 };
+  };
+  pc.updateMatrixWorld();
+  const candidates = [];
+  for (const o of objs()) {
+    if (o.type !== 'hero') continue;
+    const actor = T3.byId[o.id];
+    if (!actor?.visible || !actor.meterHead) continue;
+    const head = actor.meterHead.getWorldPosition(V(0, 0, 0));
+    const [dx, dz] = dirOf(o.rot || 0);
+    head.add(V(dx * 0.07, 0.09, dz * 0.07));
+    // Если лицо за границей кадра, фокусируемся на видимой части корпуса.
+    for (const point of [head, head.clone().add(V(0, -0.38, 0))]) {
+      const distance = -point.clone().applyMatrix4(pc.matrixWorldInverse).z;
+      const p = point.clone().project(pc);
+      if (distance <= pc.near || Math.abs(p.x) > 1 || Math.abs(p.y) > 1 || p.z > 1) continue;
+      const visible = [];
+      for (const oy of [-1, 0, 1]) for (const ox of [-1, 0, 1]) {
+        const s = sample((p.x + 1) / 2 + ox / size, (p.y + 1) / 2 + oy / size);
+        if (Math.abs(s.depth - distance) < 0.18) visible.push(s);
+      }
+      if (!visible.length) continue;
+      const light = visible.reduce((sum, s) => sum + s.light, 0) / visible.length;
+      const center = Math.max(0, 1 - Math.hypot(p.x, p.y) / Math.SQRT2);
+      candidates.push({ distance, light, center });
+      break;
+    }
+  }
+  if (candidates.length) {
+    const nearest = Math.min(...candidates.map(c => c.distance));
+    candidates.forEach(c => c.score = 0.45 * nearest / c.distance + 0.30 * c.light + 0.25 * c.center);
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0].distance;
+  }
+  const center = sample(0.5, 0.5).depth;
+  return Math.max(pc.near, Math.min(pc.far, center));
+}
+function dofResources() {
+  if (cameraDof) return cameraDof;
+  const target = () => {
+    const t = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, stencilBuffer: true, depthBuffer: true });
+    t.depthTexture = new THREE.DepthTexture(1, 1, THREE.UnsignedInt248Type);
+    t.depthTexture.format = THREE.DepthStencilFormat;
+    return t;
+  };
+  const vertexShader = `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+  `;
+  const depthCode = `
+    varying vec2 vUv;
+    uniform sampler2D imageColor, imageDepth;
+    uniform float nearPlane, farPlane;
+    float depthAt(vec2 uv) {
+      float d = texture2D(imageDepth, uv).r;
+      return nearPlane * farPlane / (farPlane - d * (farPlane - nearPlane));
+    }
+  `;
+  const uniforms = () => ({
+    imageColor: { value: null }, imageDepth: { value: null },
+    nearPlane: { value: 0.05 }, farPlane: { value: 100 }
+  });
+  const meter = new THREE.ShaderMaterial({
+    vertexShader, uniforms: uniforms(), depthTest: false, depthWrite: false, toneMapped: false,
+    fragmentShader: depthCode + `
+      uniform float exposure;
+      void main() {
+        float z = floor(clamp(depthAt(vUv) / farPlane, 0.0, 1.0) * 65535.0 + 0.5);
+        vec3 c = texture2D(imageColor, vUv).rgb;
+        float l = sqrt(clamp(dot(c, vec3(0.2126, 0.7152, 0.0722)) * exposure, 0.0, 1.0));
+        gl_FragColor = vec4(floor(z / 256.0) / 255.0, mod(z, 256.0) / 255.0, l, 1.0);
+      }`
+  });
+  meter.uniforms.exposure = { value: 1 };
+  // Фиксированные разнесённые точки диска, сбалансированные по обеим осям.
+  // Симметричные пары не сдвигают изображение; координаты и радиусы — константы GLSL.
+  const farPairs = [[-.392,.525],[.304,.135],[.613,.724],[-.764,.618],[-.858,.168],[-.213,.251],[-.461,-.431],[-.097,-.395],[-.704,-.184],[-.067,.680],[-.523,.108],[.133,.938]];
+  const nearPairs = [[.144,.167],[-.101,-.759],[-.708,.428],[.269,-.355],[.558,-.013],[-.335,.794],[-.847,-.319],[.506,.596]];
+  const disk = pairs => pairs.flatMap(([x,y]) => [[x,y],[-x,-y]]);
+  const farDisk = disk(farPairs).map(([x,y]) => `vec2(${x.toFixed(3)}, ${y.toFixed(3)})`).join(', ');
+  const nearDisk = disk(nearPairs).map(([x,y]) => `vec3(${x.toFixed(3)}, ${y.toFixed(3)}, ${Math.hypot(x,y).toFixed(4)})`).join(', ');
+  const blur = new THREE.ShaderMaterial({
+    vertexShader, uniforms: { ...uniforms(), focus: { value: 3 }, scale: { value: 1 }, size: { value: new THREE.Vector2() } },
+    depthTest: false, depthWrite: false, toneMapped: false,
+    fragmentShader: depthCode + `
+      uniform float focus, scale;
+      uniform vec2 size;
+      const vec2 farDisk[24] = vec2[24](${farDisk});
+      const vec3 nearDisk[16] = vec3[16](${nearDisk});
+      float coc(float z) { return clamp(scale * (z - focus) / max(z, nearPlane), -size.x * .035, size.x * .035); }
+      void main() {
+        float z = depthAt(vUv), center = coc(z), radius = abs(center);
+        vec3 original = texture2D(imageColor, vUv).rgb;
+        vec3 sum = original;
+        float weight = 1.0;
+        // Раздельный сбор дальнего и ближнего размытия, с сохранением резких силуэтов.
+        if (radius > .65) {
+          for (int i = 0; i < 24; ++i) {
+            vec2 offset = farDisk[i] * radius;
+            vec2 uv = clamp(vUv + offset / size, vec2(0.0), vec2(1.0));
+            float other = depthAt(uv);
+            float w = center < 0.0 ? smoothstep(-.03, .03, z - other)
+              : smoothstep(-.03, .03, other - z);
+            if (center > 0.0) w = max(w, smoothstep(.65, max(1.0, radius * .8), coc(other)));
+            if (abs(other - z) < .03) w = 1.0;
+            sum += texture2D(imageColor, uv).rgb * w;
+            weight += w;
+          }
+        }
+        vec3 color = sum / weight;
+        vec3 nearColor = vec3(0.0);
+        float coverage = 0.0;
+        float reach = size.x * .035;
+        for (int i = 0; i < 16; ++i) {
+          vec2 offset = nearDisk[i].xy * reach;
+          vec2 uv = clamp(vUv + offset / size, vec2(0.0), vec2(1.0));
+          float other = depthAt(uv), r = -coc(other);
+          float sampleRadius = nearDisk[i].z * reach;
+          float w = smoothstep(sampleRadius - 1.0, sampleRadius + 1.0, r)
+            * smoothstep(.02, .10, z - other);
+          nearColor += texture2D(imageColor, uv).rgb * w;
+          coverage += w;
+        }
+        float foreground = clamp(coverage / 10.0, 0.0, 1.0);
+        color = mix(color, nearColor / max(coverage, .001), foreground);
+        gl_FragColor = vec4(color, foreground);
+      }`
+  });
+  // Резкий оригинал остаётся в полном разрешении; размытые области — в половинном.
+  const composite = new THREE.ShaderMaterial({
+    vertexShader, uniforms: { ...uniforms(), blurred: { value: null }, focus: { value: 3 }, scale: { value: 1 } },
+    depthTest: false, depthWrite: false,
+    fragmentShader: depthCode + `
+      uniform sampler2D blurred;
+      uniform float focus, scale;
+      void main() {
+        float z = depthAt(vUv);
+        float radius = abs(scale * (z - focus) / max(z, nearPlane));
+        vec4 b = texture2D(blurred, vUv);
+        vec3 original = texture2D(imageColor, vUv).rgb;
+        float weight = max(smoothstep(.65, 1.5, radius), b.a);
+        gl_FragColor = vec4(mix(original, b.rgb, weight), 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`
+  });
+  const scene = new THREE.Scene(), quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), meter);
+  quad.frustumCulled = false; scene.add(quad);
+  const meterSize = 48;
+  return cameraDof = { target: target(), thumbTarget: target(), meter, blur, composite, scene, quad, camera: new THREE.Camera(),
+    blurTarget: new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false }),
+    focusCache: new Map(), meterSize, pixels: new Uint8Array(meterSize * meterSize * 4),
+    probe: new THREE.WebGLRenderTarget(meterSize, meterSize, { depthBuffer: false }) };
+}
+// GPU-материалы для HDR-буфера отличаются от материалов экранного рендера.
+// Готовим HDR и постэффекты до первого кадра. Миниатюры используют те же материалы,
+// но без фокусировки и размытия, чтобы не компилировать второй комплект PBR-шейдеров.
+function prepareCameraDof(r, sc, pc) {
+  const d = dofResources();
+  if (!r.compileAsync) return true;
+  if (!r.userData) r.userData = {};
+  const key = T3.ver;
+  if (d.preparedRenderer === r && d.preparedVer === key) return true;
+  if (T3.compileBusy) return false;
+  const shaderKey=t3shaderKey(sc),textures=t3textureQueue(r,sc);
+  if(d.preparedRenderer===r&&d.preparedShaderKey===shaderKey&&!textures.length){d.preparedVer=key;return true;}
+  if (d.preparing) return false;
+  const previous = r.getRenderTarget(), viewport = r.getViewport(new THREE.Vector4()), scissor = r.getScissor(new THREE.Vector4()), scissorTest = r.getScissorTest();
+  const jobs = [];
+  d.preparing = true; T3.compileBusy = true;
+  try {
+    r.setRenderTarget(d.target);
+    if(d.preparedRenderer!==r||d.preparedShaderKey!==shaderKey)jobs.push(r.compileAsync(sc, pc));
+    if(textures.length)jobs.push(t3warmTextures(r, sc,textures));
+    if (d.preparedRenderer !== r) {
+      for (const [material, target] of [[d.meter, d.probe], [d.blur, d.blurTarget], [d.composite, null]]) {
+        d.quad.material = material;
+        r.setRenderTarget(target);
+        jobs.push(r.compileAsync(d.scene, d.camera));
+      }
+    }
+  } catch (error) { jobs.push(Promise.reject(error)); }
+  finally {
+    r.setRenderTarget(previous); r.setViewport(viewport); r.setScissor(scissor); r.setScissorTest(scissorTest);
+  }
+  Promise.allSettled(jobs).then(results => {
+    d.preparedRenderer = r; d.preparedVer = key; d.preparedShaderKey=shaderKey;
+    for (const result of results) if (result.status === 'rejected') console.warn('Camera DOF preparation', result.reason);
+  }).finally(() => { d.preparing = false; T3.compileBusy = false; t3disposeFlush(); t3compileRedraw(); });
+  return false;
+}
+function renderCameraDof(r, sc, pc, cam, W, H, BH, thumbnail) {
+  const d = dofResources(), target = thumbnail ? d.thumbTarget : d.target;
+  target.samples = thumbnail ? 0 : Math.min(4, r.capabilities.maxSamples || 0);
+  if (target.width !== W || target.height !== H) target.setSize(W, H);
+  const bw = Math.max(1, Math.ceil(W / 2)), bh = Math.max(1, Math.ceil(H / 2));
+  if (!thumbnail && (d.blurTarget.width !== bw || d.blurTarget.height !== bh)) d.blurTarget.setSize(bw, bh);
+  const oldShadow = r.shadowMap.enabled;
+  try {
+    const rawKey=frameSceneKey()+'|'+T3.ver+'|'+T3.lit+'|'+(T3.exposureTextureRev||0)+'|'+cam.id+'|'+W+'x'+H;
+    const rawReady=!thumbnail&&d.rawKey===rawKey;
+    if(!rawReady){r.setRenderTarget(target);r.render(sc, pc);if(!thumbnail){d.rawKey=rawKey;d.blurKey='';}}
+    r.shadowMap.enabled = false;
+    for (const material of [d.meter, d.blur, d.composite]) {
+      material.uniforms.imageColor.value = target.texture;
+      material.uniforms.imageDepth.value = target.depthTexture;
+      material.uniforms.nearPlane.value = pc.near;
+      material.uniforms.farPlane.value = pc.far;
+    }
+    if (thumbnail) {
+      // Только цвет и тональная кривая: ни прохода размытия, ни чтения глубины на CPU.
+      d.composite.uniforms.scale.value = 0;
+      d.composite.uniforms.blurred.value = target.texture;
+      d.quad.material = d.composite;
+      r.setRenderTarget(null);
+      r.setViewport(0, BH - H, W, H); r.setScissor(0, BH - H, W, H); r.setScissorTest(true);
+      r.render(d.scene, d.camera);
+      return;
+    }
+    const focusKey = frameSceneKey() + '|' + T3.lit + '|' + (T3.exposureRev || 0) + '|' + (T3.exposureTextureRev || 0) + '|' + cam.id + '|' + pc.aspect;
+    if (d.cacheProject !== S.project) { d.focusCache.clear(); d.cacheProject = S.project; }
+    let cached = d.focusCache.get(cam.id);
+    if (!cached || cached.key !== focusKey) {
+      d.meter.uniforms.exposure.value = r.toneMappingExposure;
+      d.quad.material = d.meter;
+      r.setRenderTarget(d.probe);
+      r.render(d.scene, d.camera);
+      r.readRenderTargetPixels(d.probe, 0, 0, d.meterSize, d.meterSize, d.pixels);
+      cached = { key: focusKey, focus: cameraFocusDistance(pc, d.pixels, d.meterSize) };
+      d.focusCache.set(cam.id, cached);
+    }
+    const focus = cached.focus;
+    const lens = +(cam.lens || 35), sensorWidth = 2 * lens * Math.tan(pc.fov * RAD / 2) * pc.aspect;
+    d.blur.uniforms.focus.value = focus;
+    const scale = lens * lens / (CAMERA_APERTURE * Math.max(1, focus * 1000 - lens)) * W / sensorWidth / 2;
+    d.blur.uniforms.scale.value = scale * bw / W;
+    d.blur.uniforms.size.value.set(bw, bh);
+    const blurKey=rawKey+'|'+focus+'|'+scale;
+    if(d.blurKey!==blurKey){d.quad.material = d.blur;r.setRenderTarget(d.blurTarget);r.render(d.scene, d.camera);d.blurKey=blurKey;}
+    d.composite.uniforms.focus.value = focus;
+    d.composite.uniforms.scale.value = scale;
+    d.composite.uniforms.blurred.value = d.blurTarget.texture;
+    d.quad.material = d.composite;
+    r.setRenderTarget(null);
+    r.setViewport(0, BH - H, W, H); r.setScissor(0, BH - H, W, H); r.setScissorTest(true);
+    r.render(d.scene, d.camera);
+    return focus;
+  } finally {
+    r.setRenderTarget(null);
+    r.shadowMap.enabled = oldShadow;
+  }
 }
 const VIEW_LOAD = { active: false, view: null, progress: 0, gen: 0, hideT: 0 };
 function viewLoadStart(view) {
@@ -9698,12 +10674,21 @@ function prewarm3d() {
   // до загрузки моделей не собираем сцену с временными упрощёнными героями и не блокируем схему
   if (humansPending()) { schedPrewarm(500); return; }
   // пока пользователь ставит объект, тянет, рисует стену или просто двигает мышью — откладываем
-  if (S.placing || S.wallDraw || drag || S.ruler || performance.now() - lastAct < 2500) { schedPrewarm(900); return; }
+  if (S.placing || S.wallDraw || drag || S.ruler || performance.now() - lastAct < 900) { schedPrewarm(900); return; }
   if (!ensureV3()) return;
   const wr = $('stagewrap').getBoundingClientRect(), size = Math.floor(wr.width) + 'x' + Math.floor(wr.height) + 'x' + Math.min(2, window.devicePixelRatio || 1);
   const key = () => T3.key + '|' + T3.ver + '|' + size;   // не повторяем тяжёлый кадр без изменения сцены или размера
-  if (T3.prewarmKey === key()) return;
-  try { if (draw3(true)) T3.prewarmKey = key(); } catch (e) { console.error(e); } V3.dirty = true;
+  try {
+    if(T3.prewarmKey!==key()){
+      if(!draw3(true))return;
+      T3.prewarmKey=key();V3.dirty=true;
+    }
+    const c=cams()[0];
+    if(c&&T3.scene&&T3.lit===S.ov.lit&&!T3.compileBusy){
+      const f=cameraField(c),pc=new THREE.PerspectiveCamera(f.vertical/RAD,f.aspect,.05,100);t3aim(pc,c);
+      prepareCameraDof(T3.r,T3.scene,pc);
+    }
+  } catch (e) { console.error(e); }
 }
 function schedPrewarm(delay) {
   clearTimeout(V3.pw); if (S.view === '3d') return;
@@ -9758,6 +10743,7 @@ function draw3(quiet) {
     V3.fastStart = false; if (busy) busy.hidden = true;
     t3size(r, W, H, ratio); r.setScissorTest(false); r.setViewport(0, 0, W, H);
     draw3Fast(r, sc, cam);
+    if(!quiet)viewLoadFinish('3d');   // первый полезный кадр уже виден; освещение будет готово следующим
     // Даём браузеру показать стартовый кадр до тяжёлой полноценной отрисовки.
     V3.fastHoldUntil = performance.now() + 350;
     setTimeout(() => { V3.dirty = true; }, 400);
@@ -9943,7 +10929,7 @@ function renderInspector() {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
     if (!NO_COLOR.includes(o.kind)) h += colorBlock(o);
     h += '<h3 class="ins-section">Положение</h3>';
-    if (o.kind === 'astera') { h += field('Длина', `<input type="number" id="inALen" step="0.1" min="0.3" max="2.5" value="${asteraLen(o)}"> м`); h += field('Высота', `<input type="number" id="inAH" step="0.1" min="0" max="8" value="${asteraBaseH(o)}"> м`); h += `<span class="seg" role="group" aria-label="Положение"><button data-act="horiz" data-v="v" aria-pressed="${!o.horiz}">Вертикально</button><button data-act="horiz" data-v="h" aria-pressed="${!!o.horiz}">Горизонтально</button></span>`; }
+    if (o.kind === 'astera') { h += field('Длина', `<input type="number" id="inALen" step="0.1" min="0.3" max="2.5" value="${asteraLen(o)}"> м`); h += field('Высота', `<input type="number" id="inAH" step="0.1" min="${lightMount(o)==='stand'?0:.5}" max="8" value="${asteraBaseH(o)}"> м`); h += `<span class="seg" role="group" aria-label="Положение"><button data-act="horiz" data-v="v" aria-pressed="${!o.horiz}">Вертикально</button><button data-act="horiz" data-v="h" aria-pressed="${!!o.horiz}">Горизонтально</button></span>`; }
     if (o.kind === 'p_neon') {
       h += `<label class="neon-field"><span>Надпись</span><textarea id="inNeonText" class="note-ta" rows="2" aria-label="Текст неоновой вывески" placeholder="До двух строк">${esc(o.neonText == null ? '' : o.neonText)}</textarea><small>Не больше двух строк</small></label>`;
       h += field('Высота букв', `<input type="number" id="inNeonSize" step="5" min="10" max="50" value="${o.letterH || 25}"> см`);
@@ -9960,13 +10946,19 @@ function renderInspector() {
     if (!SHADOW_KINDS_OFF.includes(o.kind)) { const hq = T3.quality === 'high', picks = shadowPicks(hq ? 7 : 3, hq);
       if (!picks.has(o.id)) h += `<span class="hint" style="font-family:var(--font-ui)">В 3D без тени: тени получают приборы, сильнее всего освещающие героев (не больше ${hq ? 7 : 3})</span>`; }
     if (tiltable(o)) h += tiltBlock(o);
-    if (o.kind === 'spot' || GRID_KINDS.includes(o.kind) || !((LIGHTS[o.kind] || {}).omni || (LIGHTS[o.kind] || {}).prac || o.kind === 'sun')) h += '<h3 class="ins-section">Дополнительно</h3>';
+    if (o.kind === 'spot' || GRID_KINDS.includes(o.kind)) h += '<h3 class="ins-section">Дополнительно</h3>';
     if (o.kind === 'spot') {
       h += `<span class="seg" role="group" aria-label="Угол луча"><button data-act="beam" data-v="19" aria-pressed="${o.beam !== 36}">19°</button><button data-act="beam" data-v="36" aria-pressed="${o.beam === 36}">36°</button></span>`;
       h += goboBlock(o);
     }
     if (GRID_KINDS.includes(o.kind)) h += `<label class="chk solo"><input type="checkbox" id="inGrid" ${o.grid ? 'checked' : ''}> Соты</label>`;
-    const L = LIGHTS[o.kind] || {}, standUI = o.kind === 'astera' ? asteraBaseH(o) > 0 : !(L.omni || L.prac || o.kind === 'sun'); if (standUI) h += `<label class="chk solo"><input type="checkbox" id="inStand" ${o.stand !== false ? 'checked' : ''}> Показать C-stand</label>`;
+    if(lightMountable(o)) {
+      const mount=lightMount(o);
+      h += '<h3 class="ins-section">Крепление</h3>';
+      h += `<span class="seg" role="group" aria-label="Крепление">${LIGHT_MOUNTS.map(([v,n])=>`<button data-act="mount" data-v="${v}" aria-pressed="${mount===v}">${n}</button>`).join('')}</span>`;
+      if(mount!=='hang')h += `<label class="chk solo"><input type="checkbox" id="inStand" ${o.stand!==false?'checked':''}> Показать стойку</label>`;
+      if(mount==='boom')h += '<span class="hint">Перетащите значок стойки на схеме.</span>';
+    }
   } else if (o.type === 'prop') {
     h += `<div class="ins-head"><span class="kind">${typeName(o)}</span></div>` + capBlock(o);
     const dims = propDims(o);
@@ -10045,7 +11037,7 @@ function renderInspector() {
 }
 $('inspector').addEventListener('click', (e) => {
   const sb = e.target.closest('.stp');
-  if (sb) { const inp = sb.parentElement.querySelector('input[type="number"]'); if (inp) { if (inp.id === 'inAH') { const d = +sb.dataset.step, cur = parseFloat(inp.value) || 0; inp.value = d > 0 ? Math.min(8, cur < 0.5 ? 0.5 : Math.round((cur + 0.1) * 10) / 10) : cur <= 0.5 ? 0 : Math.round((cur - 0.1) * 10) / 10; } else sb.dataset.step > 0 ? inp.stepUp() : inp.stepDown(); inp.dispatchEvent(new Event('input', { bubbles: true })); } return; }
+  if (sb) { const inp = sb.parentElement.querySelector('input[type="number"]'); if (inp) { if (inp.id === 'inAH') { const d = +sb.dataset.step, cur = parseFloat(inp.value) || 0, min=+inp.min||0; inp.value = d > 0 ? Math.min(8, cur < 0.5 ? 0.5 : Math.round((cur + 0.1) * 10) / 10) : cur <= 0.5 ? min : Math.max(min,Math.round((cur - 0.1) * 10) / 10); } else sb.dataset.step > 0 ? inp.stepUp() : inp.stepDown(); inp.dispatchEvent(new Event('input', { bubbles: true })); } return; }
   const b = e.target.closest('[data-act]'); if (!b) return;
   if (b.dataset.act === 'inscompact') { S.insCompact = !S.insCompact; renderInspector(); return; }
   if (b.dataset.act === 'insclose') { setSel([]); renderAll(true); plan.focus({ preventScroll: true }); return; }
@@ -10066,6 +11058,7 @@ $('inspector').addEventListener('click', (e) => {
   if (a === 'wcol') o.wcol = b.dataset.v;
   if (a === 'skirtcol') S.project.skirtCol = b.dataset.v;
   if (a === 'beam') o.beam = +b.dataset.v;
+  if (a === 'mount') setLightMount(o,b.dataset.v);
   if (a === 'sbsize') o.size = softboxSize({ size: +b.dataset.v });
   if (a === 'stripboxsize') o.size = stripboxSize({ size: b.dataset.v });
   if (a === 'dcol') o.dcol = b.dataset.v;
@@ -10215,9 +11208,9 @@ $('inspector').addEventListener('input', (e) => {
     }
     case 'inFloor': o.floor = t.checked; o.h = o.floor ? Math.max(o.h || 1.2, 2.4) : Math.min(o.h || 1.2, 1.2); o.h = Math.min(o.h, winMaxH(o)); renderInspector(); break;
     case 'inSkirt': S.project.skirt = t.checked; if (t.checked && !S.project.skirtCol) S.project.skirtCol = '#F2F0EA'; renderInspector(); break;
-    case 'inStand': o.stand = t.checked; T3.key = ''; V3.dirty = true; break;
+    case 'inStand': o.stand = t.checked; V3.dirty = true; break;
     case 'inGrid': o.grid = t.checked; break;
-    case 'inAH': if (ok) { const was = asteraBaseH(o) > 0; o.ah = num <= 0 ? 0 : Math.max(0.5, Math.min(8, Math.round(num * 100) / 100)); o.h = asteraH(o); if (o.ah > 0 && o.stand == null) o.stand = true; if (was !== (o.ah > 0)) renderInspector(); } break;
+    case 'inAH': if (ok) { const min=lightMount(o)==='stand'?0:.5; o.ah = num <= 0 ? min : Math.max(0.5, Math.min(8, Math.round(num * 100) / 100)); o.h = asteraH(o); if (o.ah > 0 && o.stand == null) o.stand = true; } break;
     case 'inALen': if (ok && num > 0) { o.alen = Math.max(0.3, Math.min(2.5, num)); o.h = asteraH(o); } break;
     case 'inHoriz': o.horiz = t.checked; o.h = asteraH(o); break;
     case 'inLen': if (ok && num > 0) { const sg = segOf(o); const [cx, cy] = centerOf(o); o.x1 = cx - sg.ux * num / 2; o.y1 = cy - sg.uy * num / 2; o.x2 = cx + sg.ux * num / 2; o.y2 = cy + sg.uy * num / 2; } break;
@@ -10704,6 +11697,11 @@ plan.addEventListener('pointerdown', (e) => {
   const lb = e.target.closest('[data-lbl]');
   if (lb && !S.draw) { const o = byId(lb.dataset.lbl); if (o && e.pointerType === 'touch' && S.sel !== o.id) { drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, ox: S.vp.ox, oy: S.vp.oy, moved: false, pick: o.id }; return; }   /* палец: подпись невыбранного объекта не тащим — двигаем схему */
     if (o) { if (S.sel !== o.id) setSel([o.id]); drag = { mode: 'lbl', id: o.id, start: w, orig: Object.assign({ dx: 0, dy: 0 }, o.lbl || LBLPOS[o.id]), ck: JSON.stringify(S.project), moved: false }; return; } }
+  const bm=e.target.closest('[data-boom]');
+  if(bm&&!S.draw){const o=byId(bm.dataset.boom);if(o&&lightMountable(o)&&lightMount(o)==='boom'){
+    if(o.locked||(e.pointerType==='touch'&&S.sel!==o.id)){drag={mode:'pan',sx:e.clientX,sy:e.clientY,ox:S.vp.ox,oy:S.vp.oy,moved:false,pick:o.id};return;}
+    setSel([o.id]);const [x,y]=boomBase(o);drag={mode:'boom',id:o.id,start:w,orig:{x,y},ck:JSON.stringify(S.project),moved:false};renderAll(true);return;
+  }}
   const hd = e.target.closest('[data-handle]');
   if (hd) { const o = byId(S.sel); const md = hd.dataset.handle; drag = { mode: md, id: o.id, ck: JSON.stringify(S.project), moved: false, sx: +(hd.dataset.sx || 0), sy: +(hd.dataset.sy || 0), orig: JSON.parse(JSON.stringify(o)), links: md === 'p1' || md === 'p2' ? wallLinks(o, md.slice(1)) : [] }; if (o.type === 'wall') drag.ops = attachedOpenings([o.id, ...drag.links.map(l => l.id)]); if ((o.type === 'window' || o.type === 'door') && md !== 'rot') drag.host = hostWall(o); return; }
   if (S.draw) { const st = { id: uid(), type: 'stroke', pts: [[w[0], w[1]]] }; drag = { mode: 'draw', ck: JSON.stringify(S.project), st, moved: false }; objs().push(st); return; }
@@ -10761,6 +11759,9 @@ plan.addEventListener('pointermove', (e) => {
     else if (O.x1 !== undefined) { const nx = sn(O.x1 + dx) - O.x1, ny = sn(O.y1 + dy) - O.y1; o.x1 = O.x1 + nx; o.y1 = O.y1 + ny; o.x2 = O.x2 + nx; o.y2 = O.y2 + ny; (drag.links || []).forEach(l => { const w2 = byId(l.id); if (w2) { w2['x' + l.k] = o['x' + l.end]; w2['y' + l.k] = o['y' + l.end]; } }); }
     else if (O.type === 'stroke') o.pts = O.pts.map(p => [p[0] + dx, p[1] + dy]);
     else if (e.shiftKey || !hangSnap(o, O.x + dx, O.y + dy)) { const nx = sn(O.x + dx), ny = sn(O.y + dy); if (canPlace(O, nx, ny)) { o.x = nx; o.y = ny; } if (WALL_HUNG.includes(O.kind)) o.rot = O.rot; }
+  } else if (drag.mode === 'boom') {
+    const dx=w[0]-drag.start[0],dy=w[1]-drag.start[1];if(!drag.moved&&Math.hypot(dx,dy)*S.vp.s<3)return;drag.moved=true;
+    const sn=e.shiftKey?v=>v:v=>snap(v);setBoomBase(o,sn(drag.orig.x+dx),sn(drag.orig.y+dy));
   } else if (drag.mode === 'lbl') {
     const dx = w[0] - drag.start[0], dy = w[1] - drag.start[1];
     if (!drag.moved && Math.hypot(dx, dy) * S.vp.s < 2) return; drag.moved = true;
@@ -10823,7 +11824,7 @@ function recenter() { S.fitted = false; setSel([]); fit(); V3.tgt = null; V3.az 
 function fit() {
   const r = plan.getBoundingClientRect(); if (!r.width) return;
   let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
-  objs().forEach(o => { const pts = o.x1 !== undefined ? [[o.x1, o.y1], [o.x2, o.y2]] : o.type === 'stroke' ? o.pts : [[o.x, o.y]]; pts.forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }); });
+  objs().forEach(o => { const pts = o.x1 !== undefined ? [[o.x1, o.y1], [o.x2, o.y2]] : o.type === 'stroke' ? [...o.pts] : [[o.x, o.y]]; if(lightMountable(o)&&lightMount(o)==='boom')pts.push(boomBase(o)); pts.forEach(([x, y]) => { minx = Math.min(minx, x); maxx = Math.max(maxx, x); miny = Math.min(miny, y); maxy = Math.max(maxy, y); }); });
   if (minx > maxx) { minx = 0; miny = 0; maxx = 8; maxy = 5; }
   minx -= 0.6; miny -= 0.6; maxx += 0.6; maxy += 0.6;
   // поля в пикселях под подписи по краям и сверху — под плавающие кнопки слоёв/масштаба (на телефоне они в две строки)
@@ -10882,6 +11883,7 @@ async function exportPlan() {
     if (o.x1 !== undefined) { ext(o.x1, o.y1, 0); ext(o.x2, o.y2, 0); }
     else if (o.type === 'stroke') o.pts.forEach(([x, y]) => ext(x, y, 0));
     else ext(o.x, o.y, o.type === 'prop' ? Math.hypot(o.w, o.d) / 2 : o.type === 'light' ? lightSize(o.kind, o) / 2 : 0.35);
+    if(lightMountable(o)&&lightMount(o)==='boom'){const [x,y]=boomBase(o);ext(x,y,.22);}
   });
   if (minx > maxx) { minx = 0; miny = 0; maxx = 8; maxy = 5; }
   const [X0, Y0] = W2S(Math.floor(minx) - 1, Math.floor(miny) - 1), [X1, Y1] = W2S(Math.ceil(maxx) + 1, Math.ceil(maxy) + 1);
@@ -10935,7 +11937,7 @@ async function exportCams() {
   const shots = [], lit = S.ov.lit;
   for (const c of list) {
     const cv = document.createElement('canvas'); cv.width = CW; cv.height = Math.round(CW / aspectOf(c));
-    const opts = { lit, sync: true, meter: true, exportFrame: true };
+    const opts = { lit, sync: true, meter: true, exportFrame: true, dof: true };
     renderFrame(cv, c, opts);
     if (await cv._meter) renderFrame(cv, c, opts);
     shots.push({ c, cv });
@@ -11106,6 +12108,11 @@ function setView(v) {
   if (v === 'plan' && !S.fitted && !S.wallDraw) requestAnimationFrame(() => { fit(); renderPlan(); });   // схема была скрыта при открытии проекта
 }
 const THUMB = {}; let THUMB_T = 0, THUMB_G = 0, CAMD = 0;
+const CAM_MAIN={key:'',final:false};
+function mainCamKey(c,w,h,lit){
+  const e=lit&&exposureState?.project===S.pid?exposureValue(exposureState):0;
+  return [S.pid,c.id,w,h,lit,frameSceneKey(),(T3.exposureRev||0),Math.round(e*1000)].join('|');
+}
 function renderCams() {
   if (S.view !== 'cams') return;
   const list = cams(); const cl = $('camlist');
@@ -11114,7 +12121,7 @@ function renderCams() {
   if (none) { cl.innerHTML = ''; cl._listKey = null; clearTimeout(THUMB_T); THUMB_G++; Object.keys(THUMB).forEach(id => delete THUMB[id]); viewLoadFinish('cams'); return; }
   let c = byId(S.activeCam); if (!c || c.type !== 'camera') { c = list[0]; S.activeCam = c.id; }
   const aspect = (ASPECTS.find(a => a[0] === c.aspect) || ASPECTS[0])[1];
-  $('camMeta').innerHTML = `<strong>${esc(camName(c))}</strong><span>${esc(c.lens)} мм · ${esc(aspect)}</span><span class="cam-position">${list.indexOf(c) + 1} из ${list.length}</span>`;
+  $('camMeta').innerHTML = `<strong>${esc(camName(c))}</strong><span>${esc(c.lens)} мм · f/2.8 · ${esc(aspect)}</span><span class="cam-position">${list.indexOf(c) + 1} из ${list.length}</span>`;
   const listKey = JSON.stringify(list.map(k => [k.id, camName(k)]));
   if (cl._listKey !== listKey) {
     cl._listKey = listKey;
@@ -11134,13 +12141,15 @@ function renderCams() {
     clearTimeout(THUMB_T); const gen = ++THUMB_G;
     THUMB_T = setTimeout(function next() {
       if (gen !== THUMB_G || S.view !== 'cams') return;
-      if (drag || S.placing || performance.now() - lastAct < 180) { THUMB_T = setTimeout(next, 200); return; }
+      if ((VIEW_LOAD.active && VIEW_LOAD.progress < 100) || !CAM_MAIN.final || exposureState?.project===S.pid&&(exposureState.pending||exposureState.start) || drag || S.placing || performance.now() - lastAct < 180) { THUMB_T = setTimeout(next, 200); return; }
       const L2 = cams(), b2 = frameSceneKey() + '|' + S.ov.lit + '|' + (T3.exposureRev || 0), cvs = $('camlist').querySelectorAll('canvas');
       let i = 0; while (i < L2.length && THUMB[L2[i].id] && THUMB[L2[i].id].key === b2) i++;
       if (i >= L2.length || !cvs[i]) return;
       const k = L2[i], cv = cvs[i], ar = aspectOf(k), off = document.createElement('canvas');
       off.width = Math.max(1, Math.min(cv.width, Math.round(cv.height * ar))); off.height = Math.max(1, Math.round(off.width / ar));
-      if (!renderFrame(off, k, { lit: S.ov.lit, thumbnail: true })) return;
+      const probe=S.ov.lit&&T3.exposureThumbnails?.key===frameSceneKey()?T3.exposureThumbnails.frames.get(k.id):null;
+      if(probe){drawExposureThumbnail(off,probe,exposureState?.target||viewExposure(T3.r,T3.scene,true));}
+      else if (!renderFrame(off, k, { lit: S.ov.lit, thumbnail: true })) return;
       const g = cv.getContext('2d'); g.fillStyle = '#151413'; g.fillRect(0, 0, cv.width, cv.height);
       g.drawImage(off, Math.round((cv.width - off.width) / 2), Math.round((cv.height - off.height) / 2));
       const cached = document.createElement('canvas'); cached.width = cv.width; cached.height = cv.height; cached.getContext('2d').drawImage(cv, 0, 0);
@@ -11157,9 +12166,15 @@ function renderCams() {
     if (S.view !== 'cams' || S.activeCam !== c.id || !byId(c.id)) return;
     const dpr = Math.min(1.5, window.devicePixelRatio || 1);
     const resized = mc.width !== Math.round(w * dpr) || mc.height !== Math.round(h * dpr);
+    const key=mainCamKey(c,w,h,S.ov.lit);
+    if(!resized&&CAM_MAIN.key===key&&CAM_MAIN.final){viewLoadFinish('cams');return;}
     const canvas = resized ? document.createElement('canvas') : mc;
     sizeCanvas(canvas, w, h, 1.5);
-    if (renderFrame(canvas, c, { lit: S.ov.lit }) === false) {
+    // Сначала обычный кадр без ГРИП, если HDR ещё не подготовлен. После
+    // него загрузочная плашка исчезает и полный кадр готовится в фоне.
+    const hdrReady=cameraDof?.preparedRenderer===T3.r&&cameraDof?.preparedVer===T3.ver;
+    const preview=!hdrReady&&(CAM_MAIN.key!==key||resized);
+    if (renderFrame(canvas, c, preview?{lit:S.ov.lit,q:.65}:{lit:S.ov.lit,dof:true}) === false) {
       if (!firstFrameDone) loadingFrame(mc);
       return;
     }
@@ -11167,7 +12182,9 @@ function renderCams() {
       sizeCanvas(mc, w, h, 1.5);
       mc.getContext('2d').drawImage(canvas, 0, 0);
     }
+    CAM_MAIN.key=mainCamKey(c,w,h,S.ov.lit);CAM_MAIN.final=!preview;
     firstFrameDone = true; stopLoadingFrame(mc); viewLoadFinish('cams');
+    if(preview)setTimeout(()=>{if(S.view==='cams')renderCams();},50);
   }, 30);
 }
 $('camlist').addEventListener('click', (e) => { const b = e.target.closest('[data-cam]'); if (!b) return; S.activeCam = b.dataset.cam; S.sel = S.activeCam; renderCams(); });
@@ -11253,10 +12270,10 @@ function focusPipArea() {
 let pipRAF = 0;
 const FRAME_KEYS = { rev: -1, key: '' };
 function frameSceneKey() {
-  const token = S.rev + '|' + T3.quality + '|' + (T3.modelRev || 0);
+  const token = S.rev + '|' + T3.quality + '|' + (T3.modelRev || 0)+'|'+(T3.textureRev||0);
   if (FRAME_KEYS.token !== token || FRAME_KEYS.project !== S.project) {
     FRAME_KEYS.token = token; FRAME_KEYS.project = S.project;
-    FRAME_KEYS.key = sceneKeys().full + '|' + T3.quality + '|' + (T3.modelRev || 0) + '|' +
+    FRAME_KEYS.key = sceneKeys().full + '|' + T3.quality + '|' + (T3.modelRev || 0) + '|' +(T3.textureRev||0)+'|'+
       JSON.stringify(objs().filter(o => o.type === 'light'), (k, v) => ['name', 'cap', 'locked', 'showLbl', 'lbl', 'desc'].includes(k) ? undefined : v) + '|' +
       JSON.stringify(cams().map(c => [c.id, c.sensor, c.aspect]));
   }
